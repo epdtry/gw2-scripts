@@ -10,20 +10,26 @@ API_BASE = 'https://api.guildwars2.com'
 
 API_KEY = None
 
+CACHE_DIR = None
+
 def get(path):
-    cache_key = path.replace('/', '__')
-    cache_path = os.path.join('cache', cache_key)
-    if os.path.exists(cache_path):
-        with open(cache_path) as f:
-            return json.load(f)
+    if CACHE_DIR is not None:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        cache_key = path.replace('/', '__')
+        cache_path = os.path.join(CACHE_DIR, cache_key)
+        if os.path.exists(cache_path):
+            with open(cache_path) as f:
+                return json.load(f)
 
     headers = {}
     if API_KEY is not None:
         headers['Authorization'] = 'Bearer ' + API_KEY
     j = requests.get(API_BASE + path, headers=headers).json()
 
-    with open(cache_path, 'w') as f:
-        json.dump(j, f)
+    if CACHE_DIR is not None:
+        with open(cache_path, 'w') as f:
+            json.dump(j, f)
+
     return j
 
 Item = namedtuple('Item', ('level', 'rarity', 'stats', 'upgrades'))
