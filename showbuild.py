@@ -2,6 +2,7 @@ from collections import namedtuple, defaultdict
 import json
 import os
 from pprint import pprint
+import re
 import requests
 import sys
 import textwrap
@@ -32,31 +33,12 @@ def get(path):
 
     return j
 
-Item = namedtuple('Item', ('level', 'rarity', 'stats', 'upgrades'))
-
-def get_item_stats(item, instance):
-    infix = item.get('infix_upgrade')
-    if infix is not None:
-        return infix['id']
-
-    stat_choices = item.get('stat_choices')
-    if stat_choices is not None and len(stat_choices) > 0:
-        stats = instance.get('stats')
-        if stats is not None:
-            return stats['id']
-
-def mk_item(item, instance, items):
-    level = item['level']
-    rarity = item['rarity']
-
-
-
-    #stats = 
-
 Context = namedtuple('Context', ('items', 'itemstats', 'itemstats_seen', 'upgrades_seen'))
 
 ItemstatsUse = namedtuple('ItemstatsUse',
         ('infix_upgrade', 'attribute_adjustment', 'slot'))
+
+AGONY_INFUSION_RE = re.compile(r'^(.*) Agony Infusion$')
 
 def describe_item(cx, equip, item):
     out = []
@@ -80,24 +62,26 @@ def describe_item(cx, equip, item):
 
     out.append(' '.join(x for x in (rarity, level, prefix) if x is not None))
 
-    upgrades = equip.get('upgrades')
-    if upgrades is not None:
-        for u in upgrades:
-            name = cx.items[u]['name']
-            name = name.replace('Rune of the ', 'Rune: ')
-            name = name.replace('Rune of ', 'Rune: ')
-            name = name.replace('Sigil of the ', 'Sigil: ')
-            name = name.replace('Sigil of ', 'Sigil: ')
-            name = name.replace('Crest of the ', 'Crest: ')
-            name = name.replace('Crest of ', 'Crest: ')
-            grade, _, rest = name.partition(' ')
-            if grade in ('Minor', 'Major'):
-                name = '%s (%s)' % (rest, grade)
-            elif grade == 'Superior':
-                name = rest
-            out.append(name)
+    upgrades = equip.get('upgrades', []) + equip.get('infusions', [])
+    for u in upgrades:
+        name = cx.items[u]['name']
+        name = name.replace('Rune of the ', 'Rune: ')
+        name = name.replace('Rune of ', 'Rune: ')
+        name = name.replace('Sigil of the ', 'Sigil: ')
+        name = name.replace('Sigil of ', 'Sigil: ')
+        name = name.replace('Crest of the ', 'Crest: ')
+        name = name.replace('Crest of ', 'Crest: ')
+        grade, _, rest = name.partition(' ')
+        if grade in ('Minor', 'Major'):
+            name = '%s (%s)' % (rest, grade)
+        elif grade == 'Superior':
+            name = rest
 
-            cx.upgrades_seen[u] += 1
+        name = AGONY_INFUSION_RE.sub(r'Infusion: \1', name)
+
+        out.append(name)
+
+        cx.upgrades_seen[u] += 1
 
     return out
 
