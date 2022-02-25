@@ -38,17 +38,19 @@ def crafting_inputs(item_id, count, materials):
             for recipe_id in recipe_ids:
                 r = gw2.recipes.get(recipe_id)
                 if can_craft(r):
+                    per_craft = r['output_item_count']
+                    num_crafts = (count + per_craft - 1) // per_craft
                     for i in r['ingredients']:
-                        need[i['item_id']] += i['count'] * count
-                        print('for %dx %s, need %dx %s' % (
-                            count, gw2.items.name(item_id),
-                            i['count'] * count, gw2.items.name(i['item_id'])))
+                        need[i['item_id']] += i['count'] * num_crafts
+                        #print('for %dx %s, need %dx %s' % (
+                        #    count, gw2.items.name(item_id),
+                        #    i['count'] * count, gw2.items.name(i['item_id'])))
                     found_recipe = True
                     break
             if not found_recipe:
-                print('found no craftable recipe for %s (need %d)' %
-                        (gw2.items.name(item_id), count))
-                #return None
+                #print('found no craftable recipe for %s (need %d)' %
+                #        (gw2.items.name(item_id), count))
+                return None
 
     return dict(spent)
 
@@ -63,11 +65,19 @@ def main():
     for m in materials:
         material_counts[m['id']] = m['count']
 
-    for k,v in crafting_inputs(11271, 1, material_counts).items():
-        print('%4d %s' % (v, gw2.items.name(k)))
-    print('')
-    for k,v in crafting_inputs(13983, 1, material_counts).items():
-        print('%4d %s' % (v, gw2.items.name(k)))
+    craftable_items = []
+    for r in gw2.recipes.iter_all():
+        item_id = r['output_item_id']
+        inputs = crafting_inputs(item_id, 1, material_counts)
+        if inputs is not None:
+            craftable_items.append((item_id, inputs))
+
+    xs = gw2.items.get_multi([x for x,_ in craftable_items])
+
+    for item_id, inputs in craftable_items:
+        print(gw2.items.name(item_id), inputs)
+
+
 
 if __name__ == '__main__':
     main()

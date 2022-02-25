@@ -8,42 +8,12 @@ import time
 from gw2.api import fetch
 from gw2.constants import STORAGE_DIR
 import gw2.build
+from gw2.util import DataStorage
 
 ITEMS_DIR = os.path.join(STORAGE_DIR, 'items')
 BUILD_FILE = os.path.join(ITEMS_DIR, 'build.txt')
 INDEX_FILE = os.path.join(ITEMS_DIR, 'index.json')
 DATA_FILE = os.path.join(ITEMS_DIR, 'data.json')
-
-class DataStorage:
-    def __init__(self, index_path, data_path):
-        # Read the existing index
-        with open(index_path, 'r') as f:
-            dct = {}
-            for line in f:
-                k, v = json.loads(line)
-                assert k not in dct
-                dct[k] = v
-        self.index = dct
-
-        self.index_file = open(index_path, 'a')
-        self.data_file = open(data_path, 'a+')
-
-    def contains(self, k):
-        return k in self.index
-
-    @functools.lru_cache(256)
-    def get(self, k):
-        pos = self.index.get(k)
-        if pos is None:
-            return None
-        self.data_file.seek(pos)
-        return json.loads(self.data_file.readline())
-
-    def add(self, k, v):
-        self.data_file.seek(0, 2)
-        pos = self.data_file.tell()
-        self.data_file.write(json.dumps(v) + '\n')
-        self.index_file.write(json.dumps((k, pos)) + '\n')
 
 _DATA = None
 def _get_data():
@@ -82,6 +52,9 @@ def get_multi(item_ids):
     for item_id in item_ids:
         if data.contains(item_id):
             dct[item_id] = data.get(item_id)
+        else:
+            query_ids.append(item_id)
+    query_ids = sorted(set(query_ids))
 
     N = 100
     for i in range(0, len(query_ids), N):

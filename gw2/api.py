@@ -7,7 +7,7 @@ API_BASE = 'https://api.guildwars2.com'
 API_KEY = None
 CACHE_DIR = None
 
-def fetch(path, cache=True):
+def fetch(path, cache=False):
     if cache and CACHE_DIR is not None:
         os.makedirs(CACHE_DIR, exist_ok=True)
         cache_key = path.replace('/', '__')
