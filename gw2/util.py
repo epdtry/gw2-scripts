@@ -1,15 +1,17 @@
 import functools
 import json
+import os
 
 class DataStorage:
     def __init__(self, index_path, data_path):
         # Read the existing index
-        with open(index_path, 'r') as f:
-            dct = {}
-            for line in f:
-                k, v = json.loads(line)
-                assert k not in dct
-                dct[k] = v
+        dct = {}
+        if os.path.exists(index_path):
+            with open(index_path, 'r') as f:
+                for line in f:
+                    k, v = json.loads(line)
+                    assert k not in dct
+                    dct[k] = v
         self.index = dct
 
         self.index_file = open(index_path, 'a')

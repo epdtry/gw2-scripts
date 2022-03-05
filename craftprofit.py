@@ -5,6 +5,7 @@ import gw2.api
 from gw2.api import fetch
 import gw2.items
 import gw2.recipes
+import gw2.trading_post
 
 
 def can_craft(r):
@@ -12,7 +13,7 @@ def can_craft(r):
     for d in r['disciplines']:
         if d == 'Tailor' and min_rating <= 500:
             return True
-        if d == 'Artificer' and min_rating <= 450:
+        if d == 'Artificer' and min_rating <= 500:
             return True
     return False
 
@@ -65,6 +66,21 @@ def main():
     for m in materials:
         material_counts[m['id']] = m['count']
 
+#    all_items = set()
+#    for r in gw2.recipes.iter_all():
+#        if can_craft(r):
+#            for i in r['ingredients']:
+#                all_items.add(i['item_id'])
+#            all_items.add(r['output_item_id'])
+#    for k,v in material_counts.items():
+#        if v > 0:
+#            all_items.add(k)
+#
+#    gw2.trading_post.get_prices_multi(all_items)
+#    print('got prices for %d items' % len(all_items))
+#    return
+
+
     craftable_items = []
     for r in gw2.recipes.iter_all():
         item_id = r['output_item_id']
@@ -72,10 +88,46 @@ def main():
         if inputs is not None:
             craftable_items.append((item_id, inputs))
 
-    xs = gw2.items.get_multi([x for x,_ in craftable_items])
+    gw2.items.get_multi([x for x,_ in craftable_items])
 
     for item_id, inputs in craftable_items:
         print(gw2.items.name(item_id), inputs)
+
+    all_item_ids = set()
+    for item_id, inputs in craftable_items:
+        all_item_ids.add(item_id)
+        for input_item_id in inputs.keys():
+            all_item_ids.add(input_item_id)
+
+    gw2.trading_post.get_prices_multi(all_item_ids)
+
+    profitable_crafts = []
+    for item_id, inputs in craftable_items:
+        prices = gw2.trading_post.get_prices(item_id)
+        if prices is None or 'sells' not in prices:
+            continue
+        if prices['sells']['unit_price'] < 10000:
+            continue
+        if prices['sells']['quantity'] < 100:
+            continue
+        crafted_price = prices['sells']['unit_price']
+
+        inputs_price = 0
+        for input_item_id, count in inputs.items():
+            input_prices = gw2.trading_post.get_prices(input_item_id)
+            if input_prices is None or 'sells' not in input_prices:
+                inputs_price = 999999999
+                break
+            inputs_price += input_prices['sells']['unit_price'] * count
+        if inputs_price < crafted_price:
+            ratio = crafted_price / inputs_price
+            profit = crafted_price - inputs_price
+            profitable_crafts.append((ratio, item_id, crafted_price, profit))
+
+    profitable_crafts.sort(reverse=True)
+    for ratio, item_id, crafted_price, profit in profitable_crafts:
+        print('%6.2f%%   %6d   %6d   %s' % ((ratio - 1) * 100, crafted_price,
+            profit, gw2.items.name(item_id)))
 
 
 
