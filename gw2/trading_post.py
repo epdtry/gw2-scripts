@@ -43,7 +43,7 @@ def get_prices_multi(item_ids):
         else:
             query_ids.append(item_id)
     query_ids = sorted(set(query_ids))
-    print('jake ---- QRY ids: ', query_ids)
+    
     N = 30
     for i in range(0, len(query_ids), N):
         chunk = query_ids[i : i + N]
