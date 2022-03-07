@@ -17,7 +17,9 @@ def can_craft(r):
             return True
     return False
 
-def crafting_inputs(item_id, count, materials):
+def crafting_inputs_own_materials(item_id, count, materials):
+    '''Find the ingredients required to craft `item_id`, using only the
+    `materials` that are already available.'''
     need = defaultdict(int)
     spent = defaultdict(int)
     need[item_id] += count
@@ -55,6 +57,64 @@ def crafting_inputs(item_id, count, materials):
 
     return dict(spent)
 
+DAILY_CRAFT_ITEMS = set((
+    46742,  # Lump of Mithrillium
+    46744,  # Glob of Elder Spirit Residue
+    46745,  # Spool of Thick Elonian Cord
+    46740,  # Spool of Silk Weaving Thread
+    43772,  # Charged Quartz Crystal
+))
+
+
+_CRAFT_OR_BUY_CACHE = {}
+def craft_or_buy_cost(item_id, prices):
+    '''Compute the cost to craft or buy `item_id`, given current trading post
+    `prices` (a dict mapping item ID to integer cost).
+
+    Note that this function caches outputs, and changes to `prices` don't
+    invalidate the cache.  So this function should only be called with a single
+    `prices` dict in each execution.'''
+    if item_id in _CRAFT_OR_BUY_CACHE:
+        return _CRAFT_OR_BUY_CACHE[item_id]
+
+    min_price = None
+    should_craft = None
+
+    price = prices.get(item_id)
+    if price is not None:
+        min_price = price
+        should_craft = False
+
+    recipe_ids = gw2.recipes.search_output(item_id)
+
+    # Forbid crafting daily-craft items
+    if item_id in DAILY_CRAFT_ITEMS:
+        recipe_ids = []
+
+    for recipe_id in recipe_ids:
+        r = gw2.recipes.get(recipe_id)
+        if not can_craft(r):
+            continue
+
+        price = 0
+        for i in r['ingredients']:
+            input_cost, _ = craft_or_buy_cost(i['item_id'], prices)
+            if input_cost is None:
+                price = None
+                break
+            price += input_cost * i['count']
+        if price is None:
+            continue
+        price = (price + r['output_item_count'] - 1) // r['output_item_count']
+
+        if min_price is None or price < min_price:
+            min_price = price
+            should_craft = True
+
+    _CRAFT_OR_BUY_CACHE[item_id] = (min_price, should_craft)
+    #print('cost of %s = %s' % (gw2.items.name(item_id), _CRAFT_OR_BUY_CACHE[item_id]))
+    return min_price, should_craft
+
 
 def main():
     with open('api_key.txt') as f:
@@ -66,68 +126,74 @@ def main():
     for m in materials:
         material_counts[m['id']] = m['count']
 
-#    all_items = set()
-#    for r in gw2.recipes.iter_all():
-#        if can_craft(r):
-#            for i in r['ingredients']:
-#                all_items.add(i['item_id'])
-#            all_items.add(r['output_item_id'])
-#    for k,v in material_counts.items():
-#        if v > 0:
-#            all_items.add(k)
-#
-#    gw2.trading_post.get_prices_multi(all_items)
-#    print('got prices for %d items' % len(all_items))
-#    return
 
-
-    craftable_items = []
+    all_items = set()
     for r in gw2.recipes.iter_all():
-        item_id = r['output_item_id']
-        inputs = crafting_inputs(item_id, 1, material_counts)
-        if inputs is not None:
-            craftable_items.append((item_id, inputs))
+        if can_craft(r):
+            for i in r['ingredients']:
+                all_items.add(i['item_id'])
+            all_items.add(r['output_item_id'])
 
-    gw2.items.get_multi([x for x,_ in craftable_items])
+    gw2.items.get_multi(all_items)
 
-    for item_id, inputs in craftable_items:
-        print(gw2.items.name(item_id), inputs)
+    buy_prices = {}
+    sell_prices = {}
+    for x in gw2.trading_post.get_prices_multi(all_items):
+        if x is None:
+            continue
 
-    all_item_ids = set()
-    for item_id, inputs in craftable_items:
-        all_item_ids.add(item_id)
-        for input_item_id in inputs.keys():
-            all_item_ids.add(input_item_id)
+        # Try to buy at the buy price.  If there is no buy price (for example,
+        # certain items that trade very close to their vendor price), then use
+        # the sell price ("instant buy") instead.
+        price = x['buys'].get('unit_price', 0) or x['sells'].get('unit_price', 0)
+        if price != 0:
+            buy_prices[x['id']] = price
 
-    gw2.trading_post.get_prices_multi(all_item_ids)
+        price = x['sells'].get('unit_price', 0) or x['buys'].get('unit_price', 0)
+        if price != 0:
+            sell_prices[x['id']] = price
+
+    #print(craft_or_buy_cost(83926, buy_prices))
+    #return
 
     profitable_crafts = []
-    for item_id, inputs in craftable_items:
-        prices = gw2.trading_post.get_prices(item_id)
-        if prices is None or 'sells' not in prices:
+    for item_id, sell_price in sell_prices.items():
+        x = gw2.trading_post.get_prices(item_id)
+        if x['buys']['unit_price'] == 0:
             continue
-        if prices['sells']['unit_price'] < 10000:
+        if x['buys']['quantity'] < 100:
             continue
-        if prices['sells']['quantity'] < 100:
+        if x['sells']['unit_price'] / x['buys']['unit_price'] > 1.5:
             continue
-        crafted_price = prices['sells']['unit_price']
 
-        inputs_price = 0
-        for input_item_id, count in inputs.items():
-            input_prices = gw2.trading_post.get_prices(input_item_id)
-            if input_prices is None or 'sells' not in input_prices:
-                inputs_price = 999999999
-                break
-            inputs_price += input_prices['sells']['unit_price'] * count
-        if inputs_price < crafted_price:
-            ratio = crafted_price / inputs_price
-            profit = crafted_price - inputs_price
-            profitable_crafts.append((ratio, item_id, crafted_price, profit))
+        item = gw2.items.get(item_id)
+        if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
+            continue
+        if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
+            continue
+        if item['type'] in ('Weapon', 'Armor'):
+            if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
+                continue
 
-    profitable_crafts.sort(reverse=True)
-    for ratio, item_id, crafted_price, profit in profitable_crafts:
-        print('%6.2f%%   %6d   %6d   %s' % ((ratio - 1) * 100, crafted_price,
-            profit, gw2.items.name(item_id)))
+        cost, should_craft = craft_or_buy_cost(item_id, buy_prices)
+
+        if not should_craft:
+            continue
+
+        mode = 'craft' if should_craft else 'flip'
+        revenue = sell_price * 0.85
+        profit = revenue - cost
+        if profit <= 0:
+            continue
+        ratio = revenue / cost
+
+        profitable_crafts.append((item_id, cost, revenue, profit, ratio, mode))
+
+
+    profitable_crafts.sort(key=lambda x: x[4], reverse=True)
+    for item_id, cost, revenue, profit, ratio, mode in profitable_crafts:
+        print('%6.2f%%  %8d  %+9d  %5s   %s' % ((ratio - 1) * 100, cost,
+            profit, mode, gw2.items.name(item_id)))
 
 
 
