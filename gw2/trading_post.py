@@ -44,7 +44,7 @@ def get_prices_multi(item_ids):
             query_ids.append(item_id)
     query_ids = sorted(set(query_ids))
     
-    N = 30
+    N = 100
     for i in range(0, len(query_ids), N):
         chunk = query_ids[i : i + N]
         items = []
@@ -52,7 +52,9 @@ def get_prices_multi(item_ids):
             items = fetch('/v2/commerce/prices?ids=' + ','.join(str(x) for x in chunk))
         except requests.HTTPError as e:
             if e.response.status_code == 404:
-                continue
+                pass
+            else:
+                raise
         for item in items:
             data.add(item['id'], item)
             dct[item['id']] = item
