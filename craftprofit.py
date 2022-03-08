@@ -1,4 +1,5 @@
 from collections import defaultdict
+import json
 from pprint import pprint
 
 import gw2.api
@@ -153,8 +154,19 @@ def main():
         if price != 0:
             sell_prices[x['id']] = price
 
-    #print(craft_or_buy_cost(83926, buy_prices))
-    #return
+    # Allow buying any vendor items that are priced in gold.
+    with open('vendorprices.json') as f:
+        j = json.load(f)
+    for k, v in j.items():
+        if k == '_origin':
+            print('using vendor prices from %s' % v)
+            continue
+
+        k = int(k)
+        if v['type'] != 'gold':
+            continue
+        price = v['cost'] / v['quantity']
+        buy_prices[k] = price
 
     profitable_crafts = []
     for item_id, sell_price in sell_prices.items():
