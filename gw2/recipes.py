@@ -14,6 +14,7 @@ RECIPES_DIR = os.path.join(STORAGE_DIR, 'recipes')
 BUILD_FILE = os.path.join(RECIPES_DIR, 'build.txt')
 INDEX_FILE = os.path.join(RECIPES_DIR, 'index.json')
 DATA_FILE = os.path.join(RECIPES_DIR, 'data.json')
+BY_OUTPUT_FILE = os.path.join(RECIPES_DIR, 'by_output.json')
 
 _DATA = None
 def _get_data():
@@ -38,6 +39,8 @@ def _refresh():
     all_ids = fetch('/v2/recipes')
     all_ids.sort()
 
+    by_output = defaultdict(list)
+
     pos = 0
     N = 100
     for i in range(0, len(all_ids), N):
@@ -45,6 +48,13 @@ def _refresh():
         recipes = fetch('/v2/recipes?ids=' + ','.join(str(i) for i in chunk))
         for r in recipes:
             data.add(r['id'], r)
+
+            output_item_id = r.get('output_item_id')
+            if output_item_id is not None:
+                by_output[output_item_id].append(r['id'])
+
+    with open(BY_OUTPUT_FILE, 'w') as f:
+        json.dump(list(by_output.items()), f)
 
     with open(BUILD_FILE, 'w') as f:
         f.write(str(gw2.build.current()))
@@ -63,15 +73,9 @@ _BY_OUTPUT = None
 def _by_output():
     global _BY_OUTPUT
     if _BY_OUTPUT is None:
-        dct = defaultdict(list)
-        for r in iter_all():
-            output_item_id = r.get('output_item_id')
-            if output_item_id is not None:
-                dct[output_item_id].append(r['id'])
-        _BY_OUTPUT = dict(dct)
+        with open(BY_OUTPUT_FILE) as f:
+            _BY_OUTPUT = dict(json.load(f))
     return _BY_OUTPUT
 
 def search_output(output_item_id):
     return _by_output().get(output_item_id, [])
-
-
