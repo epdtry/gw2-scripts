@@ -68,21 +68,22 @@ DAILY_CRAFT_ITEMS = set((
 
 
 _CRAFT_OR_BUY_CACHE = {}
-def craft_or_buy_cost(item_id, prices):
+def craft_or_buy_cost(item_id, prices, force_craft=False):
     '''Compute the cost to craft or buy `item_id`, given current trading post
     `prices` (a dict mapping item ID to integer cost).
 
     Note that this function caches outputs, and changes to `prices` don't
     invalidate the cache.  So this function should only be called with a single
     `prices` dict in each execution.'''
+    key = (item_id, force_craft)
     if item_id in _CRAFT_OR_BUY_CACHE:
-        return _CRAFT_OR_BUY_CACHE[item_id]
+        return _CRAFT_OR_BUY_CACHE[key]
 
     min_price = None
     should_craft = None
 
     price = prices.get(item_id)
-    if price is not None:
+    if price is not None and not force_craft:
         min_price = price
         should_craft = False
 
@@ -112,7 +113,7 @@ def craft_or_buy_cost(item_id, prices):
             min_price = price
             should_craft = True
 
-    _CRAFT_OR_BUY_CACHE[item_id] = (min_price, should_craft)
+    _CRAFT_OR_BUY_CACHE[key] = (min_price, should_craft)
     #print('cost of %s = %s' % (gw2.items.name(item_id), _CRAFT_OR_BUY_CACHE[item_id]))
     return min_price, should_craft
 
@@ -154,6 +155,15 @@ def main():
         if price != 0:
             sell_prices[x['id']] = price
 
+    for r in gw2.recipes.iter_all():
+        # Forbid buying or selling intermediate crafting items.
+        if r['type'] in ('Refinement', 'Component'):
+            item_id = r['output_item_id']
+            if item_id in buy_prices:
+                del buy_prices[item_id]
+            if item_id in sell_prices:
+                del sell_prices[item_id]
+
     # Allow buying any vendor items that are priced in gold.
     with open('vendorprices.json') as f:
         j = json.load(f)
@@ -175,6 +185,8 @@ def main():
             continue
         if x['buys']['quantity'] < 100:
             continue
+        if x['sells']['quantity'] > x['buys']['quantity']:
+            continue
         if x['sells']['unit_price'] / x['buys']['unit_price'] > 1.5:
             continue
 
@@ -187,7 +199,7 @@ def main():
             if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
                 continue
 
-        cost, should_craft = craft_or_buy_cost(item_id, buy_prices)
+        cost, should_craft = craft_or_buy_cost(item_id, buy_prices, force_craft=True)
 
         if not should_craft:
             continue
