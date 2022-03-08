@@ -14,6 +14,7 @@ ITEMS_DIR = os.path.join(STORAGE_DIR, 'items')
 BUILD_FILE = os.path.join(ITEMS_DIR, 'build.txt')
 INDEX_FILE = os.path.join(ITEMS_DIR, 'index.json')
 DATA_FILE = os.path.join(ITEMS_DIR, 'data.json')
+BY_NAME_FILE = os.path.join(ITEMS_DIR, 'by_name.json')
 
 _DATA = None
 def _get_data():
@@ -38,6 +39,8 @@ def _refresh():
     all_ids = fetch('/v2/items')
     all_ids.sort()
 
+    by_name = {}
+
     pos = 0
     N = 100
     for i in range(0, len(all_ids), N):
@@ -45,6 +48,10 @@ def _refresh():
         items = fetch('/v2/items?ids=' + ','.join(str(i) for i in chunk))
         for i in items:
             data.add(i['id'], i)
+            by_name[i['name']] = i['id']
+
+    with open(BY_NAME_FILE, 'w') as f:
+        json.dump(list(by_name.items()), f)
 
     with open(BUILD_FILE, 'w') as f:
         f.write(str(gw2.build.current()))
@@ -64,3 +71,14 @@ def get_multi(item_ids):
 
 def name(item_id):
     return get(item_id)['name']
+
+_BY_NAME = None
+def _by_name():
+    global _BY_NAME
+    if _BY_NAME is None:
+        with open(BY_NAME_FILE) as f:
+            _BY_NAME = dict(json.load(f))
+    return _BY_NAME
+
+def search_name(name):
+    return _by_name().get(name)
