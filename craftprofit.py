@@ -123,12 +123,13 @@ def main():
         gw2.api.API_KEY = f.read().strip()
     gw2.api.CACHE_DIR = 'cache'
 
+    print("Fetching account materials")
     materials = fetch('/v2/account/materials', cache=True)
     material_counts = {}
     for m in materials:
         material_counts[m['id']] = m['count']
 
-
+    print("Fetching recipes")
     all_items = set()
     for r in gw2.recipes.iter_all():
         if can_craft(r):
@@ -136,8 +137,10 @@ def main():
                 all_items.add(i['item_id'])
             all_items.add(r['output_item_id'])
 
+    print("Fetching items")
     gw2.items.get_multi(all_items)
 
+    print("Fetching trading post prices")
     buy_prices = {}
     sell_prices = {}
     for x in gw2.trading_post.get_prices_multi(all_items):

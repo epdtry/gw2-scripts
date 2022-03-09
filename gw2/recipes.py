@@ -2,8 +2,6 @@ from collections import defaultdict
 import functools
 import json
 import os
-import requests
-import time
 
 from gw2.api import fetch
 from gw2.constants import STORAGE_DIR
