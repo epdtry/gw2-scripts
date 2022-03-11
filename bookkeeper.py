@@ -410,16 +410,12 @@ def cmd_status():
     delivery = gw2.api.fetch('/v2/commerce/delivery')
     wallet_raw = gw2.api.fetch('/v2/account/wallet')
     wallet = {x['id']: x['value'] for x in wallet_raw}
-    materials_raw = gw2.api.fetch('/v2/account/materials')
 
     gold = wallet[CURRENCY_COIN]
     gold += delivery['coins']
 
     inventory = defaultdict(int)
-    for item_id, count in get_inventory().items():
-        inventory[item_id] += count
-    for i in materials_raw:
-        inventory[i['id']] += i['count']
+    inventory.update(get_inventory())
     # Convert research notes in wallet to research note items
     inventory[ITEM_RESEARCH_NOTE] += wallet[CURRENCY_RESEARCH_NOTE]
     # Add items in the delivery box
