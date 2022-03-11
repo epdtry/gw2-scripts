@@ -2,10 +2,8 @@ from collections import defaultdict
 import functools
 import json
 import os
-import requests
-import time
 
-from gw2.api import fetch
+from gw2.api import fetch, fetch_with_retries
 from gw2.constants import STORAGE_DIR
 import gw2.build
 from gw2.util import DataStorage
@@ -41,11 +39,11 @@ def _refresh():
 
     by_name = {}
 
-    pos = 0
     N = 100
     for i in range(0, len(all_ids), N):
         chunk = all_ids[i : i + N]
-        items = fetch('/v2/items?ids=' + ','.join(str(i) for i in chunk))
+        items = fetch_with_retries('/v2/items?ids=' + ','.join(str(i) for i in chunk), retry_count=20)
+        
         for i in items:
             data.add(i['id'], i)
             by_name[i['name']] = i['id']

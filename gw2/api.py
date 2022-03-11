@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import sys
+import time
 
 API_BASE = 'https://api.guildwars2.com'
 API_KEY = None
@@ -30,3 +31,18 @@ def fetch(path, cache=False):
             json.dump(j, f)
 
     return j
+
+def fetch_with_retries(path, retry_count=3, seconds_between_retries=2, cache=False):
+    retries=0
+    while retries < retry_count:
+        try:
+            response = fetch(path, cache)
+            break
+        except requests.HTTPError as e:
+            retries += 1
+            time.sleep(seconds_between_retries)
+            print('Error fetching path. Retry: ', retries)
+    if retries >= retry_count:
+        raise Exception('FetchWithRetryFailure')
+
+    return response
