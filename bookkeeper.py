@@ -595,14 +595,24 @@ def cmd_status():
             count in craft_goal_items.items())
     used_sell_total = sum(count * (sell_prices.get(item_id, 0) or buy_prices.get(item_id, 0)) * 0.85
             for item_id, count in used_items.items())
+
+    # "Cash out" means cancel all buy orders, cancel all sell orders and relist
+    # them at the buy price, and sell everything waiting to be listed at its
+    # buy price.
+    cash_out_buy_orders = sum(t['price'] * t['quantity'] for t in buy_orders)
+    cash_out_sell_orders = sum(
+            buy_prices.get(t['item_id'], 0) * t['quantity'] * 0.85
+            for t in sell_orders)
+    cash_out_sell_goal_items = sum(buy_prices.get(item_id, 0) * count * 0.85
+            for item_id, count in sell_goal_items.items())
+
     print('Current gold: %s' % format_price(gold))
-    #print('  Current sell: %s' % format_price(current_sell_total))
     print('After current sales: %s' % format_price(gold + current_sell_total))
-    #print('  Current buy: %s' % format_price(-current_buy_total))
-    #print('  Future buy: %s' % format_price(-future_buy_total))
-    #print('  Future sell: %s' % format_price(future_sell_total))
+    print('Cash out: %s' % format_price(gold + cash_out_buy_orders +
+        cash_out_sell_orders + cash_out_sell_goal_items))
     print('Target gold: %s' % format_price(gold - future_buy_total +
         current_sell_total + future_sell_total))
+
 
 def cmd_goal(count, name):
     count = int(count)
