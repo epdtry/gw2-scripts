@@ -47,6 +47,8 @@ def parse_item_id(s):
     return item_id
 
 def format_price(price):
+    if price < 0:
+        return '-' + format_price(-price)
     if price < 100:
         return '%d' % price
     elif price < 10000:
@@ -307,7 +309,6 @@ def valid_strategies(item_id):
         yield StrategyBuy(item_id, price)
 
     recipe_ids = gw2.recipes.search_output(item_id)
-    print('recipes for %s: %r' % (gw2.items.name(item_id), recipe_ids))
     for recipe_id in recipe_ids:
         r = gw2.recipes.get(recipe_id)
         if can_craft(r):
@@ -339,8 +340,6 @@ def optimal_strategy(item_id):
                     best_cost = cost
         if best_strategy is None:
             best_strategy = StrategyUnknown(item_id)
-        print('strategies for %s = %r; winner = %r' % (gw2.items.name(item_id),
-            strats, best_strategy))
         _OPTIMAL_STRATEGY_CACHE[item_id] = best_strategy
     return best_strategy
 
@@ -356,6 +355,7 @@ def cmd_init():
     os.makedirs('books', exist_ok=True)
 
 CURRENCY_COIN = 1
+CURRENCY_RESEARCH_NOTE = 61
 
 def cmd_status():
     '''Print a report listing the following:
@@ -407,25 +407,37 @@ def cmd_status():
     sold = gw2.trading_post.total_sold()
     sell_orders, selling_items = gw2.trading_post.pending_sells()
     buy_orders, buying_items = gw2.trading_post.pending_buys()
+    delivery = gw2.api.fetch('/v2/commerce/delivery')
     wallet_raw = gw2.api.fetch('/v2/account/wallet')
     wallet = {x['id']: x['value'] for x in wallet_raw}
+    materials_raw = gw2.api.fetch('/v2/account/materials')
 
-    # TODO: add money and items in delivery box
+    gold = wallet[CURRENCY_COIN]
+    gold += delivery['coins']
 
     inventory = defaultdict(int)
-    inventory.update(get_inventory())
+    for item_id, count in get_inventory().items():
+        inventory[item_id] += count
+    for i in materials_raw:
+        inventory[i['id']] += i['count']
+    # Convert research notes in wallet to research note items
+    inventory[ITEM_RESEARCH_NOTE] += wallet[CURRENCY_RESEARCH_NOTE]
+    # Add items in the delivery box
+    for i in delivery['items']:
+        print('delivery: %d %s  %r' % (i['count'], gw2.items.name(i['id']), i))
+        inventory[i['id']] += i['count']
+
+    orig_inventory = inventory.copy()
+
     # We assume all pending buy orders will eventually be fulfilled.
     for item_id, count in buying_items.items():
         inventory[item_id] += count
 
-    orig_inventory = inventory.copy()
 
 
     # Subtract from `inventory` any additional sell orders we need to place to
     # achieve the current `goals`.
     
-    # `sell_items` records existing items that should be sold to satisfy a
-    # goal.
     sell_goal_items = defaultdict(int)
     craft_goal_items = defaultdict(int)
     for item_id, goal in goals.items():
@@ -433,7 +445,7 @@ def cmd_status():
         if to_sell <= 0:
             continue
         sell_goal_items[item_id] += min(to_sell, inventory[item_id])
-        craft_goal_items[item_id] += max(0, to_sell - inventory[item_id])
+        craft_goal_items[item_id] += max(0, to_sell - sell_goal_items[item_id])
         inventory[item_id] -= to_sell
 
     # Find all items whose `inventory` amount is currently below the
@@ -461,8 +473,6 @@ def cmd_status():
     for item_id in goals.keys():
         all_items.add(item_id)
 
-    from pprint import pprint
-    pprint(sorted(gw2.items.name(i) for i in all_items))
 
     buy_prices, sell_prices = get_prices(all_items)
 
@@ -512,11 +522,10 @@ def cmd_status():
     for item_id, old_count in orig_inventory.items():
         new_count = inventory.get(item_id, 0)
         delta = new_count - old_count
-        if delta < 0:
-            used_items[item_id] = -delta
+        used_items[item_id] = -delta
 
 
-    def print_table(desc, item_counts, prices={}):
+    def print_table(desc, item_counts, prices={}, price_mult=1):
         rows = []
         grand_total = 0
         for item_id, count in item_counts.items():
@@ -527,11 +536,11 @@ def cmd_status():
             rows.append((
                 str(count),
                 gw2.items.name(item_id),
-                format_price(unit_price) if unit_price is not None else '',
-                format_price(total_price) if total_price is not None else '',
+                format_price(unit_price * price_mult) if unit_price is not None else '',
+                format_price(total_price * price_mult) if total_price is not None else '',
             ))
             if total_price is not None:
-                grand_total += total_price
+                grand_total += total_price * price_mult
 
         if len(rows) == 0:
             return
@@ -543,13 +552,13 @@ def cmd_status():
         for x in rows:
             print('%10s  %-50.50s  %12s  %12s' % x)
 
-    def print_order_table(desc, transactions):
+    def print_order_table(desc, transactions, price_mult=1):
         rows = []
         grand_total = 0
         for transaction in transactions:
             item_id = transaction['item_id']
             count = transaction['quantity']
-            unit_price = transaction['price']
+            unit_price = transaction['price'] * price_mult
             if count == 0:
                 continue
             total_price = unit_price * count
@@ -575,38 +584,46 @@ def cmd_status():
     print_order_table('Buy orders', buy_orders)
     print_table('Obtain', obtain_items)
     print_table('Use', used_items, sell_prices)
-    print_table('Craft', craft_goal_items)
-    print_table('Sell', sell_goal_items, sell_prices)
-    print_order_table('Sell orders', sell_orders)
+    print_table('Craft', craft_goal_items, sell_prices, price_mult=0.85)
+    print_table('Sell', sell_goal_items, sell_prices, price_mult=0.85)
+    print_order_table('Sell orders', sell_orders, price_mult=0.90)
 
     print('')
-    gold = wallet[CURRENCY_COIN]
-    current_buy_total = sum(t['price'] * t['quantity'] for t in buy_orders)
+    # We don't subtract `buy_orders`, since the gold for those orders was
+    # removed from the wallet when the orders were placed.
     future_buy_total = sum(count * buy_prices[item_id] for item_id, count in buy_items.items())
     current_sell_total = sum(t['price'] * t['quantity'] * 0.90 for t in sell_orders)
-    future_sell_total = sum((count - (selling_items.get(item_id, 0) + sold.get(item_id, 0)))
-                * sell_prices[item_id] * 0.85 for item_id, count in goals.items())
+    future_sell_total = sum(count * sell_prices[item_id] * 0.85 for item_id,
+            count in sell_goal_items.items()) + \
+        sum(count * sell_prices[item_id] * 0.85 for item_id,
+            count in craft_goal_items.items())
     used_sell_total = sum(count * (sell_prices.get(item_id, 0) or buy_prices.get(item_id, 0)) * 0.85
             for item_id, count in used_items.items())
     print('Current gold: %s' % format_price(gold))
+    #print('  Current sell: %s' % format_price(current_sell_total))
     print('After current sales: %s' % format_price(gold + current_sell_total))
-    print('Target gold: %s' % format_price(gold - current_buy_total -
-        future_buy_total + current_sell_total + future_sell_total))
+    #print('  Current buy: %s' % format_price(-current_buy_total))
+    #print('  Future buy: %s' % format_price(-future_buy_total))
+    #print('  Future sell: %s' % format_price(future_sell_total))
+    print('Target gold: %s' % format_price(gold - future_buy_total +
+        current_sell_total + future_sell_total))
 
 def cmd_goal(count, name):
     count = int(count)
     item_id = parse_item_id(name)
 
     goals = _load_dict(GOALS_PATH)
-
     goal = goals.get(item_id, 0)
-    cur = gw2.trading_post.total_sold().get(item_id, 0)
-    if count < cur:
-        goal = cur + count
-    else:
-        goal += count
 
-    goals[item_id] = goal
+    # If we sold extra since the last time we increased this goal, reset to the
+    # current amount sold.  If the amount left to sell is negative, the item is
+    # omitted from `status`, so the user will likely think the amount to sell
+    # is zero, and expects adding `count` to increase it to exactly `count`.
+    cur = gw2.trading_post.total_sold().get(item_id, 0)
+    if goal < cur:
+        goal = cur
+
+    goals[item_id] = goal + count
 
     _dump_dict(goals, GOALS_PATH)
     fmt = 'added %d %s to goals' if count >= 0 else 'subtracted %d %s from goals'
