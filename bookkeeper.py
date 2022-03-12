@@ -365,6 +365,79 @@ def optimal_cost(item_id):
     return cost
 
 
+def count_craftable(target_item_id, inventory):
+    '''Return the number of `target_item_id` that can be crafted via the
+    optimal strategy, using only items that are currently available in
+    `inventory`.'''
+    # Our approach here is the following:
+    #
+    # 1. Find a set of available materials that can be used to craft one copy
+    #    of `target_item_id`.  This may be a mix of  raw materials and/or
+    #    intermediate items that happen to be available.  This is called
+    #    `delta`.
+    # 2. Apply `delta` to inventory as many times as we can while keeping all
+    #    item quantities non-negative.
+    # 3. Repeat steps 1-2 until no `delta` can be found.
+
+    # Make a copy of `inventory` that we can update incrementally.
+    inventory = inventory.copy()
+    initial_count = inventory.get(target_item_id, 0)
+
+    while True:
+        delta = defaultdict(int)
+        pending_items = set()
+        state = State(delta, pending_items,
+                defaultdict(int), defaultdict(int), defaultdict(int))
+
+        optimal_strategy(target_item_id).apply(state, 1)
+        while len(pending_items) > 0:
+            item_id = pending_items.pop()
+            if delta[item_id] >= 0:
+                continue
+            # Figure out how many of this item we need to craft.
+            craft_count = -delta[item_id] - inventory.get(item_id, 0)
+            if craft_count <= 0:
+                # We can fulfill this requirement using only items currently
+                # available in the inventory.
+                continue
+            optimal_strategy(item_id).apply(state, craft_count)
+
+        # Make sure all requirements were satisfied by crafting.
+        if any(v > 0 for v in state.buy_items.values()):
+            break
+        if any(v > 0 for v in state.obtain_items.values()):
+            break
+
+        # Now `delta[target_item_id]` should be positive, and `delta` should
+        # have negative values for all the raw materials it consumes.  (Note
+        # some intermediate materials may have positive values, such as if the
+        # recipe produces 5 per craft but we only consume 1.)
+        assert delta[target_item_id] > 0
+
+        # Figure out how many times we can apply `delta` without making any
+        # `inventory` entry negative.
+        max_apply = None
+        for item_id, count in delta.items():
+            if count >= 0:
+                continue
+            item_max_apply = inventory.get(item_id, 0) // -count
+            assert item_max_apply >= 1
+            if max_apply is None or item_max_apply < max_apply:
+                max_apply = item_max_apply
+        assert max_apply is not None, 'at least one `delta` entry should be negative'
+
+        # Apply `delta` to `inventory` that many times.
+        for item_id, count in delta.items():
+            inventory[item_id] += count * max_apply
+
+        # Now repeat.  The next iteration will compute a different `delta`.
+        # For example, we may have used up all of some intermediate material,
+        # so the next iteration must craft it from raw materials instead.
+
+    return inventory.get(target_item_id, 0) - initial_count
+
+
+
 def cmd_init():
     os.makedirs('books', exist_ok=True)
 
@@ -535,7 +608,7 @@ def cmd_status():
         used_items[item_id] = -delta
 
 
-    def print_table(desc, item_counts, prices={}, price_mult=1):
+    def print_table(desc, item_counts, prices={}, price_mult=1, extra_counts=None):
         rows = []
         grand_total = 0
         for item_id, count in item_counts.items():
@@ -543,8 +616,15 @@ def cmd_status():
                 continue
             unit_price = prices.get(item_id)
             total_price = unit_price * count if unit_price is not None else None
+
+            count_str = str(count)
+            if extra_counts is not None:
+                extra_count = extra_counts.get(item_id)
+                if extra_count is not None:
+                    count_str = '%d / %d' % (extra_count, count)
+
             rows.append((
-                str(count),
+                count_str,
                 gw2.items.name(item_id),
                 format_price(unit_price * price_mult) if unit_price is not None else '',
                 format_price(total_price * price_mult) if total_price is not None else '',
@@ -592,12 +672,15 @@ def cmd_status():
 
     sell_orders = condense_transactions(sell_orders)
     buy_orders = condense_transactions(buy_orders)
+    craft_counts = {i: count_craftable(i, orig_inventory)
+            for i in craft_goal_items.keys()}
 
     print_table('Buy', buy_items, buy_prices)
     print_order_table('Buy orders', buy_orders)
     print_table('Obtain', obtain_items)
     print_table('Use', used_items, sell_prices)
-    print_table('Craft', craft_goal_items, sell_prices, price_mult=0.85)
+    print_table('Craft', craft_goal_items, sell_prices, price_mult=0.85,
+            extra_counts=craft_counts)
     print_table('Sell', sell_goal_items, sell_prices, price_mult=0.85)
     print_order_table('Sell orders', sell_orders, price_mult=0.90)
 
