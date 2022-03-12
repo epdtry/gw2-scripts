@@ -365,77 +365,86 @@ def optimal_cost(item_id):
     return cost
 
 
-def count_craftable(target_item_id, inventory):
-    '''Return the number of `target_item_id` that can be crafted via the
-    optimal strategy, using only items that are currently available in
-    `inventory`.'''
-    # Our approach here is the following:
-    #
-    # 1. Find a set of available materials that can be used to craft one copy
-    #    of `target_item_id`.  This may be a mix of  raw materials and/or
-    #    intermediate items that happen to be available.  This is called
-    #    `delta`.
-    # 2. Apply `delta` to inventory as many times as we can while keeping all
-    #    item quantities non-negative.
-    # 3. Repeat steps 1-2 until no `delta` can be found.
+def count_craftable(targets, inventory):
+    '''Given a list `targets` of item IDs and counts, return the number of
+    requested items that can be crafted via the optimal strategy, using only
+    items that are currently available in `inventory`.  Items are tried in
+    order, so an earlier item may consume materials and make a later item
+    uncraftable.'''
+    orig_inventory = inventory
+    inventory = defaultdict(int)
+    inventory.update(orig_inventory)
 
-    # Make a copy of `inventory` that we can update incrementally.
-    inventory = inventory.copy()
-    initial_count = inventory.get(target_item_id, 0)
+    target_goals = {item_id: inventory[item_id] + count
+            for item_id, count in targets}
 
-    while True:
-        delta = defaultdict(int)
-        pending_items = set()
-        state = State(delta, pending_items,
-                defaultdict(int), defaultdict(int), defaultdict(int))
+    for target_item_id, _ in targets:
+        # Craft up to `target_count` copies of `target_item_id`.  Our approach
+        # here is the following:
+        #
+        # 1. Find a set of available materials that can be used to craft one copy
+        #    of `target_item_id`.  This may be a mix of  raw materials and/or
+        #    intermediate items that happen to be available.  This is called
+        #    `delta`.
+        # 2. Apply `delta` to inventory as many times as we can while keeping all
+        #    item quantities non-negative.
+        # 3. Repeat steps 1-2 until no `delta` can be found.
 
-        optimal_strategy(target_item_id).apply(state, 1)
-        while len(pending_items) > 0:
-            item_id = pending_items.pop()
-            if delta[item_id] >= 0:
-                continue
-            # Figure out how many of this item we need to craft.
-            craft_count = -delta[item_id] - inventory.get(item_id, 0)
-            if craft_count <= 0:
-                # We can fulfill this requirement using only items currently
-                # available in the inventory.
-                continue
-            optimal_strategy(item_id).apply(state, craft_count)
+        target_goal = target_goals[target_item_id]
 
-        # Make sure all requirements were satisfied by crafting.
-        if any(v > 0 for v in state.buy_items.values()):
-            break
-        if any(v > 0 for v in state.obtain_items.values()):
-            break
+        while inventory[target_item_id] < target_goal:
+            delta = defaultdict(int)
+            pending_items = set()
+            state = State(delta, pending_items,
+                    defaultdict(int), defaultdict(int), defaultdict(int))
 
-        # Now `delta[target_item_id]` should be positive, and `delta` should
-        # have negative values for all the raw materials it consumes.  (Note
-        # some intermediate materials may have positive values, such as if the
-        # recipe produces 5 per craft but we only consume 1.)
-        assert delta[target_item_id] > 0
+            optimal_strategy(target_item_id).apply(state, 1)
+            while len(pending_items) > 0:
+                item_id = pending_items.pop()
+                if delta[item_id] >= 0:
+                    continue
+                # Figure out how many of this item we need to craft.
+                craft_count = -delta[item_id] - inventory[item_id]
+                if craft_count <= 0:
+                    # We can fulfill this requirement using only items currently
+                    # available in the inventory.
+                    continue
+                optimal_strategy(item_id).apply(state, craft_count)
 
-        # Figure out how many times we can apply `delta` without making any
-        # `inventory` entry negative.
-        max_apply = None
-        for item_id, count in delta.items():
-            if count >= 0:
-                continue
-            item_max_apply = inventory.get(item_id, 0) // -count
-            assert item_max_apply >= 1
-            if max_apply is None or item_max_apply < max_apply:
-                max_apply = item_max_apply
-        assert max_apply is not None, 'at least one `delta` entry should be negative'
+            # Make sure all requirements were satisfied by crafting.
+            if any(v > 0 for v in state.buy_items.values()):
+                break
+            if any(v > 0 for v in state.obtain_items.values()):
+                break
 
-        # Apply `delta` to `inventory` that many times.
-        for item_id, count in delta.items():
-            inventory[item_id] += count * max_apply
+            # Now `delta[target_item_id]` should be positive, and `delta` should
+            # have negative values for all the raw materials it consumes.  (Note
+            # some intermediate materials may have positive values, such as if the
+            # recipe produces 5 per craft but we only consume 1.)
+            assert delta[target_item_id] > 0
 
-        # Now repeat.  The next iteration will compute a different `delta`.
-        # For example, we may have used up all of some intermediate material,
-        # so the next iteration must craft it from raw materials instead.
+            # Figure out how many times we can apply `delta` without making any
+            # `inventory` entry negative.
+            remaining = target_goal - inventory[target_item_id]
+            max_apply = (remaining + delta[target_item_id] - 1) // delta[target_item_id]
+            for item_id, count in delta.items():
+                if count >= 0:
+                    continue
+                item_max_apply = inventory[item_id] // -count
+                assert item_max_apply >= 1
+                if max_apply is None or item_max_apply < max_apply:
+                    max_apply = item_max_apply
 
-    return inventory.get(target_item_id, 0) - initial_count
+            # Apply `delta` to `inventory` that many times.
+            for item_id, count in delta.items():
+                inventory[item_id] += count * max_apply
 
+            # Now repeat.  The next iteration will compute a different `delta`.
+            # For example, we may have used up all of some intermediate material,
+            # so the next iteration must craft it from raw materials instead.
+
+    return {item_id: inventory[item_id] - orig_inventory[item_id]
+            for item_id, _ in targets}
 
 
 def cmd_init():
@@ -672,8 +681,7 @@ def cmd_status():
 
     sell_orders = condense_transactions(sell_orders)
     buy_orders = condense_transactions(buy_orders)
-    craft_counts = {i: count_craftable(i, orig_inventory)
-            for i in craft_goal_items.keys()}
+    craft_counts = count_craftable(list(craft_goal_items.items()), orig_inventory)
 
     print_table('Buy', buy_items, buy_prices)
     print_order_table('Buy orders', buy_orders)
