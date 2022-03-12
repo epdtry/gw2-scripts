@@ -142,6 +142,20 @@ def get_inventory():
 
     return dict(counts)
 
+def condense_transactions(transactions):
+    '''Combine transactions with the same item and price.'''
+    dct = {}
+    out = []
+    for t in transactions:
+        key = (t['item_id'], t['price'])
+        if key in dct:
+            old_t = dct[key]
+            old_t['quantity'] += t['quantity']
+        else:
+            dct[key] = t
+            out.append(t)
+    return out
+
 
 State = namedtuple('State', (
     'inventory',
@@ -575,6 +589,9 @@ def cmd_status():
         print('\n%s:' % desc)
         for x in rows:
             print('%10s  %-50.50s  %12s  %12s' % x)
+
+    sell_orders = condense_transactions(sell_orders)
+    buy_orders = condense_transactions(buy_orders)
 
     print_table('Buy', buy_items, buy_prices)
     print_order_table('Buy orders', buy_orders)
