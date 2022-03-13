@@ -770,6 +770,28 @@ def cmd_stockpile(count, name):
         'increased' if count >= 0 else 'decreased',
         stockpile[item_id], gw2.items.name(item_id)))
 
+def cmd_profit(name):
+    item_id = parse_item_id(name)
+
+    related_items = gather_related_items([item_id])
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    sell_price = sell_prices[item_id]
+    cost = optimal_cost(item_id)
+    print('%s (%d)' % (gw2.items.name(item_id), item_id))
+    print('Cost:        %s' % format_price(cost))
+    print('Sell price:  %s' % format_price(sell_price))
+    profit = sell_price * 0.85 - cost
+    profit_pct = 100 * profit / cost
+    print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
+
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
@@ -790,6 +812,9 @@ def main():
     elif cmd == 'stockpile':
         count, name = args
         cmd_stockpile(count, name)
+    elif cmd == 'profit':
+        name, = args
+        cmd_profit(name)
     else:
         raise ValueError('unknown command %r' % cmd)
 
