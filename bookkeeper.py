@@ -651,7 +651,7 @@ def cmd_status():
             rows.append((
                 count_str,
                 gw2.items.name(item_id),
-                format_price(unit_price * price_mult) if unit_price is not None else '',
+                format_price(unit_price) if unit_price is not None else '',
                 format_price(total_price * price_mult) if total_price is not None else '',
             ))
             if total_price is not None:
@@ -673,10 +673,10 @@ def cmd_status():
         for transaction in transactions:
             item_id = transaction['item_id']
             count = transaction['quantity']
-            unit_price = transaction['price'] * price_mult
+            unit_price = transaction['price']
             if count == 0:
                 continue
-            total_price = unit_price * count
+            total_price = unit_price * count * price_mult
             rows.append((
                 str(count),
                 gw2.items.name(item_id),
