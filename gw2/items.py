@@ -46,7 +46,15 @@ def _refresh():
         
         for i in items:
             data.add(i['id'], i)
-            by_name[i['name']] = i['id']
+
+            # Hack: omit legendary versions of runes/sigils, so that "Superior
+            # Rune of Xyz" resolves to the exotic craftable version.
+            if i['type'] == 'UpgradeComponent' \
+                    and i['details']['type'] in ('Rune', 'Sigil') \
+                    and i['rarity'] == 'Legendary':
+                pass
+            else:
+                by_name[i['name']] = i['id']
 
     with open(BY_NAME_FILE, 'w') as f:
         json.dump(list(by_name.items()), f)
@@ -74,6 +82,7 @@ _BY_NAME = None
 def _by_name():
     global _BY_NAME
     if _BY_NAME is None:
+        _get_data()
         with open(BY_NAME_FILE) as f:
             _BY_NAME = dict(json.load(f))
     return _BY_NAME
