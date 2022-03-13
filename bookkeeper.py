@@ -1,4 +1,5 @@
 from collections import defaultdict, namedtuple
+from itertools import chain
 import json
 import os
 import sys
@@ -56,26 +57,6 @@ def format_price(price):
     else:
         return '%d.%02d.%02d' % (price // 10000, price // 100 % 100, price % 100)
 
-
-DAILY_CRAFT_ITEMS = set((
-    46742,  # Lump of Mithrillium
-    46744,  # Glob of Elder Spirit Residue
-    46745,  # Spool of Thick Elonian Cord
-    46740,  # Spool of Silk Weaving Thread
-    43772,  # Charged Quartz Crystal
-))
-
-def can_craft(r):
-    if r['output_item_id'] in DAILY_CRAFT_ITEMS:
-        return False
-
-    min_rating = r['min_rating']
-    for d in r['disciplines']:
-        if d == 'Tailor' and min_rating <= 500:
-            return True
-        if d == 'Artificer' and min_rating <= 500:
-            return True
-    return False
 
 def get_prices(item_ids):
     buy_prices = {}
@@ -305,34 +286,41 @@ class StrategyResearchNote:
 
 
 STRATEGY_PRICES = {}
+STRATEGY_FORBID_BUY = set()
+STRATEGY_FORBID_CRAFT = set()
+STRATEGY_CAN_CRAFT_RECIPE = lambda r: True
 _OPTIMAL_STRATEGY_CACHE = {}
 _OPTIMAL_COST_CACHE = {}
 
-def set_strategy_params(prices):
+def set_strategy_params(prices, forbid_buy, forbid_craft, can_craft_recipe):
     '''Set prices to use for `StrategyBuy`.'''
-    global STRATEGY_PRICES
-    global _OPTIMAL_STRATEGY_CACHE
-    global _OPTIMAL_COST_CACHE
+    global STRATEGY_PRICES, STRATEGY_FORBID_BUY, STRATEGY_FORBID_CRAFT, STRATEGY_CAN_CRAFT
+    global _OPTIMAL_STRATEGY_CACHE, _OPTIMAL_COST_CACHE
     STRATEGY_PRICES = prices
+    STRATEGY_FORBID_BUY = forbid_buy
+    STRATEGY_FORBID_CRAFT = forbid_craft
+    STRATEGY_CAN_CRAFT_RECIPE = can_craft_recipe
     _OPTIMAL_STRATEGY_CACHE = {}
     _OPTIMAL_COST_CACHE = {}
 
 def valid_strategies(item_id):
-    price = STRATEGY_PRICES.get(item_id)
-    if price is not None:
-        yield StrategyBuy(item_id, price)
+    if item_id not in STRATEGY_FORBID_BUY:
+        price = STRATEGY_PRICES.get(item_id)
+        if price is not None:
+            yield StrategyBuy(item_id, price)
 
-    recipe_ids = gw2.recipes.search_output(item_id)
-    for recipe_id in recipe_ids:
-        r = gw2.recipes.get(recipe_id)
-        if can_craft(r):
-            yield StrategyCraft(r)
+    if item_id not in STRATEGY_FORBID_CRAFT:
+        recipe_ids = gw2.recipes.search_output(item_id)
+        for recipe_id in recipe_ids:
+            r = gw2.recipes.get(recipe_id)
+            if STRATEGY_CAN_CRAFT_RECIPE(r):
+                yield StrategyCraft(r)
 
-    if item_id == ITEM_PIECE_OF_DRAGON_JADE:
-        yield StrategyDragonJade()
+        if item_id == ITEM_PIECE_OF_DRAGON_JADE:
+            yield StrategyDragonJade()
 
-    if item_id == ITEM_RESEARCH_NOTE:
-        yield StrategyResearchNote()
+        if item_id == ITEM_RESEARCH_NOTE:
+            yield StrategyResearchNote()
 
 def optimal_strategy(item_id):
     best_strategy = _OPTIMAL_STRATEGY_CACHE.get(item_id)
@@ -364,6 +352,19 @@ def optimal_cost(item_id):
         _OPTIMAL_COST_CACHE[item_id] = cost
     return cost
 
+
+def gather_related_items(item_ids):
+    all_items = set()
+    def add_item_and_related(item_id):
+        if item_id in all_items:
+            return
+        all_items.add(item_id)
+        for strategy in valid_strategies(item_id):
+            for related_item_id in strategy.related_items():
+                add_item_and_related(related_item_id)
+    for item_id in item_ids:
+        add_item_and_related(item_id)
+    return all_items
 
 def count_craftable(targets, inventory):
     '''Given a list `targets` of item IDs and counts, return the number of
@@ -445,6 +446,40 @@ def count_craftable(targets, inventory):
 
     return {item_id: inventory[item_id] - orig_inventory[item_id]
             for item_id, _ in targets}
+
+
+def policy_can_craft_recipe(r):
+    min_rating = r['min_rating']
+    for d in r['disciplines']:
+        if d == 'Tailor' and min_rating <= 500:
+            return True
+        if d == 'Artificer' and min_rating <= 500:
+            return True
+    return False
+
+def policy_forbid_buy():
+    forbid = set()
+
+    # Forbid buying or selling intermediate crafting items.
+    for r in gw2.recipes.iter_all():
+        if r['type'] in ('Refinement', 'Component'):
+            forbid.add(r['output_item_id'])
+
+    forbid.update(RESEARCH_NOTE_PANTS)
+
+    return forbid
+
+def policy_forbid_craft():
+    forbid = set()
+
+    # Forbid relying on time-gated recipes
+    forbid.add(gw2.items.get('Lump of Mithrillium'))
+    forbid.add(gw2.items.get('Glob of Elder Spirit Residue'))
+    forbid.add(gw2.items.get('Spool of Thick Elonian Cord'))
+    forbid.add(gw2.items.get('Spool of Silk Weaving Thread'))
+    forbid.add(gw2.items.get('Charged Quartz Crystal'))
+
+    return forbid
 
 
 def cmd_init():
@@ -552,38 +587,19 @@ def cmd_status():
 
     # Gather all items we might need to buy or sell, and obtain their current
     # prices.
-    all_items = set()
-    def add_item_and_related(item_id):
-        if item_id in all_items:
-            return
-        all_items.add(item_id)
-        for strategy in valid_strategies(item_id):
-            for related_item_id in strategy.related_items():
-                add_item_and_related(related_item_id)
-    for item_id in pending_items:
-        add_item_and_related(item_id)
-    for item_id in goals.keys():
-        all_items.add(item_id)
-
-
-    buy_prices, sell_prices = get_prices(all_items)
+    related_items = gather_related_items(chain(pending_items, goals.keys()))
+    buy_prices, sell_prices = get_prices(related_items)
 
     for item_id, buy_price in buy_prices.items():
         if item_id not in sell_prices:
             sell_prices[item_id] = buy_price
 
-    # Forbid strategies from buying certain items
-    strategy_prices = buy_prices.copy()
-    for r in gw2.recipes.iter_all():
-        # Forbid buying or selling intermediate crafting items.
-        if r['type'] in ('Refinement', 'Component'):
-            item_id = r['output_item_id']
-            strategy_prices.pop(item_id, None)
-    for item_id in goals.keys():
-        strategy_prices.pop(item_id, None)
-    for item_id in RESEARCH_NOTE_PANTS:
-        strategy_prices.pop(item_id, None)
-    set_strategy_params(strategy_prices)
+    set_strategy_params(
+            buy_prices,
+            set(chain(policy_forbid_buy(), goals.keys())),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
 
 
     # Process items until all stockpile requirements are satisfied.
