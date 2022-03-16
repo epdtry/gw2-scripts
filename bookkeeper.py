@@ -465,10 +465,15 @@ def policy_forbid_buy():
         if r['type'] in ('Refinement', 'Component'):
             forbid.add(r['output_item_id'])
 
-    forbid.remove(gw2.items.search_name('Deldrimor Steel Ingot'))
-    forbid.remove(gw2.items.search_name('Elonian Leather Square'))
-    forbid.remove(gw2.items.search_name('Bolt of Damask'))
-    forbid.remove(gw2.items.search_name('Spiritwood Plank'))
+    ascended_refinement = [
+        gw2.items.search_name('Deldrimor Steel Ingot'),
+        gw2.items.search_name('Elonian Leather Square'),
+        gw2.items.search_name('Bolt of Damask'),
+        gw2.items.search_name('Spiritwood Plank'),
+    ]
+    for item_id in ascended_refinement:
+        if item_id in forbid:
+            forbid.remove(item_id)
 
     forbid.update(RESEARCH_NOTE_PANTS)
 
