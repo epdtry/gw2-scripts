@@ -1,4 +1,4 @@
-# How to use Bookkeepr
+# How to use Bookkeeper
 
 ```
 python3 bookkeeper.py init
