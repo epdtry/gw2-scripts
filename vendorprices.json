@@ -361,13 +361,13 @@
     ]
   },
   "12145": {
-    "type": "karma",
-    "quantity": 25,
-    "cost": 49,
+    "type": "gold",
+    "quantity": 1,
+    "cost": 32,
     "npcs": [
       {
-        "name": "Master Chef",
-        "position": "Crafting Station"
+        "name": "Jen",
+        "position": "Divinity's Reach"
       }
     ]
   },
