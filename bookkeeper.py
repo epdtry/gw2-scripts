@@ -57,6 +57,14 @@ def format_price(price):
     else:
         return '%d.%02d.%02d' % (price // 10000, price // 100 % 100, price % 100)
 
+def format_price_delta(price):
+    if price < 0:
+        return '-' + format_price(-price)
+    elif price > 0:
+        return '+' + format_price(price)
+    else:
+        return '0'
+
 
 def get_prices(item_ids):
     buy_prices = {}
@@ -671,67 +679,7 @@ def cmd_status():
         used_items[item_id] = -delta
 
 
-    def print_table(desc, item_counts, prices={}, price_mult=1, extra_counts=None):
-        rows = []
-        grand_total = 0
-        for item_id, count in item_counts.items():
-            if count == 0:
-                continue
-            unit_price = prices.get(item_id)
-            total_price = unit_price * count if unit_price is not None else None
-
-            count_str = str(count)
-            if extra_counts is not None:
-                extra_count = extra_counts.get(item_id)
-                if extra_count is not None:
-                    count_str = '%d / %d' % (extra_count, count)
-
-            rows.append((
-                count_str,
-                gw2.items.name(item_id),
-                format_price(unit_price) if unit_price is not None else '',
-                format_price(total_price * price_mult) if total_price is not None else '',
-            ))
-            if total_price is not None:
-                grand_total += total_price * price_mult
-
-        if len(rows) == 0:
-            return
-
-        if grand_total != 0:
-            rows.append(('', 'Total', '', format_price(grand_total)))
-
-        print('\n%s:' % desc)
-        for x in rows:
-            print('%10s  %-50.50s  %12s  %12s' % x)
-
-    def print_order_table(desc, transactions, price_mult=1):
-        rows = []
-        grand_total = 0
-        for transaction in transactions:
-            item_id = transaction['item_id']
-            count = transaction['quantity']
-            unit_price = transaction['price']
-            if count == 0:
-                continue
-            total_price = unit_price * count * price_mult
-            rows.append((
-                str(count),
-                gw2.items.name(item_id),
-                format_price(unit_price),
-                format_price(total_price),
-            ))
-            grand_total += total_price
-
-        if len(rows) == 0:
-            return
-
-        if grand_total != 0:
-            rows.append(('', 'Total', '', format_price(grand_total)))
-
-        print('\n%s:' % desc)
-        for x in rows:
-            print('%10s  %-50.50s  %12s  %12s' % x)
+    # Render output
 
     sell_orders = condense_transactions(sell_orders)
     buy_orders = condense_transactions(buy_orders)
@@ -741,14 +689,208 @@ def cmd_status():
         craft_items[item_id] += count
     craft_counts = count_craftable(list(craft_items.items()), orig_inventory)
 
-    print_table('Buy', buy_items, buy_prices)
-    print_order_table('Buy orders', buy_orders)
-    print_table('Obtain', obtain_items)
-    print_table('Use', used_items, sell_prices)
-    print_table('Craft', craft_items, sell_prices, price_mult=0.85,
-            extra_counts=craft_counts)
-    print_table('Sell', sell_goal_items, sell_prices, price_mult=0.85)
-    print_order_table('Sell orders', sell_orders, price_mult=0.90)
+
+    class CountColumn:
+        def format(self):
+            return '%10s'
+
+        def render(self, row):
+            count = row.get('count')
+            if count is None:
+                return ''
+            return str(count)
+
+        def render_total(self):
+            return ''
+
+    class CraftCountColumn:
+        def format(self):
+            return '%10s'
+
+        def render(self, row):
+            count = row.get('count')
+            craft_limit = row.get('craft_limit')
+            if count is None:
+                return ''
+            if craft_limit is None:
+                return str(count)
+            else:
+                return '%d / %d' % (craft_limit, count)
+
+        def render_total(self):
+            return ''
+
+    class ItemNameColumn:
+        def format(self):
+            return '%-45.45s'
+
+        def render(self, row):
+            item_id = row.get('item_id')
+            if item_id is None:
+                return ''
+            return gw2.items.name(item_id)
+
+        def render_total(self):
+            return 'Total'
+
+    class UnitPriceColumn:
+        def format(self):
+            return '%12s'
+
+        def render(self, row):
+            unit_price = row.get('unit_price')
+            if unit_price is None:
+                return ''
+            return format_price(unit_price)
+
+        def render_total(self):
+            return ''
+
+    class TotalPriceColumn:
+        def __init__(self, mult=1):
+            self.total = 0
+            self.mult = mult
+
+        def format(self):
+            return '%12s'
+
+        def render(self, row):
+            count = row.get('count')
+            unit_price = row.get('unit_price')
+            if count is None or unit_price is None:
+                return ''
+            self.total += count * unit_price
+            return format_price(count * unit_price * self.mult)
+
+        def render_total(self):
+            return format_price(self.total * self.mult)
+
+    class AltPriceDeltaColumn:
+        def __init__(self):
+            self.total = 0
+
+        def format(self):
+            return '%12s'
+
+        def render(self, row):
+            count = row.get('count')
+            unit_price = row.get('unit_price')
+            alt_unit_price = row.get('alt_unit_price')
+            if count is None or unit_price is None or alt_unit_price is None:
+                return ''
+            delta = count * (alt_unit_price - unit_price)
+            self.total += delta
+            return format_price_delta(delta)
+
+        def render_total(self):
+            return format_price_delta(self.total)
+
+
+    def render_table(name, columns, rows):
+        rows = [r for r in rows if r is not None]
+        if len(rows) == 0:
+            return
+        print('\n%s:' % name)
+        fmt = '  '.join(col.format() for col in columns)
+        for row in rows:
+            print(fmt % tuple(col.render(row) for col in columns))
+        print(fmt % tuple(col.render_total() for col in columns))
+
+
+    def row_buy(item_id, count):
+        if count == 0:
+            return None
+        return {
+                'item_id': item_id,
+                'count': count,
+                'unit_price': buy_prices.get(item_id),
+                'alt_unit_price': sell_prices.get(item_id),
+                }
+
+    render_table('Buy',
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
+                TotalPriceColumn(), AltPriceDeltaColumn()),
+            (row_buy(item_id, count) for item_id, count in buy_items.items()))
+
+    def row_buy_order(transaction):
+        if transaction['quantity'] == 0:
+            return None
+        return {
+                'item_id': transaction['item_id'],
+                'count': transaction['quantity'],
+                'unit_price': transaction['price'],
+                'alt_unit_price': sell_prices.get(transaction['item_id']),
+                }
+
+    render_table('Buy orders',
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
+                TotalPriceColumn(), AltPriceDeltaColumn()),
+            (row_buy_order(t) for t in buy_orders))
+
+    def row_obtain(item_id, count):
+        if count == 0:
+            return None
+        return {
+                'item_id': item_id,
+                'count': count,
+                }
+
+    render_table('Obtain',
+            (CountColumn(), ItemNameColumn()),
+            (row_obtain(item_id, count) for item_id, count in obtain_items.items()))
+
+    def row_use(item_id, count):
+        if count == 0:
+            return None
+        return {
+                'item_id': item_id,
+                'count': count,
+                'unit_price': sell_prices.get(item_id),
+                }
+
+    render_table('Use',
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn()),
+            (row_use(item_id, count) for item_id, count in used_items.items()))
+
+    def row_craft(item_id, count):
+        if count == 0:
+            return None
+        return {
+                'item_id': item_id,
+                'count': count,
+                'unit_price': sell_prices.get(item_id),
+                'craft_limit': craft_counts.get(item_id),
+                }
+
+    render_table('Craft',
+            (CraftCountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn(0.85)),
+            (row_craft(item_id, count) for item_id, count in craft_items.items()))
+
+    def row_sell(item_id, count):
+        if count == 0:
+            return None
+        return {
+                'item_id': item_id,
+                'count': count,
+                'unit_price': sell_prices.get(item_id),
+                }
+
+    render_table('Craft',
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn(0.85)),
+            (row_sell(item_id, count) for item_id, count in sell_goal_items.items()))
+
+    def row_sell_order(transaction):
+        if transaction['quantity'] == 0:
+            return None
+        return {
+                'item_id': transaction['item_id'],
+                'count': transaction['quantity'],
+                'unit_price': transaction['price'],
+                }
+
+    render_table('Sell orders',
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn(0.9)),
+            (row_sell_order(t) for t in sell_orders))
 
     print('')
     # We don't subtract `buy_orders`, since the gold for those orders was
