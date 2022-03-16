@@ -465,6 +465,11 @@ def policy_forbid_buy():
         if r['type'] in ('Refinement', 'Component'):
             forbid.add(r['output_item_id'])
 
+    forbid.remove(gw2.items.search_name('Deldrimor Steel Ingot'))
+    forbid.remove(gw2.items.search_name('Elonian Leather Square'))
+    forbid.remove(gw2.items.search_name('Bolt of Damask'))
+    forbid.remove(gw2.items.search_name('Spiritwood Plank'))
+
     forbid.update(RESEARCH_NOTE_PANTS)
 
     return forbid
@@ -473,11 +478,11 @@ def policy_forbid_craft():
     forbid = set()
 
     # Forbid relying on time-gated recipes
-    forbid.add(gw2.items.get('Lump of Mithrillium'))
-    forbid.add(gw2.items.get('Glob of Elder Spirit Residue'))
-    forbid.add(gw2.items.get('Spool of Thick Elonian Cord'))
-    forbid.add(gw2.items.get('Spool of Silk Weaving Thread'))
-    forbid.add(gw2.items.get('Charged Quartz Crystal'))
+    forbid.add(gw2.items.search_name('Lump of Mithrillium'))
+    forbid.add(gw2.items.search_name('Glob of Elder Spirit Residue'))
+    forbid.add(gw2.items.search_name('Spool of Thick Elonian Cord'))
+    forbid.add(gw2.items.search_name('Spool of Silk Weaving Thread'))
+    forbid.add(gw2.items.search_name('Charged Quartz Crystal'))
 
     return forbid
 
