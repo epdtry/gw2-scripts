@@ -585,19 +585,18 @@ def cmd_status():
         craft_goal_items[item_id] += max(0, to_sell - sell_goal_items[item_id])
         inventory[item_id] -= to_sell
 
-    # Find all items whose `inventory` amount is currently below the
-    # `stockpile` target.
-    keys = set(stockpile.keys())
-    keys.update(inventory.keys())
-    pending_items = set()
-    for item_id in keys:
-        if inventory.get(item_id, 0) < stockpile.get(item_id, 0):
-            pending_items.add(item_id)
-
 
     # Gather all items we might need to buy or sell, and obtain their current
-    # prices.
-    related_items = gather_related_items(chain(pending_items, goals.keys()))
+    # prices to use as parameters for strategies.
+
+    keys = set(stockpile.keys())
+    keys.update(inventory.keys())
+    shortage_items = set()
+    for item_id in keys:
+        if inventory.get(item_id, 0) < stockpile.get(item_id, 0):
+            shortage_items.add(item_id)
+
+    related_items = gather_related_items(chain(shortage_items, goals.keys()))
     buy_prices, sell_prices = get_prices(related_items)
 
     for item_id, buy_price in buy_prices.items():
@@ -616,6 +615,7 @@ def cmd_status():
     buy_items = defaultdict(int)
     craft_items = defaultdict(int)
     obtain_items = defaultdict(int)
+    pending_items = set()
     state = State(
             inventory,
             pending_items,
@@ -623,6 +623,34 @@ def cmd_status():
             craft_items,
             obtain_items,
             )
+
+    # First pass: run until all inventory quantities are non-negative.  This
+    # amounts to successfully crafting all the goal items.
+    pending_items.update(shortage_items)
+    while len(pending_items) > 0:
+        item_id = pending_items.pop()
+        shortage = -inventory.get(item_id, 0)
+        if shortage <= 0:
+            continue
+
+        strategy = optimal_strategy(item_id)
+        strategy.apply(state, shortage)
+        assert inventory.get(item_id, 0) >= 0, \
+                'strategy %r failed to produce %d %s' % (
+                        strategy, shortage, gw2.items.name(item_id))
+
+    # Compute what items we need to craft to restore all stockpiles.
+    craft_stockpile_items = {}
+    for item_id in keys:
+        shortage = stockpile.get(item_id, 0) - inventory.get(item_id, 0)
+        if shortage <= 0:
+            continue
+        shortage_items.add(item_id)
+        craft_stockpile_items[item_id] = shortage
+
+    # Second pass: run until stockpile requirements are satisfied.
+    assert len(pending_items) == 0
+    pending_items.update(craft_stockpile_items.keys())
     while len(pending_items) > 0:
         item_id = pending_items.pop()
         shortage = stockpile.get(item_id, 0) - inventory.get(item_id, 0)
@@ -707,13 +735,17 @@ def cmd_status():
 
     sell_orders = condense_transactions(sell_orders)
     buy_orders = condense_transactions(buy_orders)
-    craft_counts = count_craftable(list(craft_goal_items.items()), orig_inventory)
+
+    craft_items = defaultdict(int)
+    for item_id, count in chain(craft_goal_items.items(), craft_stockpile_items.items()):
+        craft_items[item_id] += count
+    craft_counts = count_craftable(list(craft_items.items()), orig_inventory)
 
     print_table('Buy', buy_items, buy_prices)
     print_order_table('Buy orders', buy_orders)
     print_table('Obtain', obtain_items)
     print_table('Use', used_items, sell_prices)
-    print_table('Craft', craft_goal_items, sell_prices, price_mult=0.85,
+    print_table('Craft', craft_items, sell_prices, price_mult=0.85,
             extra_counts=craft_counts)
     print_table('Sell', sell_goal_items, sell_prices, price_mult=0.85)
     print_order_table('Sell orders', sell_orders, price_mult=0.90)
