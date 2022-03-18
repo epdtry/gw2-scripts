@@ -875,7 +875,7 @@ def cmd_status():
                 'unit_price': sell_prices.get(item_id),
                 }
 
-    render_table('Craft',
+    render_table('Sell',
             (CountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn(0.85)),
             (row_sell(item_id, count) for item_id, count in sell_goal_items.items()))
 
