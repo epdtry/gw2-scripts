@@ -963,6 +963,7 @@ def cmd_stockpile(count, name):
         stockpile[item_id], gw2.items.name(item_id)))
 
 def cmd_profit(name):
+    '''Show the profit to be made by crafting the named item.'''
     item_id = parse_item_id(name)
 
     related_items = gather_related_items([item_id])
@@ -983,6 +984,147 @@ def cmd_profit(name):
     profit = sell_price * 0.85 - cost
     profit_pct = 100 * profit / cost
     print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
+
+# One line per category.  In each category, you can only sell one item per day.
+# TODO: switch to string search terms once gw2.items handles name collisions
+# TODO: fill in remaining options
+PROVISIONER_ITEMS = [
+    ("Lion's Arch", {19983: 1}),
+    ("Lion's Arch", {19721: 5}),
+    ("Lion's Arch", {24830: 1}),
+
+    ('Black Citadel', {19925: 1}),
+    ('Black Citadel', {24366: 20}),
+    ('Black Citadel', {24741: 12}),
+
+    ("Divinity's Reach", {46742: 1}),
+    ("Divinity's Reach", {24678: 34}),
+    ("Divinity's Reach", {24732: 4}),
+
+    ('Hoelbrak', {46745: 1}),
+    ('Hoelbrak', {24651: 20}),
+    ('Hoelbrak', {24729: 14}),
+
+    ('Rata Sum', {43772: 1}),
+    ('Rata Sum', {24330: 24}),
+    ('Rata Sum', {24726: 14}),
+
+    ('The Grove', {46744: 1}),
+    ('The Grove', {66650: 3}),
+    ('The Grove', {24735: 14}),
+
+    ('Verdant Brink', {74356: 1}),
+    ('Verdant Brink', {46281: 1, 46040: 1, 46186: 1, 45731: 1, 45765: 1, 45622: 1}),
+    ('Verdant Brink', {15465: 1, 13924: 1, 14469: 1, 11121: 1, 11876: 1, 10702: 1}),
+    ('Verdant Brink', {15394: 1, 13895: 1, 14517: 1, 11295: 1, 11798: 1, 10722: 1}),
+    ('Verdant Brink', {15508: 1, 13974: 1, 14596: 1, 11248: 1, 11835: 1, 10710: 1}),
+    ('Verdant Brink', {36779: 1, 36813: 1, 36750: 1, 36892: 1, 36891: 1, 36746: 1}),
+
+    ('Auric Basin', {73537: 1}),
+    ('Auric Basin', {38336: 1, 38415: 1, 38367: 1, 38228: 1, 38264: 1, 38179: 1}),
+    ('Auric Basin', {15352: 1, 13895: 1, 14566: 1, 11295: 1, 11798: 1, 10722: 1}),
+    ('Auric Basin', {15427: 1, 13928: 1, 14648: 1, 11167: 1, 11754: 1, 10699: 1}),
+
+    ('Tangled Depths', {72205: 1}),
+    ('Tangled Depths', {15391: 1, 13976: 1, 14563: 1, 11341: 1, 11921: 1, 10691: 1}),
+    ('Tangled Depths', {15423: 1, 13973: 1, 14428: 1, 11247: 1, 11834: 1, 10709: 1}),
+    ('Tangled Depths', {15512: 1, 13894: 1, 14516: 1, 11126: 1, 11881: 1, 10707: 1}),
+    ('Tangled Depths', {36779: 1, 36780: 1, 36812: 1, 36844: 1, 36842: 1, 36806: 1}),
+]
+
+def cmd_provisioner():
+    related_items = gather_related_items(item_id
+            for _, category in PROVISIONER_ITEMS for item_id in category.keys())
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    best_in_category = []
+    for cat_name, category in PROVISIONER_ITEMS:
+        best_item_id = None
+        best_count = None
+        best_cost = None
+        for item_id, count in category.items():
+            unit_cost = optimal_cost(item_id)
+            if unit_cost is None:
+                continue
+            cost = unit_cost * count
+            if best_cost is None or cost < best_cost:
+                best_cost = cost
+                best_item_id = item_id
+                best_count = count
+        if best_cost is not None:
+            best_in_category.append((best_cost, best_item_id, best_count, cat_name))
+    best_in_category.sort(key=lambda x: x[0])
+    for cost, item_id, count, cat_name in best_in_category:
+        desc = '%s (%d)' % (gw2.items.name(item_id), item_id)
+        print('%10d  %-50.50s  %12s  %-20s' % (count, desc, format_price(cost), cat_name))
+
+def cmd_obtain(name):
+    '''Print out the optimal strategy for obtaining the named item.'''
+    item_id = parse_item_id(name)
+
+    related_items = gather_related_items([item_id])
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    inventory = defaultdict(int)
+    inventory[item_id] = -1
+
+    # Process items until all stockpile requirements are satisfied.
+    buy_items = defaultdict(int)
+    craft_items = defaultdict(int)
+    obtain_items = defaultdict(int)
+    pending_items = set()
+    state = State(
+            inventory,
+            pending_items,
+            buy_items,
+            craft_items,
+            obtain_items,
+            )
+
+    # First pass: run until all inventory quantities are non-negative.  This
+    # amounts to successfully crafting all the goal items.
+    pending_items.add(item_id)
+    while len(pending_items) > 0:
+        item_id = pending_items.pop()
+        shortage = -inventory.get(item_id, 0)
+        if shortage <= 0:
+            continue
+
+        strategy = optimal_strategy(item_id)
+        strategy.apply(state, shortage)
+        assert inventory.get(item_id, 0) >= 0, \
+                'strategy %r failed to produce %d %s' % (
+                        strategy, shortage, gw2.items.name(item_id))
+
+    if len(buy_items) > 0:
+        print('\nBuy:')
+        for item_id, count in buy_items.items():
+            print('%10d  %-45.45s' % (count, gw2.items.name(item_id)))
+
+    if len(craft_items) > 0:
+        print('\nCraft:')
+        for item_id, count in craft_items.items():
+            print('%10d  %-45.45s' % (count, gw2.items.name(item_id)))
+
+    if len(obtain_items) > 0:
+        print('\nObtain:')
+        for item_id, count in obtain_items.items():
+            print('%10d  %-45.45s' % (count, gw2.items.name(item_id)))
+
 
 def main():
     with open('api_key.txt') as f:
@@ -1007,6 +1149,12 @@ def main():
     elif cmd == 'profit':
         name, = args
         cmd_profit(name)
+    elif cmd == 'provisioner':
+        assert len(args) == 0
+        cmd_provisioner()
+    elif cmd == 'obtain':
+        name, = args
+        cmd_obtain(name)
     else:
         raise ValueError('unknown command %r' % cmd)
 
