@@ -666,7 +666,7 @@ def cmd_status():
 
     # Second pass: run until stockpile requirements are satisfied.
     assert len(pending_items) == 0
-    pending_items.update(craft_stockpile_items.keys())
+    pending_items.update(shortage_items)
     while len(pending_items) > 0:
         item_id = pending_items.pop()
         shortage = stockpile.get(item_id, 0) - inventory.get(item_id, 0)
