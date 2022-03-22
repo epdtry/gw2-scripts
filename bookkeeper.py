@@ -7,6 +7,7 @@ import urllib.parse
 
 import gw2.api
 import gw2.items
+import gw2.mystic_forge
 import gw2.recipes
 import gw2.trading_post
 
@@ -323,6 +324,11 @@ def valid_strategies(item_id):
             r = gw2.recipes.get(recipe_id)
             if STRATEGY_CAN_CRAFT_RECIPE(r):
                 yield StrategyCraft(r)
+
+        mystic_recipe_ids = gw2.mystic_forge.search_output(item_id)
+        for mystic_recipe_id in mystic_recipe_ids:
+            r = gw2.mystic_forge.get(mystic_recipe_id)
+            yield StrategyCraft(r)
 
         if item_id == ITEM_PIECE_OF_DRAGON_JADE:
             yield StrategyDragonJade()
