@@ -654,6 +654,8 @@ def cmd_status():
         if shortage <= 0:
             continue
         shortage_items.add(item_id)
+        if isinstance(optimal_strategy(item_id), (StrategyBuy, StrategyUnknown)):
+            continue
         craft_stockpile_items[item_id] = shortage
 
     # Second pass: run until stockpile requirements are satisfied.
