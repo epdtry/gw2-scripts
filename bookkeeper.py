@@ -529,17 +529,7 @@ def cmd_init():
 CURRENCY_COIN = 1
 CURRENCY_RESEARCH_NOTE = 61
 
-def cmd_status():
-    '''Print a report listing the following:
-
-    * Items to buy
-    * Pending buy orders
-    * Items to craft
-    * Items to obtain by unknown means
-    * Existing items to be sold
-    * Pending sell orders
-    '''
-
+def calculate_status():
     # Strategy:
     #
     # We keep a dict called `inventory`, which maps each item ID to an integer
@@ -704,15 +694,58 @@ def cmd_status():
         used_items[item_id] = -delta
 
 
-    # Render output
-
-    sell_orders = condense_transactions(sell_orders)
-    buy_orders = condense_transactions(buy_orders)
-
     craft_items = defaultdict(int)
     for item_id, count in chain(craft_goal_items.items(), craft_stockpile_items.items()):
         craft_items[item_id] += count
     craft_counts = count_craftable(list(craft_items.items()), orig_inventory)
+
+
+    return {
+            'gold': gold,
+            'buy_prices': buy_prices,
+            'sell_prices': sell_prices,
+            'buy_orders': buy_orders,
+            'sell_orders': sell_orders,
+            'craft_goal_items': craft_goal_items,
+            'craft_stockpile_items': craft_stockpile_items,
+            'craft_items': craft_items,
+            'craft_counts': craft_counts,
+            'buy_items': buy_items,
+            'obtain_items': obtain_items,
+            'used_items': used_items,
+            'sell_goal_items': sell_goal_items,
+            }
+
+
+def cmd_status():
+    '''Print a report listing the following:
+
+    * Items to buy
+    * Pending buy orders
+    * Items to craft
+    * Items to obtain by unknown means
+    * Existing items to be sold
+    * Pending sell orders
+    '''
+
+    x = calculate_status()
+    gold = x['gold']
+    buy_prices = x['buy_prices']
+    sell_prices = x['sell_prices']
+    buy_orders = x['buy_orders']
+    sell_orders = x['sell_orders']
+    craft_items = x['craft_items']
+    craft_goal_items = x['craft_goal_items']
+    craft_counts = x['craft_counts']
+    buy_items = x['buy_items']
+    obtain_items = x['obtain_items']
+    used_items = x['used_items']
+    sell_goal_items = x['sell_goal_items']
+
+    # Render output
+
+    sell_orders = condense_transactions(sell_orders)
+    buy_orders = condense_transactions(buy_orders)
 
 
     class CountColumn:
