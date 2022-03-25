@@ -971,7 +971,7 @@ def cmd_profit(name):
 
     set_strategy_params(
             buy_prices,
-            policy_forbid_buy(),
+            policy_forbid_buy().union((item_id,)),
             policy_forbid_craft(),
             policy_can_craft_recipe,
             )
