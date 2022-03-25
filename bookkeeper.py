@@ -479,6 +479,11 @@ def policy_forbid_buy():
         if r['type'] in ('Refinement', 'Component'):
             forbid.add(r['output_item_id'])
 
+        #item = gw2.items.get(r['output_item_id'])
+        #if item is not None:
+        #    if 'Inscription' in item['name'] or 'Insignia' in item['name']:
+        #        forbid.add(item['id'])
+
     ascended_refinement = [
         gw2.items.search_name('Deldrimor Steel Ingot'),
         gw2.items.search_name('Elonian Leather Square'),
@@ -490,6 +495,18 @@ def policy_forbid_buy():
             forbid.remove(item_id)
 
     forbid.update(RESEARCH_NOTE_PANTS)
+
+    forbid.add(gw2.items.search_name('20 Slot Invisible Bag'))
+    forbid.add(gw2.items.search_name('20 Slot Gossamer Bag'))
+    forbid.add(gw2.items.search_name("Berserker's Orichalcum Imbued Inscription"))
+
+    forbid.remove(gw2.items.search_name('Pile of Lucent Crystal'))
+    forbid.add(gw2.items.search_name('Lucent Mote'))
+    forbid.remove(gw2.items.search_name('Orichalcum Ingot'))
+    forbid.remove(gw2.items.search_name('Ancient Wood Plank'))
+    forbid.remove(gw2.items.search_name('Bolt of Gossamer'))
+    forbid.remove(gw2.items.search_name('Cured Hardened Leather Square'))
+    #forbid.remove(gw2.items.search_name('Vial of Linseed Oil'))
 
     return forbid
 
