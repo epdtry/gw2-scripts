@@ -303,7 +303,7 @@ _OPTIMAL_COST_CACHE = {}
 
 def set_strategy_params(prices, forbid_buy, forbid_craft, can_craft_recipe):
     '''Set prices to use for `StrategyBuy`.'''
-    global STRATEGY_PRICES, STRATEGY_FORBID_BUY, STRATEGY_FORBID_CRAFT, STRATEGY_CAN_CRAFT
+    global STRATEGY_PRICES, STRATEGY_FORBID_BUY, STRATEGY_FORBID_CRAFT, STRATEGY_CAN_CRAFT_RECIPE
     global _OPTIMAL_STRATEGY_CACHE, _OPTIMAL_COST_CACHE
     STRATEGY_PRICES = prices
     STRATEGY_FORBID_BUY = forbid_buy
