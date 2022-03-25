@@ -1001,6 +1001,27 @@ def cmd_goal(count, name):
     fmt = 'added %d %s to goals' if count >= 0 else 'subtracted %d %s from goals'
     print(fmt % (count, gw2.items.name(item_id)))
 
+
+    if count > 0:
+        related_items = gather_related_items([item_id])
+        buy_prices, sell_prices = get_prices(related_items)
+
+        set_strategy_params(
+                buy_prices,
+                policy_forbid_buy().union((item_id,)),
+                policy_forbid_craft(),
+                policy_can_craft_recipe,
+                )
+
+        sell_price = sell_prices[item_id]
+        cost = optimal_cost(item_id)
+        print('%d %s (%d)' % (count, gw2.items.name(item_id), item_id))
+        print('Cost:        %s' % format_price(cost * count))
+        print('Sell price:  %s' % format_price(sell_price * count))
+        profit = sell_price * 0.85 - cost
+        profit_pct = 100 * profit / cost
+        print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
+
 def cmd_stockpile(count, name):
     count = int(count)
     item_id = parse_item_id(name)
