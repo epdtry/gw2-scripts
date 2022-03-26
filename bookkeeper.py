@@ -1020,7 +1020,7 @@ def cmd_goal(count, name):
         print('Sell price:  %s' % format_price(sell_price * count))
         profit = sell_price * 0.85 - cost
         profit_pct = 100 * profit / cost
-        print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
+        print('Profit:      %s (%.1f%%)' % (format_price(profit * count), profit_pct))
 
 def cmd_stockpile(count, name):
     count = int(count)
