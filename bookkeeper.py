@@ -2,6 +2,7 @@ from collections import defaultdict, namedtuple
 from itertools import chain
 import json
 import os
+import sqlite3
 import sys
 import urllib.parse
 
@@ -1196,6 +1197,92 @@ def cmd_obtain(name):
         for item_id, count in obtain_items.items():
             print('%10d  %-45.45s' % (count, gw2.items.name(item_id)))
 
+def gen_profit_sql(path):
+    if os.path.exists(path):
+        os.unlink(path)
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE items (
+            id INTEGER NOT NULL PRIMARY KEY,
+            name TEXT NOT NULL,
+            buy_price INTEGER,
+            sell_price INTEGER,
+            demand INTEGER,
+            supply INTEGER,
+            cost INTEGER,
+            craft_roi REAL,
+            craft_roi_buy REAL
+        )
+    ''')
+
+    output_item_ids = set()
+    for r in gw2.recipes.iter_all():
+        if policy_can_craft_recipe(r):
+            output_item_ids.add(r['output_item_id'])
+
+    related_items = gather_related_items(output_item_ids)
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    print('processing %d items' % len(output_item_ids))
+    num_written = 0
+    for item_id in output_item_ids:
+        craft_costs = [StrategyCraft(gw2.recipes.get(recipe_id)).cost()
+                for recipe_id in gw2.recipes.search_output(item_id)]
+        craft_cost = min((x for x in craft_costs if x is not None), default=None)
+        if craft_cost is None:
+            continue
+
+        craft_roi = None
+        sell_price = sell_prices.get(item_id)
+        if sell_price is not None:
+            profit = sell_price * 0.85 - craft_cost
+            craft_roi = profit / craft_cost
+
+        craft_roi_buy = None
+        buy_price = buy_prices.get(item_id)
+        if buy_price is not None:
+            profit = buy_price * 0.85 - craft_cost
+            craft_roi_buy = profit / craft_cost
+
+        prices = gw2.trading_post.get_prices(item_id)
+        if prices is None:
+            continue
+
+        cur.execute('''
+            INSERT INTO items
+                (id, name, buy_price, sell_price, demand, supply, cost,
+                    craft_roi, craft_roi_buy)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                item_id,
+                gw2.items.name(item_id),
+                buy_price,
+                sell_price,
+                prices['buys'].get('quantity'),
+                prices['sells'].get('quantity'),
+                craft_cost,
+                craft_roi,
+                craft_roi_buy,
+            ))
+        num_written += 1
+
+    print('wrote %d items to %s' % (num_written, path))
+    conn.commit()
+    conn.close()
+
+def cmd_gen_profit_sql():
+    '''Generate a sqlite database containing information on profitable
+    recipes.'''
+    gen_profit_sql('profit.sqlite')
+
 
 def main():
     with open('api_key.txt') as f:
@@ -1226,6 +1313,9 @@ def main():
     elif cmd == 'obtain':
         name, = args
         cmd_obtain(name)
+    elif cmd == 'gen_profit_sql':
+        assert len(args) == 0
+        cmd_gen_profit_sql()
     else:
         raise ValueError('unknown command %r' % cmd)
 
