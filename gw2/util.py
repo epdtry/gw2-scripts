@@ -38,3 +38,8 @@ class DataStorage:
 
     def keys(self):
         return self.index.keys()
+
+    def iter(self):
+        self.data_file.seek(0)
+        for line in self.data_file:
+            yield json.loads(line)
