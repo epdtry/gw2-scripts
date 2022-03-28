@@ -515,6 +515,9 @@ def policy_forbid_buy():
     forbid.remove(gw2.items.search_name('Cured Hardened Leather Square'))
     #forbid.remove(gw2.items.search_name('Vial of Linseed Oil'))
 
+    for i in range(2,23):
+        forbid.add(gw2.items.search_name('+%d Agony Infusion' % i))
+
     return forbid
 
 def policy_forbid_craft():
