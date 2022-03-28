@@ -393,6 +393,7 @@ def count_craftable(targets, inventory):
 
     target_goals = {item_id: inventory[item_id] + count
             for item_id, count in targets}
+    craft_counts = {}
 
     for target_item_id, _ in targets:
         # Craft up to `target_count` copies of `target_item_id`.  Our approach
@@ -459,8 +460,13 @@ def count_craftable(targets, inventory):
             # For example, we may have used up all of some intermediate material,
             # so the next iteration must craft it from raw materials instead.
 
-    return {item_id: inventory[item_id] - orig_inventory[item_id]
-            for item_id, _ in targets}
+        # Record the amount crafted, then subtract out the target items so they
+        # can't be used as mats for later steps.
+        craft_counts[target_item_id] = max(0,
+                inventory[target_item_id] - orig_inventory[target_item_id])
+        inventory[target_item_id] -= min(inventory[target_item_id], target_goal)
+
+    return craft_counts
 
 
 def policy_can_craft_recipe(r):
