@@ -509,11 +509,19 @@ def policy_forbid_buy():
 
     forbid.remove(gw2.items.search_name('Pile of Lucent Crystal'))
     forbid.add(gw2.items.search_name('Lucent Mote'))
+    #forbid.remove(gw2.items.search_name('Vial of Linseed Oil'))
+
+    # T6 mats
     forbid.remove(gw2.items.search_name('Orichalcum Ingot'))
     forbid.remove(gw2.items.search_name('Ancient Wood Plank'))
     forbid.remove(gw2.items.search_name('Bolt of Gossamer'))
     forbid.remove(gw2.items.search_name('Cured Hardened Leather Square'))
-    #forbid.remove(gw2.items.search_name('Vial of Linseed Oil'))
+
+    # T5 mats
+    forbid.remove(gw2.items.search_name('Mithril Ingot'))
+    forbid.remove(gw2.items.search_name('Elder Wood Plank'))
+    forbid.remove(gw2.items.search_name('Bolt of Silk'))
+    forbid.remove(gw2.items.search_name('Cured Thick Leather Square'))
 
     for i in range(2,23):
         forbid.add(gw2.items.search_name('+%d Agony Infusion' % i))
