@@ -62,11 +62,16 @@ def _get():
     ))
 
 
+    # Bought from vendors
     add(1, 'Chunk of Ancient Ambergris', ((10, 'Flawless Fish Fillet'),))
     add(1, 'Flawless Fish Fillet', ((5, 'Fantastic Fish Fillet'),))
     add(1, 'Fantastic Fish Fillet', ((5, 'Flavorful Fish Fillet'),))
     add(1, 'Flavorful Fish Fillet', ((5, 'Fabulous Fish Fillet'),))
     add(1, 'Fabulous Fish Fillet', ((5, 'Fine Fish Fillet'),))
+
+
+    # Bought from vendors
+    add(10, 'Hydrocatalytic Reagent', ((50, 'Research Note'),))
 
 
     _RECIPES = recipes
