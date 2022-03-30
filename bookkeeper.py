@@ -886,7 +886,7 @@ def cmd_status():
             return format_price_delta(self.total)
 
 
-    def render_table(name, columns, rows, render_title=False):
+    def render_table(name, columns, rows, render_title=False, render_total=True):
         rows = [r for r in rows if r is not None]
         if len(rows) == 0:
             return
@@ -896,7 +896,8 @@ def cmd_status():
             print((fmt % tuple(col.title() for col in columns)).rstrip())
         for row in rows:
             print((fmt % tuple(col.render(row) for col in columns)).rstrip())
-        print((fmt % tuple(col.render_total() for col in columns)).rstrip())
+        if render_total:
+            print((fmt % tuple(col.render_total() for col in columns)).rstrip())
 
 
     def row_buy(item_id, count):
@@ -996,7 +997,9 @@ def cmd_status():
                 #UnitPriceColumn(), TotalPriceColumn(0.85),
                 AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
                 AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed')),
-            rows_sell(), render_title=True)
+            rows_sell(),
+            render_title=True,
+            render_total=False)
 
     def row_sell_order(transaction):
         if transaction['quantity'] == 0:
