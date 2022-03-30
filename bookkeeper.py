@@ -114,6 +114,8 @@ def get_inventory():
         char = gw2.api.fetch('/v2/characters/%s/inventory' %
                 urllib.parse.quote(char_name))
         for bag in char['bags']:
+            if bag is None:
+                continue
             for item in bag['inventory']:
                 if item is None or item['count'] == 0:
                     continue
