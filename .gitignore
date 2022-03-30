@@ -3,3 +3,4 @@ __pycache__/
 /storage/
 /api_key.txt
 /books/
+/profit.sqlite
