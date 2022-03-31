@@ -525,6 +525,9 @@ def policy_forbid_buy():
     forbid.remove(gw2.items.search_name('Bolt of Silk'))
     forbid.remove(gw2.items.search_name('Cured Thick Leather Square'))
 
+    # Refinement items that are usually very cheap to instant-buy
+    forbid.remove(gw2.items.search_name('Pulsing Brandspark'))
+
     for i in range(2,23):
         forbid.add(gw2.items.search_name('+%d Agony Infusion' % i))
 
