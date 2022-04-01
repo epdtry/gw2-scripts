@@ -568,6 +568,7 @@ def policy_buy_on_demand():
     buy.add(gw2.items.search_name('Superior Rune of Holding'))
     buy.add(gw2.items.search_name('Thermocatalytic Reagent'))
     buy.add(gw2.items.search_name('Spool of Gossamer Thread'))
+    buy.add(gw2.items.search_name('Milling Basin'))
 
     return buy
 
