@@ -862,6 +862,34 @@ def cmd_status():
         def render_total(self):
             return ''
 
+    class RecentColumn:
+        def format(self):
+            return '%10s'
+
+        def title(self):
+            return 'Recent'
+
+        def render(self, row):
+            parts = []
+
+            count = row.get('recent_count')
+            if count is not None:
+                parts.append(str(count))
+
+            age_sec = row.get('recent_age_sec')
+            if age_sec is not None:
+                days = age_sec // 86400
+                hours = age_sec // 3600 % 24
+                if days == 0:
+                    parts.append('%dh' % hours)
+                else:
+                    parts.append('%dd%02dh' % (days, hours))
+
+            return '/'.join(parts)
+
+        def render_total(self):
+            return ''
+
     class ItemNameColumn:
         def format(self):
             return '%-35.35s'
@@ -1013,19 +1041,25 @@ def cmd_status():
             (row_use(item_id, count) for item_id, count in used_items.items()))
 
     def rows_sell():
-        sell_amounts = defaultdict(int)
-        sell_age = {}
+        orders_by_item = defaultdict(list)
         for t in sell_orders:
             if t['quantity'] == 0:
                 continue
-            item_id = t['item_id']
-            sell_amounts[item_id] += t['quantity']
+            orders_by_item[t['item_id']].append((t, parse_timestamp(t['created'])))
 
-            age = now - parse_timestamp(t['created'])
-            if item_id not in sell_age:
-                sell_age[item_id] = age
-            else:
-                sell_age[item_id] = min(sell_age[item_id], age)
+        sell_amounts = {}
+        sell_age = {}
+        recent_sell_amounts = {}
+        for item_id, orders in orders_by_item.items():
+            if len(orders) == 0:
+                continue
+            orders.sort(key=lambda x: x[1], reverse=True)
+            _, recent_timestamp = orders[0]
+            recent_sell_amounts[item_id] = sum(t['quantity']
+                    for t, timestamp in orders
+                    if timestamp >= recent_timestamp - 3600)
+            sell_amounts[item_id] = sum(t['quantity'] for t, timestamp in orders)
+            sell_age[item_id] = now - recent_timestamp
 
         sell_rows = {}
         def sell_row(item_id):
@@ -1058,7 +1092,8 @@ def cmd_status():
         for item_id, count in sell_amounts.items():
             row = sell_row(item_id)
             row['count_listed'] = count
-            row['age_sec'] = sell_age[item_id]
+            row['recent_age_sec'] = sell_age[item_id]
+            row['recent_count'] = recent_sell_amounts[item_id]
 
         #return sorted(sell_rows.values(), key=lambda x: gw2.items.name(x['item_id']))
         return list(sell_rows.values())
@@ -1067,8 +1102,8 @@ def cmd_status():
             (CountColumn(), ItemNameColumn(),
                 #UnitPriceColumn(), TotalPriceColumn(0.85),
                 AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
-                AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed'),
-                AgeColumn()),
+                AltCountColumn('sell', 'Sell'),
+                RecentColumn(), AltCountColumn('listed', 'Listed')),
             rows_sell(),
             render_title=True,
             render_total=False)
