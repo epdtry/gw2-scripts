@@ -1,9 +1,11 @@
 from collections import defaultdict, namedtuple
+import datetime
 from itertools import chain
 import json
 import os
 import sqlite3
 import sys
+import time
 import urllib.parse
 
 import gw2.api
@@ -66,6 +68,10 @@ def format_price_delta(price):
         return '+' + format_price(price)
     else:
         return '0'
+
+def parse_timestamp(s):
+    dt = datetime.datetime.fromisoformat(s)
+    return dt.timestamp()
 
 
 def get_prices(item_ids):
@@ -834,6 +840,27 @@ def cmd_status():
         def render_total(self):
             return ''
 
+    class AgeColumn:
+        def format(self):
+            return '%6s'
+
+        def title(self):
+            return 'Age'
+
+        def render(self, row):
+            age_sec = row.get('age_sec')
+            if age_sec is None:
+                return ''
+            days = age_sec // 86400
+            hours = age_sec // 3600 % 24
+            if days == 0:
+                return '%dh' % hours
+            else:
+                return '%dd%02dh' % (days, hours)
+
+        def render_total(self):
+            return ''
+
     class ItemNameColumn:
         def format(self):
             return '%-35.35s'
@@ -926,6 +953,8 @@ def cmd_status():
             print((fmt % tuple(col.render_total() for col in columns)).rstrip())
 
 
+    now = time.time()
+
     def row_buy(item_id, count):
         if count == 0:
             return None
@@ -949,11 +978,12 @@ def cmd_status():
                 'count': transaction['quantity'],
                 'unit_price': transaction['price'],
                 'alt_unit_price': sell_prices.get(transaction['item_id']),
+                'age_sec': now - parse_timestamp(transaction['created']),
                 }
 
     render_table('Buy orders',
             (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
-                TotalPriceColumn(), AltPriceDeltaColumn()),
+                TotalPriceColumn(), AltPriceDeltaColumn(), AgeColumn()),
             (row_buy_order(t) for t in buy_orders))
 
     def row_obtain(item_id, count):
@@ -983,10 +1013,18 @@ def cmd_status():
 
     def rows_sell():
         sell_amounts = defaultdict(int)
+        sell_age = {}
         for t in sell_orders:
             if t['quantity'] == 0:
                 continue
-            sell_amounts[t['item_id']] += t['quantity']
+            item_id = t['item_id']
+            sell_amounts[item_id] += t['quantity']
+
+            age = now - parse_timestamp(t['created'])
+            if item_id not in sell_age:
+                sell_age[item_id] = age
+            else:
+                sell_age[item_id] = min(sell_age[item_id], age)
 
         sell_rows = {}
         def sell_row(item_id):
@@ -1002,6 +1040,7 @@ def cmd_status():
                         'count_sell': None,
                         'count_listed': None,
                         'unit_price': sell_prices.get(item_id),
+                        'age_sec': None,
                         }
             return sell_rows[item_id]
 
@@ -1018,6 +1057,7 @@ def cmd_status():
         for item_id, count in sell_amounts.items():
             row = sell_row(item_id)
             row['count_listed'] = count
+            row['age_sec'] = sell_age[item_id]
 
         #return sorted(sell_rows.values(), key=lambda x: gw2.items.name(x['item_id']))
         return list(sell_rows.values())
@@ -1026,7 +1066,8 @@ def cmd_status():
             (CountColumn(), ItemNameColumn(),
                 #UnitPriceColumn(), TotalPriceColumn(0.85),
                 AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
-                AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed')),
+                AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed'),
+                AgeColumn()),
             rows_sell(),
             render_title=True,
             render_total=False)
@@ -1038,10 +1079,12 @@ def cmd_status():
                 'item_id': transaction['item_id'],
                 'count': transaction['quantity'],
                 'unit_price': transaction['price'],
+                'age_sec': now - parse_timestamp(transaction['created']),
                 }
 
     render_table('Sell orders',
-            (CountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn(0.9)),
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
+                TotalPriceColumn(0.9), AgeColumn()),
             (row_sell_order(t) for t in sell_orders))
 
     print('')
