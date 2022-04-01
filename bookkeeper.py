@@ -383,7 +383,7 @@ def gather_related_items(item_ids):
         add_item_and_related(item_id)
     return all_items
 
-def count_craftable(targets, inventory):
+def count_craftable(targets, inventory, buy_on_demand):
     '''Given a list `targets` of item IDs and counts, return the number of
     requested items that can be crafted via the optimal strategy, using only
     items that are currently available in `inventory`.  Items are tried in
@@ -427,6 +427,10 @@ def count_craftable(targets, inventory):
                 if craft_count <= 0:
                     # We can fulfill this requirement using only items currently
                     # available in the inventory.
+                    continue
+                # If this item is bought on demand, buy it
+                if item_id in buy_on_demand:
+                    inventory[item_id] += craft_count
                     continue
                 optimal_strategy(item_id).apply(state, craft_count)
 
@@ -544,6 +548,22 @@ def policy_forbid_craft():
     forbid.add(gw2.items.search_name('Charged Quartz Crystal'))
 
     return forbid
+
+def policy_buy_on_demand():
+    buy = set()
+
+    buy.add(gw2.items.search_name('Piece of Ambrite'))
+
+    buy.add(gw2.items.search_name('Pulsing Brandspark'))
+    buy.add(gw2.items.search_name('Eye of Kormir'))
+
+    # Vendor items
+    # TODO: include all vendor items in this set automatically
+    buy.add(gw2.items.search_name('Superior Rune of Holding'))
+    buy.add(gw2.items.search_name('Thermocatalytic Reagent'))
+    buy.add(gw2.items.search_name('Spool of Gossamer Thread'))
+
+    return buy
 
 
 def cmd_init():
@@ -720,7 +740,8 @@ def calculate_status():
     craft_items = defaultdict(int)
     for item_id, count in chain(craft_goal_items.items(), craft_stockpile_items.items()):
         craft_items[item_id] += count
-    craft_counts = count_craftable(list(craft_items.items()), orig_inventory)
+    craft_counts = count_craftable(list(craft_items.items()), orig_inventory,
+            policy_buy_on_demand())
 
 
     return {
