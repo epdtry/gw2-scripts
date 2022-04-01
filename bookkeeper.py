@@ -1000,7 +1000,7 @@ def cmd_status():
                         'count_wait': None,
                         'count_craft': None,
                         'count_sell': None,
-                        'count_listed': sell_amounts.get(item_id),
+                        'count_listed': None,
                         'unit_price': sell_prices.get(item_id),
                         }
             return sell_rows[item_id]
@@ -1014,6 +1014,10 @@ def cmd_status():
         for item_id, count in sell_goal_items.items():
             row = sell_row(item_id)
             row['count_sell'] = count
+
+        for item_id, count in sell_amounts.items():
+            row = sell_row(item_id)
+            row['count_listed'] = count
 
         #return sorted(sell_rows.values(), key=lambda x: gw2.items.name(x['item_id']))
         return list(sell_rows.values())
