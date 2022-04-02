@@ -769,7 +769,6 @@ def calculate_status():
             'sell_goal_items': sell_goal_items,
             }
 
-
 def cmd_status():
     '''Print a report listing the following:
 
@@ -801,185 +800,6 @@ def cmd_status():
 
     sell_orders = condense_transactions(sell_orders)
     buy_orders = condense_transactions(buy_orders)
-
-
-    class CountColumn:
-        def format(self):
-            return '%6s'
-
-        def title(self):
-            return 'Count'
-
-        def render(self, row):
-            count = row.get('count')
-            if count is None:
-                return ''
-            return str(count)
-
-        def render_total(self):
-            return ''
-
-    class AltCountColumn:
-        def __init__(self, suffix, title):
-            self.suffix = suffix
-            self.title_ = title
-
-        def format(self):
-            return '%6s'
-
-        def title(self):
-            return self.title_
-
-        def render(self, row):
-            count = row.get('count_' + self.suffix)
-            if count is None:
-                return ''
-            if count == 0:
-                return '-'
-            return str(count)
-
-        def render_total(self):
-            return ''
-
-    class AgeColumn:
-        def format(self):
-            return '%6s'
-
-        def title(self):
-            return 'Age'
-
-        def render(self, row):
-            age_sec = row.get('age_sec')
-            if age_sec is None:
-                return ''
-            days = age_sec // 86400
-            hours = age_sec // 3600 % 24
-            if days == 0:
-                return '%dh' % hours
-            else:
-                return '%dd%02dh' % (days, hours)
-
-        def render_total(self):
-            return ''
-
-    class RecentColumn:
-        def format(self):
-            return '%10s'
-
-        def title(self):
-            return 'Recent'
-
-        def render(self, row):
-            parts = []
-
-            count = row.get('recent_count')
-            if count is not None:
-                parts.append(str(count))
-
-            age_sec = row.get('recent_age_sec')
-            if age_sec is not None:
-                days = age_sec // 86400
-                hours = age_sec // 3600 % 24
-                if days == 0:
-                    parts.append('%dh' % hours)
-                else:
-                    parts.append('%dd%02dh' % (days, hours))
-
-            return '/'.join(parts)
-
-        def render_total(self):
-            return ''
-
-    class ItemNameColumn:
-        def format(self):
-            return '%-35.35s'
-
-        def title(self):
-            return 'Item'
-
-        def render(self, row):
-            item_id = row.get('item_id')
-            if item_id is None:
-                return ''
-            return gw2.items.name(item_id)
-
-        def render_total(self):
-            return 'Total'
-
-    class UnitPriceColumn:
-        def format(self):
-            return '%11s'
-
-        def title(self):
-            return 'Unit Price'
-
-        def render(self, row):
-            unit_price = row.get('unit_price')
-            if unit_price is None:
-                return ''
-            return format_price(unit_price)
-
-        def render_total(self):
-            return ''
-
-    class TotalPriceColumn:
-        def __init__(self, mult=1):
-            self.total = 0
-            self.mult = mult
-
-        def title(self):
-            return 'Total Price'
-
-        def format(self):
-            return '%11s'
-
-        def render(self, row):
-            count = row.get('count')
-            unit_price = row.get('unit_price')
-            if count is None or unit_price is None:
-                return ''
-            self.total += count * unit_price
-            return format_price(count * unit_price * self.mult)
-
-        def render_total(self):
-            return format_price(self.total * self.mult)
-
-    class AltPriceDeltaColumn:
-        def __init__(self):
-            self.total = 0
-
-        def title(self):
-            return 'Inst. Delta'
-
-        def format(self):
-            return '%11s'
-
-        def render(self, row):
-            count = row.get('count')
-            unit_price = row.get('unit_price')
-            alt_unit_price = row.get('alt_unit_price')
-            if count is None or unit_price is None or alt_unit_price is None:
-                return ''
-            delta = count * (alt_unit_price - unit_price)
-            self.total += delta
-            return format_price_delta(delta)
-
-        def render_total(self):
-            return format_price_delta(self.total)
-
-
-    def render_table(name, columns, rows, render_title=False, render_total=True):
-        rows = [r for r in rows if r is not None]
-        if len(rows) == 0:
-            return
-        print('\n%s:' % name)
-        fmt = '  '.join(col.format() for col in columns)
-        if render_title:
-            print((fmt % tuple(col.title() for col in columns)).rstrip())
-        for row in rows:
-            print((fmt % tuple(col.render(row) for col in columns)).rstrip())
-        if render_total:
-            print((fmt % tuple(col.render_total() for col in columns)).rstrip())
 
 
     now = time.time()
@@ -1151,6 +971,189 @@ def cmd_status():
         cash_out_sell_orders + cash_out_sell_goal_items))
     print('Target gold: %s' % format_price(gold - future_buy_total +
         current_sell_total + future_sell_total))
+
+class CountColumn:
+    def format(self):
+        return '%6s'
+
+    def title(self):
+        return 'Count'
+
+    def render(self, row):
+        count = row.get('count')
+        if count is None:
+            return ''
+        return str(count)
+
+    def render_total(self):
+        return ''
+
+class AltCountColumn:
+    def __init__(self, suffix, title):
+        self.suffix = suffix
+        self.title_ = title
+
+    def format(self):
+        return '%6s'
+
+    def title(self):
+        return self.title_
+
+    def render(self, row):
+        count = row.get('count_' + self.suffix)
+        if count is None:
+            return ''
+        if count == 0:
+            return '-'
+        return str(count)
+
+    def render_total(self):
+        return ''
+
+class AgeColumn:
+    def format(self):
+        return '%6s'
+
+    def title(self):
+        return 'Age'
+
+    def render(self, row):
+        age_sec = row.get('age_sec')
+        if age_sec is None:
+            return ''
+        days = age_sec // 86400
+        hours = age_sec // 3600 % 24
+        if days == 0:
+            return '%dh' % hours
+        else:
+            return '%dd%02dh' % (days, hours)
+
+    def render_total(self):
+        return ''
+
+class RecentColumn:
+    def format(self):
+        return '%10s'
+
+    def title(self):
+        return 'Recent'
+
+    def render(self, row):
+        parts = []
+
+        count = row.get('recent_count')
+        if count is not None:
+            parts.append(str(count))
+
+        age_sec = row.get('recent_age_sec')
+        if age_sec is not None:
+            days = age_sec // 86400
+            hours = age_sec // 3600 % 24
+            if days == 0:
+                parts.append('%dh' % hours)
+            else:
+                parts.append('%dd%02dh' % (days, hours))
+
+        return '/'.join(parts)
+
+    def render_total(self):
+        return ''
+
+class ItemNameColumn:
+    def format(self):
+        return '%-35.35s'
+
+    def title(self):
+        return 'Item'
+
+    def render(self, row):
+        item_id = row.get('item_id')
+        if item_id is None:
+            return ''
+        return gw2.items.name(item_id)
+
+    def render_total(self):
+        return 'Total'
+
+class UnitPriceColumn:
+    def __init__(self, key='unit_price', title='Unit Price'):
+        self.key = key
+        self.title_ = title
+
+    def format(self):
+        return '%11s'
+
+    def title(self):
+        return self.title_
+
+    def render(self, row):
+        unit_price = row.get(self.key)
+        if unit_price is None:
+            return ''
+        return format_price(unit_price)
+
+    def render_total(self):
+        return ''
+
+class TotalPriceColumn:
+    def __init__(self, mult=1):
+        self.total = 0
+        self.mult = mult
+
+    def title(self):
+        return 'Total Price'
+
+    def format(self):
+        return '%11s'
+
+    def render(self, row):
+        count = row.get('count')
+        unit_price = row.get('unit_price')
+        if count is None or unit_price is None:
+            return ''
+        self.total += count * unit_price
+        return format_price(count * unit_price * self.mult)
+
+    def render_total(self):
+        return format_price(self.total * self.mult)
+
+class AltPriceDeltaColumn:
+    def __init__(self):
+        self.total = 0
+
+    def title(self):
+        return 'Inst. Delta'
+
+    def format(self):
+        return '%11s'
+
+    def render(self, row):
+        count = row.get('count')
+        unit_price = row.get('unit_price')
+        alt_unit_price = row.get('alt_unit_price')
+        if count is None or unit_price is None or alt_unit_price is None:
+            return ''
+        delta = count * (alt_unit_price - unit_price)
+        self.total += delta
+        return format_price_delta(delta)
+
+    def render_total(self):
+        return format_price_delta(self.total)
+
+
+def render_table(name, columns, rows, render_title=False, render_total=True):
+    rows = [r for r in rows if r is not None]
+    if len(rows) == 0:
+        return
+    print('\n%s:' % name)
+    fmt = '  '.join(col.format() for col in columns)
+    if render_title:
+        print((fmt % tuple(col.title() for col in columns)).rstrip())
+    for row in rows:
+        print((fmt % tuple(col.render(row) for col in columns)).rstrip())
+    if render_total:
+        print((fmt % tuple(col.render_total() for col in columns)).rstrip())
+
 
 
 def cmd_goal(count, name):
@@ -1455,6 +1458,74 @@ def cmd_gen_profit_sql():
     recipes.'''
     gen_profit_sql('profit.sqlite')
 
+def cmd_craft_profit_buy():
+    '''Print a table of recipes that are profitable at the buy price, along
+    with market depth for each one.'''
+    output_item_ids = set()
+    for r in gw2.recipes.iter_all():
+        if policy_can_craft_recipe(r):
+            output_item_ids.add(r['output_item_id'])
+
+    related_items = gather_related_items(output_item_ids)
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    rows = []
+    for item_id in output_item_ids:
+        buy_price = buy_prices.get(item_id)
+        cost = optimal_cost(item_id)
+        if buy_price is None or cost is None:
+            continue
+
+        profit = buy_price * 0.85 - cost
+        if profit <= 0:
+            continue
+
+        rows.append({
+            'item_id': item_id,
+            'craft_cost': cost,
+            'unit_price': buy_price,
+            })
+
+    # Collect detailed trading post data for profitable items.
+    item_listings = gw2.trading_post.get_listings_multi([x['item_id'] for x in rows])
+    for (row, listings) in zip(rows, item_listings):
+        if listings is None or len(listings) == 0:
+            continue
+
+        cost = row['craft_cost']
+        total_count = 0
+        total_profit = 0
+        for buy in listings['buys']:
+            price = buy['unit_price']
+            count = buy['quantity']
+            profit = price * 0.85 - cost
+            if profit <= 0:
+                continue
+            total_profit += profit * count
+            total_count += count
+
+        row['count'] = total_count
+        row['total_profit'] = total_profit
+
+
+    render_table('Buy-price Profits',
+            (CountColumn(), ItemNameColumn(),
+                UnitPriceColumn('craft_cost', 'Craft Cost'),
+                UnitPriceColumn(),
+                UnitPriceColumn('total_profit', 'Max Profit')),
+            sorted(rows, key=lambda row: row.get('total_profit', 0), reverse=True),
+            render_total=False)
+
+
+
+
 
 def main():
     with open('api_key.txt') as f:
@@ -1488,6 +1559,9 @@ def main():
     elif cmd == 'gen_profit_sql':
         assert len(args) == 0
         cmd_gen_profit_sql()
+    elif cmd == 'craft_profit_buy':
+        assert len(args) == 0
+        cmd_craft_profit_buy()
     else:
         raise ValueError('unknown command %r' % cmd)
 

@@ -68,6 +68,33 @@ def get_prices_multi(item_ids):
     return out
 
 
+def get_listings_multi(item_ids):
+    dct = {}
+    query_ids = []
+    for item_id in item_ids:
+        query_ids.append(item_id)
+    query_ids = sorted(set(query_ids))
+
+    N = 30
+    for i in range(0, len(query_ids), N):
+        chunk = query_ids[i : i + N]
+        items = []
+        try:
+            items = fetch('/v2/commerce/listings?ids=' + ','.join(str(x) for x in chunk))
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                pass
+            else:
+                raise
+        for item in items:
+            dct[item['id']] = item
+
+    out = []
+    for item_id in item_ids:
+        out.append(dct.get(item_id))
+    return out
+
+
 def _update_history(kind):
     '''Update the transaction history for `kind`, which must be either `'buys'`
     or `'sells'`.  Returns the `DataStorage` object containing all the
