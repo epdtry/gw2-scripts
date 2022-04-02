@@ -501,10 +501,14 @@ def policy_forbid_buy():
         if r['type'] in ('Refinement', 'Component'):
             forbid.add(r['output_item_id'])
 
-        #item = gw2.items.get(r['output_item_id'])
-        #if item is not None:
-        #    if 'Inscription' in item['name'] or 'Insignia' in item['name']:
-        #        forbid.add(item['id'])
+        item = gw2.items.get(r['output_item_id'])
+        if item is not None:
+            if item['name'].startswith('Embellished'):
+                forbid.add(item['id'])
+            if item['name'].startswith('Exquisite'):
+                forbid.add(item['id'])
+            #if 'Inscription' in item['name'] or 'Insignia' in item['name']:
+            #    forbid.add(item['id'])
 
     ascended_refinement = [
         gw2.items.search_name('Deldrimor Steel Ingot'),
