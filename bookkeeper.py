@@ -1525,6 +1525,7 @@ def cmd_craft_profit_buy():
                 UnitPriceColumn(),
                 UnitPriceColumn('total_profit', 'Max Profit')),
             sorted(rows, key=lambda row: row.get('total_profit', 0), reverse=True),
+            render_title=True,
             render_total=False)
 
 
