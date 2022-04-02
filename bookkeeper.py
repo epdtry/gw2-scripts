@@ -489,6 +489,8 @@ def policy_can_craft_recipe(r):
             return True
         if d == 'Artificer' and min_rating <= 500:
             return True
+        if d == 'Jeweler' and min_rating <= 400:
+            return True
     return False
 
 def policy_forbid_buy():
