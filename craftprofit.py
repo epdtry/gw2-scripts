@@ -7,14 +7,14 @@ from gw2.api import fetch
 import gw2.items
 import gw2.recipes
 import gw2.trading_post
+import gw2.character
 
 
 def can_craft(r):
     min_rating = r['min_rating']
+    discipline_levels = gw2.character.get_max_of_each_discipline()
     for d in r['disciplines']:
-        if d == 'Tailor' and min_rating <= 500:
-            return True
-        if d == 'Artificer' and min_rating <= 500:
+        if discipline_levels[d] != None and min_rating <= discipline_levels[d]:
             return True
     return False
 

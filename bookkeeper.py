@@ -14,6 +14,7 @@ import gw2.items
 import gw2.mystic_forge
 import gw2.recipes
 import gw2.trading_post
+import gw2.character
 
 
 def _load_dict(path):
@@ -502,12 +503,9 @@ def count_craftable(targets, inventory, buy_on_demand):
 
 def policy_can_craft_recipe(r):
     min_rating = r['min_rating']
+    discipline_levels = gw2.character.get_max_of_each_discipline()
     for d in r['disciplines']:
-        if d == 'Tailor' and min_rating <= 500:
-            return True
-        if d == 'Artificer' and min_rating <= 500:
-            return True
-        if d == 'Jeweler' and min_rating <= 400:
+        if discipline_levels[d] != None and min_rating <= discipline_levels[d]:
             return True
     return False
 
