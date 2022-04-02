@@ -1142,6 +1142,26 @@ class TotalPriceColumn:
     def render_total(self):
         return format_price(self.total * self.mult)
 
+class PercentColumn:
+    def __init__(self, key='roi', title='ROI'):
+        self.key = key
+        self.title_ = title
+
+    def format(self):
+        return '%8s'
+
+    def title(self):
+        return self.title_
+
+    def render(self, row):
+        roi = row.get(self.key)
+        if roi is None:
+            return ''
+        return '%5.1f%%' % (roi * 100)
+
+    def render_total(self):
+        return ''
+
 class AltPriceDeltaColumn:
     def __init__(self):
         self.total = 0
@@ -1420,7 +1440,6 @@ def gen_profit_sql(path):
 
     related_items = gather_related_items(output_item_ids)
     buy_prices, sell_prices = get_prices(related_items)
-
     forbid_buy = policy_forbid_buy()
     forbid_craft = policy_forbid_craft()
 
@@ -1483,6 +1502,79 @@ def cmd_gen_profit_sql():
     '''Generate a sqlite database containing information on profitable
     recipes.'''
     gen_profit_sql('profit.sqlite')
+
+def cmd_craft_profit():
+    '''Print a table of recipes that are profitable at the buy price, along
+    with market depth for each one.'''
+    def row_filter(x):
+        if x['sell_price'] >= x['buy_price'] * 1.5:
+            return False
+        if x['demand'] < 100 or x['demand'] < x['supply']:
+            return False
+        if x['craft_cost'] < 2000:
+            return False
+
+        item = x['item']
+        if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
+            return False
+        if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
+            return False
+        if item['type'] in ('Weapon', 'Armor'):
+            if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
+                return False
+
+        return True
+
+    output_item_ids = set(craftable_items())
+
+    related_items = gather_related_items(output_item_ids)
+    buy_prices, sell_prices = get_prices(related_items)
+    forbid_buy = policy_forbid_buy()
+    forbid_craft = policy_forbid_craft()
+
+    rows = []
+    for item_id in output_item_ids:
+        set_strategy_params(
+                buy_prices,
+                set(chain(forbid_buy, (item_id,))),
+                forbid_craft,
+                policy_can_craft_recipe,
+                )
+
+        sell_price = sell_prices.get(item_id)
+        cost = optimal_cost(item_id)
+        if sell_price is None or cost is None:
+            continue
+
+        profit = sell_price * 0.85 - cost
+        if profit <= 0:
+            continue
+
+        prices = gw2.trading_post.get_prices(item_id)
+
+        row = {
+            'item_id': item_id,
+            'item': gw2.items.get(item_id),
+            'craft_cost': cost,
+            'profit': profit,
+            'roi': profit / cost,
+            'supply': prices['sells'].get('quantity', 0),
+            'demand': prices['buys'].get('quantity', 0),
+            'sell_price': sell_prices.get(item_id, 0),
+            'buy_price': buy_prices.get(item_id, 0),
+            }
+        if row_filter(row):
+            rows.append(row)
+
+    render_table('Profits',
+            (ItemNameColumn(),
+                PercentColumn(),
+                UnitPriceColumn('craft_cost', 'Craft Cost'),
+                UnitPriceColumn('profit', 'Unit Profit'),
+                ),
+            sorted(rows, key=lambda row: row.get('roi', 0), reverse=True),
+            render_title=True,
+            render_total=False)
 
 def cmd_craft_profit_buy():
     '''Print a table of recipes that are profitable at the buy price, along
@@ -1550,9 +1642,6 @@ def cmd_craft_profit_buy():
             render_total=False)
 
 
-
-
-
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
@@ -1585,6 +1674,9 @@ def main():
     elif cmd == 'gen_profit_sql':
         assert len(args) == 0
         cmd_gen_profit_sql()
+    elif cmd == 'craft_profit':
+        assert len(args) == 0
+        cmd_craft_profit()
     elif cmd == 'craft_profit_buy':
         assert len(args) == 0
         cmd_craft_profit_buy()
