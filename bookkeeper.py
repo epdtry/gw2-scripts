@@ -2,6 +2,7 @@ from collections import defaultdict, namedtuple
 import datetime
 from itertools import chain
 import json
+import math
 import os
 import sqlite3
 import sys
@@ -1494,6 +1495,7 @@ def cmd_craft_profit_buy():
         rows.append({
             'item_id': item_id,
             'craft_cost': cost,
+            'min_sell_price': math.ceil(cost / 0.85),
             'unit_price': buy_price,
             })
 
@@ -1522,6 +1524,7 @@ def cmd_craft_profit_buy():
     render_table('Buy-price Profits',
             (CountColumn(), ItemNameColumn(),
                 UnitPriceColumn('craft_cost', 'Craft Cost'),
+                UnitPriceColumn('min_sell_price', 'Min. Sell'),
                 UnitPriceColumn(),
                 UnitPriceColumn('total_profit', 'Max Profit')),
             sorted(rows, key=lambda row: row.get('total_profit', 0), reverse=True),
