@@ -1431,6 +1431,10 @@ def gen_profit_sql(path):
         if prices is None:
             continue
 
+        item = gw2.items.get(item_id)
+        if item is None:
+            continue
+
         cur.execute('''
             INSERT INTO items
                 (id, name, buy_price, sell_price, demand, supply, cost,
@@ -1438,7 +1442,7 @@ def gen_profit_sql(path):
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 item_id,
-                gw2.items.name(item_id),
+                item['name'],
                 buy_price,
                 sell_price,
                 prices['buys'].get('quantity'),
