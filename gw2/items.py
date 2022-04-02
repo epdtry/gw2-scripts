@@ -68,6 +68,9 @@ def _refresh():
 def get(item_id):
     return _get_data().get(item_id)
 
+def is_known(item_id):
+    return _get_data().contains(item_id)
+
 def iter_all():
     data = _get_data()
     return (data.get(k) for k in data.keys())

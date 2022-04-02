@@ -81,7 +81,7 @@ def get(mystic_recipe_id):
     return _get()[mystic_recipe_id]
 
 def iter_all():
-    return range(len(_get()))
+    return iter(_get())
 
 _BY_OUTPUT = None
 def _by_output():

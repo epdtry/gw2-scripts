@@ -75,7 +75,7 @@ def get_listings_multi(item_ids):
         query_ids.append(item_id)
     query_ids = sorted(set(query_ids))
 
-    N = 30
+    N = 100
     for i in range(0, len(query_ids), N):
         chunk = query_ids[i : i + N]
         items = []

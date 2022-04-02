@@ -157,6 +157,24 @@ def condense_transactions(transactions):
     return out
 
 
+def craftable_items():
+    for r in gw2.recipes.iter_all():
+        if not policy_can_craft_recipe(r):
+            continue
+        item_id = r['output_item_id']
+        if not gw2.items.is_known(item_id):
+            continue
+        yield item_id
+
+    for r in gw2.mystic_forge.iter_all():
+        item_id = r['output_item_id']
+        if not gw2.items.is_known(item_id):
+            continue
+        yield item_id
+
+    yield gw2.items.search_name('Piece of Dragon Jade')
+
+
 State = namedtuple('State', (
     'inventory',
     'pending_items',
@@ -1398,27 +1416,24 @@ def gen_profit_sql(path):
         )
     ''')
 
-    output_item_ids = set()
-    for r in gw2.recipes.iter_all():
-        if policy_can_craft_recipe(r):
-            output_item_ids.add(r['output_item_id'])
+    output_item_ids = set(craftable_items())
 
     related_items = gather_related_items(output_item_ids)
     buy_prices, sell_prices = get_prices(related_items)
 
-    set_strategy_params(
-            buy_prices,
-            policy_forbid_buy(),
-            policy_forbid_craft(),
-            policy_can_craft_recipe,
-            )
+    forbid_buy = policy_forbid_buy()
+    forbid_craft = policy_forbid_craft()
 
     print('processing %d items' % len(output_item_ids))
     num_written = 0
     for item_id in output_item_ids:
-        craft_costs = [StrategyCraft(gw2.recipes.get(recipe_id)).cost()
-                for recipe_id in gw2.recipes.search_output(item_id)]
-        craft_cost = min((x for x in craft_costs if x is not None), default=None)
+        set_strategy_params(
+                buy_prices,
+                set(chain(forbid_buy, (item_id,))),
+                forbid_craft,
+                policy_can_craft_recipe,
+                )
+        craft_cost = optimal_cost(item_id)
         if craft_cost is None:
             continue
 
@@ -1472,10 +1487,7 @@ def cmd_gen_profit_sql():
 def cmd_craft_profit_buy():
     '''Print a table of recipes that are profitable at the buy price, along
     with market depth for each one.'''
-    output_item_ids = set()
-    for r in gw2.recipes.iter_all():
-        if policy_can_craft_recipe(r):
-            output_item_ids.add(r['output_item_id'])
+    output_item_ids = set(craftable_items())
 
     related_items = gather_related_items(output_item_ids)
     buy_prices, sell_prices = get_prices(related_items)
