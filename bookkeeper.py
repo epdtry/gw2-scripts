@@ -585,6 +585,7 @@ def policy_buy_on_demand():
 
     buy.add(gw2.items.search_name('Pulsing Brandspark'))
     buy.add(gw2.items.search_name('Eye of Kormir'))
+    buy.add(gw2.items.search_name('Sliver of Twitching Forgemetal'))
 
     # Vendor items
     # TODO: include all vendor items in this set automatically
