@@ -4,3 +4,4 @@ __pycache__/
 /api_key.txt
 /books/
 /profit.sqlite
+/builds_*.json
