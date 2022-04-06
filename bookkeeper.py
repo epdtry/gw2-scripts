@@ -76,6 +76,8 @@ def parse_timestamp(s):
     return dt.timestamp()
 
 
+_PRINTED_ORIGINS=set()
+
 def get_prices(item_ids):
     buy_prices = {}
     sell_prices = {}
@@ -100,7 +102,9 @@ def get_prices(item_ids):
         j = json.load(f)
     for k, v in j.items():
         if k == '_origin':
-            print('using vendor prices from %s' % v)
+            if v not in _PRINTED_ORIGINS:
+                print('using vendor prices from %s' % v)
+                _PRINTED_ORIGINS.add(v)
             continue
 
         k = int(k)
@@ -1503,29 +1507,31 @@ def cmd_gen_profit_sql():
     recipes.'''
     gen_profit_sql('profit.sqlite')
 
-def cmd_craft_profit():
-    '''Print a table of recipes that are profitable at the buy price, along
-    with market depth for each one.'''
-    def row_filter(x):
-        if x['sell_price'] >= x['buy_price'] * 1.5:
-            return False
-        if x['demand'] < 100 or x['demand'] < x['supply']:
-            return False
-        if x['craft_cost'] < 2000:
-            return False
-
-        item = x['item']
-        if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
-            return False
-        if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
-            return False
-        if item['type'] in ('Weapon', 'Armor'):
-            if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
+def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
+    if row_filter is None:
+        def row_filter(x):
+            if x['sell_price'] >= x['buy_price'] * 1.5:
+                return False
+            if x['demand'] < 100 or x['demand'] < x['supply']:
+                return False
+            if x['craft_cost'] < 2000:
                 return False
 
-        return True
+            item = x['item']
+            if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
+                return False
+            if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
+                return False
+            if item['type'] in ('Weapon', 'Armor'):
+                if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
+                    return False
 
-    output_item_ids = set(craftable_items())
+            return True
+
+    if item_ids is None:
+        output_item_ids = set(craftable_items())
+    else:
+        output_item_ids = set(item_ids)
 
     related_items = gather_related_items(output_item_ids)
     buy_prices, sell_prices = get_prices(related_items)
@@ -1566,15 +1572,23 @@ def cmd_craft_profit():
         if row_filter(row):
             rows.append(row)
 
-    render_table('Profits',
+    if sort:
+        rows.sort(key=lambda row: row.get('roi', 0), reverse=True)
+
+    render_table(title,
             (ItemNameColumn(),
                 PercentColumn(),
                 UnitPriceColumn('craft_cost', 'Craft Cost'),
                 UnitPriceColumn('profit', 'Unit Profit'),
                 ),
-            sorted(rows, key=lambda row: row.get('roi', 0), reverse=True),
+            rows,
             render_title=True,
             render_total=False)
+
+def cmd_craft_profit():
+    '''Print a table of recipes that are profitable at the buy price, along
+    with market depth for each one.'''
+    do_craft_profit()
 
 def cmd_craft_profit_buy():
     '''Print a table of recipes that are profitable at the buy price, along
