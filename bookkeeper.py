@@ -113,6 +113,9 @@ def get_prices(item_ids):
         price = v['cost'] / v['quantity']
         buy_prices[k] = price
 
+    # Additional vendor prices
+    buy_prices[gw2.items.search_name("Master's Salvage Kit")] = 1536
+
     return buy_prices, sell_prices
 
 

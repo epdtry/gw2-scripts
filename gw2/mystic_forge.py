@@ -74,6 +74,10 @@ def _get():
     add(10, 'Hydrocatalytic Reagent', ((50, 'Research Note'),))
 
 
+    # Ecto salvaging
+    add(45, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (1, "Master's Salvage Kit")))
+
+
     _RECIPES = recipes
     return recipes
 
