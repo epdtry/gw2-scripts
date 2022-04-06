@@ -1271,6 +1271,7 @@ def cmd_profit(name):
     cost = optimal_cost(item_id)
     print('%s (%d)' % (gw2.items.name(item_id), item_id))
     print('Cost:        %s' % format_price(cost))
+    print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
     print('Sell price:  %s' % format_price(sell_price))
     profit = sell_price * 0.85 - cost
     profit_pct = 100 * profit / cost
