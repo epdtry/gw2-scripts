@@ -31,7 +31,7 @@ def fetch_cached(url):
     r = requests.get(url)
     r.raise_for_status()
     text = r.text
-    with open(cache_path, 'w') as f:
+    with open(cache_path, 'w', encoding='utf-8') as f:
         f.write(text)
     return text
 
