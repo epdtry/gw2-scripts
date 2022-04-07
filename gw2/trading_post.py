@@ -17,7 +17,19 @@ DATA_FILE = os.path.join(TRADING_POST_DIR, 'data.json')
 _DATA = None
 def _get_data():
     global _DATA
-    if _DATA is None:
+    try:
+        mtime = os.stat(DATA_FILE).st_mtime
+        refresh = mtime < time.time() - (60 * 30)
+    except OSError:
+        refresh = True
+
+    if refresh:
+        if os.path.exists(INDEX_FILE):
+            os.remove(INDEX_FILE)
+        if os.path.exists(DATA_FILE):
+            os.remove(DATA_FILE)
+
+    if _DATA is None or refresh:
         os.makedirs(TRADING_POST_DIR, exist_ok=True)
         _DATA = DataStorage(INDEX_FILE, DATA_FILE)
     return _DATA
