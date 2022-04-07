@@ -71,7 +71,8 @@ def get_crafting_for_character(character_name):
                 urllib.parse.quote(character_name))
     crafts = {}
     for craft_skill in crafting_response['crafting']:
-        crafts[craft_skill['discipline']] = craft_skill['rating']
+        if craft_skill['active'] == True:
+            crafts[craft_skill['discipline']] = craft_skill['rating']
     return crafts
 
 
