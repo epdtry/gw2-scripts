@@ -563,6 +563,9 @@ def policy_forbid_buy():
     for i in range(2,23):
         forbid.add(gw2.items.search_name('+%d Agony Infusion' % i))
 
+    for i in range(1, 11):
+        forbid.add(gw2.items.search_name('Jade Bot Core: Tier %d' % i))
+
     return forbid
 
 def policy_forbid_craft():
