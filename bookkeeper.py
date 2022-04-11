@@ -538,6 +538,7 @@ def policy_forbid_buy():
         gw2.items.search_name('Elonian Leather Square'),
         gw2.items.search_name('Bolt of Damask'),
         gw2.items.search_name('Spiritwood Plank'),
+        gw2.items.search_name('Xunlai Electrum Ingot'),
     ]
     for item_id in ascended_refinement:
         if item_id in forbid:
