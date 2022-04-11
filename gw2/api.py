@@ -5,11 +5,14 @@ import sys
 import time
 
 API_BASE = 'https://api.guildwars2.com'
+API_VERSION = '2022-03-09T02:00:00.000Z'
 API_KEY = None
 CACHE_DIR = None
 
 def _fetch_req(path):
-    headers = {}
+    headers = {
+            'X-Schema-Version': API_VERSION,
+            }
     if API_KEY is not None:
         headers['Authorization'] = 'Bearer ' + API_KEY
     url = API_BASE + path

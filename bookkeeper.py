@@ -180,7 +180,31 @@ def craftable_items():
             continue
         yield item_id
 
-    yield gw2.items.search_name('Piece of Dragon Jade')
+CURRENCY_COIN = 1
+CURRENCY_RESEARCH_NOTE = 61
+ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
+
+CURRENCY_ITEMS = [
+        (CURRENCY_RESEARCH_NOTE, ITEM_RESEARCH_NOTE),
+        ]
+
+CURRENCY_TO_ITEM = {c: i for c, i in CURRENCY_ITEMS}
+ITEM_TO_CURRENCY = {i: c for c, i in CURRENCY_ITEMS}
+
+def recipe_ingredient_items(r):
+    '''Get item equivalents for all ingredients of recipe `r`.  Yields
+    `item_id, count` for each ingredient.  For currency ingredients, the item
+    ID is obtained from `CURRENCY_TO_ITEM[currency_id]`.  Yields `None, count`
+    for currencies with no known conversion.'''
+    for i in r['ingredients']:
+        if 'type' in i:
+            # New format, which supports currency inputs
+            if i['type'] == 'Item':
+                yield i['id'], i['count']
+            elif i['type'] == 'Currency':
+                yield CURRENCY_TO_ITEM.get(i['id']), i['count']
+        else:
+            yield i['item_id'], i['count']
 
 
 State = namedtuple('State', (
@@ -225,9 +249,13 @@ class StrategyCraft:
         #        for i in self.recipe['ingredients'])
         #print('crafting %s: inputs = %r' %
         #(gw2.items.name(self.recipe['output_item_id']), x))
-        return sum_costs(tuple(
-            (i['count'] / output_count, optimal_cost(i['item_id']))
-                for i in self.recipe['ingredients']))
+        costs = []
+        for item_id, count in recipe_ingredient_items(self.recipe):
+            if item_id is None:
+                costs.append((None, None))
+            else:
+                costs.append((count / output_count, optimal_cost(item_id)))
+        return sum_costs(costs)
 
     def apply(self, state, count):
         r = self.recipe
@@ -235,12 +263,12 @@ class StrategyCraft:
         times = (count + r['output_item_count'] - 1) // r['output_item_count']
         state.craft_items[item_id] += r['output_item_count'] * times
         state.inventory[item_id] += r['output_item_count'] * times
-        for i in r['ingredients']:
-            state.inventory[i['item_id']] -= i['count'] * times
-            state.pending_items.add(i['item_id'])
+        for item_id, count in recipe_ingredient_items(self.recipe):
+            state.inventory[item_id] -= count * times
+            state.pending_items.add(item_id)
 
     def related_items(self):
-        return tuple(i['item_id'] for i in self.recipe['ingredients'])
+        return tuple(item_id for item_id, count in recipe_ingredient_items(self.recipe))
 
 class StrategyUnknown:
     def __init__(self, item_id):
@@ -255,40 +283,6 @@ class StrategyUnknown:
 
     def related_items(self):
         return ()
-
-ITEM_PIECE_OF_DRAGON_JADE = gw2.items.search_name('Piece of Dragon Jade')
-ITEM_CHUNK_OF_PURE_JADE = gw2.items.search_name('Chunk of Pure Jade')
-ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
-ITEM_GLOB_OF_ECTOPLASM = gw2.items.search_name('Glob of Ectoplasm')
-ITEM_ORICHALCUM_INGOT = gw2.items.search_name('Orichalcum Ingot')
-
-class StrategyDragonJade:
-    def __init__(self):
-        pass
-
-    def cost(self):
-        return sum_costs((
-            (4, optimal_cost(ITEM_CHUNK_OF_PURE_JADE)),
-            (30, optimal_cost(ITEM_RESEARCH_NOTE)),
-            (2, optimal_cost(ITEM_GLOB_OF_ECTOPLASM)),
-            (5, optimal_cost(ITEM_ORICHALCUM_INGOT)),
-        ))
-
-    def apply(self, state, count):
-        state.craft_items[ITEM_PIECE_OF_DRAGON_JADE] += count
-        state.inventory[ITEM_PIECE_OF_DRAGON_JADE] += count
-        state.inventory[ITEM_CHUNK_OF_PURE_JADE] -= count * 4
-        # Note this is the research note item, which we use as a proxy for the
-        # currency.
-        state.inventory[ITEM_RESEARCH_NOTE] -= count * 30
-        state.inventory[ITEM_GLOB_OF_ECTOPLASM] -= count * 2
-        state.inventory[ITEM_ORICHALCUM_INGOT] -= count * 5
-        state.pending_items.update((ITEM_CHUNK_OF_PURE_JADE,
-            ITEM_RESEARCH_NOTE, ITEM_GLOB_OF_ECTOPLASM, ITEM_ORICHALCUM_INGOT))
-
-    def related_items(self):
-        return (ITEM_CHUNK_OF_PURE_JADE, ITEM_RESEARCH_NOTE,
-                ITEM_GLOB_OF_ECTOPLASM, ITEM_ORICHALCUM_INGOT)
 
 CHEAP_INSIGNIA_PREFIXES = (
         "Cavalier's", "Shaman's", "Dire", "Rabid", "Soldier's", "Magi's")
@@ -365,9 +359,6 @@ def valid_strategies(item_id):
         for mystic_recipe_id in mystic_recipe_ids:
             r = gw2.mystic_forge.get(mystic_recipe_id)
             yield StrategyCraft(r)
-
-        if item_id == ITEM_PIECE_OF_DRAGON_JADE:
-            yield StrategyDragonJade()
 
         if item_id == ITEM_RESEARCH_NOTE:
             yield StrategyResearchNote()
@@ -611,9 +602,6 @@ def policy_buy_on_demand():
 def cmd_init():
     os.makedirs('books', exist_ok=True)
 
-CURRENCY_COIN = 1
-CURRENCY_RESEARCH_NOTE = 61
-
 def calculate_status():
     # Strategy:
     #
@@ -664,7 +652,9 @@ def calculate_status():
     inventory = defaultdict(int)
     inventory.update(get_inventory())
     # Convert research notes in wallet to research note items
-    inventory[ITEM_RESEARCH_NOTE] += wallet[CURRENCY_RESEARCH_NOTE]
+    for c, i in CURRENCY_ITEMS:
+        if c in wallet:
+            inventory[i] += wallet[c]
     # Add items in the delivery box
     for i in delivery['items']:
         print('delivery: %d %s  %r' % (i['count'], gw2.items.name(i['id']), i))
