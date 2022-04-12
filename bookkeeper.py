@@ -238,6 +238,10 @@ class StrategyBuy:
     def related_items(self):
         return ()
 
+    def describe(self, count):
+        return count, 'Buy ' + gw2.items.name(self.item_id)
+
+
 class StrategyCraft:
     def __init__(self, recipe):
         self.recipe = recipe
@@ -270,6 +274,11 @@ class StrategyCraft:
     def related_items(self):
         return tuple(item_id for item_id, count in recipe_ingredient_items(self.recipe))
 
+    def describe(self, count):
+        r = self.recipe
+        times = (count + r['output_item_count'] - 1) // r['output_item_count']
+        return times, 'Craft ' + gw2.items.name(self.recipe['output_item_id'])
+
 class StrategyUnknown:
     def __init__(self, item_id):
         self.item_id = item_id
@@ -283,6 +292,9 @@ class StrategyUnknown:
 
     def related_items(self):
         return ()
+
+    def describe(self, count):
+        return count, 'Obtain ' + gw2.items.name(self.item_id)
 
 CHEAP_INSIGNIA_PREFIXES = (
         "Cavalier's", "Shaman's", "Dire", "Rabid", "Soldier's", "Magi's")
@@ -322,6 +334,10 @@ class StrategyResearchNote:
 
     def related_items(self):
         return RESEARCH_NOTE_PANTS
+
+    def describe(self, count):
+        times = (count + RESEARCH_NOTES_PER_PANTS - 1) // RESEARCH_NOTES_PER_PANTS
+        return times, 'Salvage items for research notes'
 
 
 STRATEGY_PRICES = {}
@@ -781,6 +797,7 @@ def calculate_status():
 
     return {
             'gold': gold,
+            'orig_inventory': orig_inventory,
             'buy_prices': buy_prices,
             'sell_prices': sell_prices,
             'buy_orders': buy_orders,
@@ -1202,6 +1219,64 @@ def render_table(name, columns, rows, render_title=False, render_total=True):
     if render_total:
         print((fmt % tuple(col.render_total() for col in columns)).rstrip())
 
+
+def cmd_steps(names):
+    if len(names) == 0:
+        filter_item_ids = None
+    else:
+        filter_item_ids = set(parse_item_id(name) for name in names)
+
+    # Note that `calculate_status` also sets the strategy parameters.
+    x = calculate_status()
+    craft_goal_items = x['craft_goal_items']
+    craft_stockpile_items = x['craft_stockpile_items']
+    orig_inventory = x['orig_inventory']
+
+    craft_items = defaultdict(int)
+    for item_id, count in chain(craft_goal_items.items(), craft_stockpile_items.items()):
+        if filter_item_ids is not None and item_id not in filter_item_ids:
+            continue
+        craft_items[item_id] += count
+    craft_counts = count_craftable(list(craft_items.items()), orig_inventory,
+            policy_buy_on_demand())
+
+    pending_items = set()
+    inventory = orig_inventory.copy()
+    state = State(inventory, pending_items,
+            defaultdict(int), defaultdict(int), defaultdict(int))
+    steps = []
+
+    for item_id, count in craft_counts.items():
+        strategy = optimal_strategy(item_id)
+        strategy.apply(state, count)
+        steps.append((strategy, count))
+
+    while len(pending_items) > 0:
+        item_id = pending_items.pop()
+        shortage = -inventory.get(item_id, 0)
+        if shortage <= 0:
+            continue
+        strategy = optimal_strategy(item_id)
+        strategy.apply(state, shortage)
+        steps.append((strategy, shortage))
+
+    # Postprocess steps
+    steps.reverse()
+    strat_count = {}
+    strat_order = []
+    for i, (strat, count) in enumerate(steps):
+        if count == 0:
+            continue
+        if id(strat) not in strat_count:
+            strat_count[id(strat)] = count
+            strat_order.append(strat)
+        else:
+            strat_count[id(strat)] += count
+    steps = [(strat, strat_count[id(strat)]) for strat in strat_order]
+
+    for strat, count in steps:
+        adj_count, desc = strat.describe(count)
+        print('%6d  %s' % (adj_count, desc))
 
 
 def cmd_goal(count, name):
@@ -1670,6 +1745,8 @@ def main():
     elif cmd == 'status':
         assert len(args) == 0
         cmd_status()
+    elif cmd == 'steps':
+        cmd_steps(args)
     elif cmd == 'goal':
         count, name = args
         cmd_goal(count, name)
