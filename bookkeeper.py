@@ -1240,25 +1240,48 @@ def cmd_steps(names):
     craft_counts = count_craftable(list(craft_items.items()), orig_inventory,
             policy_buy_on_demand())
 
-    pending_items = set()
+    class StackSet:
+        '''Provides an API like `set()`, but `pop()` always returns the most
+        recently added item.'''
+        def __init__(self):
+            self.set = set()
+            self.lst = []
+
+        def add(self, x):
+            self.lst.append(x)
+            self.set.add(x)
+
+        def pop(self):
+            if len(self.set) == 0:
+                raise KeyError('pop from an empty set')
+            x = self.lst.pop()
+            while x not in self.set:
+                x = self.lst.pop()
+            self.set.remove(x)
+            return x
+
+        def __len__(self):
+            return len(self.set)
+
+    pending_items = StackSet()
     inventory = orig_inventory.copy()
     state = State(inventory, pending_items,
             defaultdict(int), defaultdict(int), defaultdict(int))
     steps = []
 
-    for item_id, count in craft_counts.items():
+    for item_id, count in reversed(craft_counts.items()):
         strategy = optimal_strategy(item_id)
         strategy.apply(state, count)
         steps.append((strategy, count))
 
-    while len(pending_items) > 0:
-        item_id = pending_items.pop()
-        shortage = -inventory.get(item_id, 0)
-        if shortage <= 0:
-            continue
-        strategy = optimal_strategy(item_id)
-        strategy.apply(state, shortage)
-        steps.append((strategy, shortage))
+        while len(pending_items) > 0:
+            item_id = pending_items.pop()
+            shortage = -inventory.get(item_id, 0)
+            if shortage <= 0:
+                continue
+            strategy = optimal_strategy(item_id)
+            strategy.apply(state, shortage)
+            steps.append((strategy, shortage))
 
     # Postprocess steps
     steps.reverse()
