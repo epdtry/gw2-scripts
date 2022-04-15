@@ -848,6 +848,7 @@ def cmd_status():
 
 
     now = time.time()
+    print('\nStatus at:', datetime.datetime.now())
 
     def row_buy(item_id, count):
         if count == 0:
