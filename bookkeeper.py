@@ -261,6 +261,19 @@ class StrategyCraft:
                 costs.append((count / output_count, optimal_cost(item_id)))
         return sum_costs(costs)
 
+    def max_count(self, state):
+        '''Return the maximum number of outputs that can be crafted using only
+        available inputs.'''
+        max_times = None
+        for item_id, count in recipe_ingredient_items(self.recipe):
+            times = state.inventory[item_id] // count
+            if max_times is None or max_times > times:
+                max_times = times
+
+        if max_times is None:
+            max_times = 0
+        return times * self.recipe['output_item_count']
+
     def apply(self, state, count):
         r = self.recipe
         item_id = r['output_item_id']
@@ -619,6 +632,33 @@ def policy_buy_on_demand():
 
     return buy
 
+def policy_craft_suboptimal():
+    '''Items that should be crafted if needed, even if buying them is cheaper
+    than crafting.'''
+    return (
+            gw2.items.search_name('Copper Ingot'),
+            gw2.items.search_name('Bronze Ingot'),
+            gw2.items.search_name('Iron Ingot'),
+            gw2.items.search_name('Steel Ingot'),
+            gw2.items.search_name('Silver Ingot'),
+            gw2.items.search_name('Gold Ingot'),
+            gw2.items.search_name('Platinum Ingot'),
+            gw2.items.search_name('Darksteel Ingot'),
+            gw2.items.search_name('Mithril Ingot'),
+            gw2.items.search_name('Orichalcum Ingot'),
+
+            gw2.items.search_name('Elder Wood Log'),
+            gw2.items.search_name('Ancient Wood Log'),
+
+            gw2.items.search_name('Cured Thick Leather Square'),
+            gw2.items.search_name('Cured Hardened Leather Square'),
+
+            gw2.items.search_name('Bolt of Silk'),
+            gw2.items.search_name('Bolt of Gossamer'),
+
+            gw2.items.search_name('Pile of Lucent Crystal'),
+            )
+
 
 def cmd_init():
     os.makedirs('books', exist_ok=True)
@@ -781,6 +821,20 @@ def calculate_status():
         assert inventory.get(item_id, 0) >= stockpile.get(item_id, 0), \
                 'strategy %r failed to produce %d %s' % (
                         strategy, shortage, gw2.items.name(item_id))
+
+    # Third pass: craft items from `policy_craft_suboptimal` if they are needed
+    # and materials are available, regardless of the optimal strategy.
+    for item_id in policy_craft_suboptimal():
+        shortage = stockpile.get(item_id, 0) - inventory.get(item_id, 0)
+        if shortage <= 0:
+            continue
+
+        recipe_ids = gw2.recipes.search_output(item_id)
+        for recipe_id in recipe_ids:
+            r = gw2.recipes.get(recipe_id)
+            strategy = StrategyCraft(r)
+            count = min(shortage, strategy.max_count(state))
+            strategy.apply(state, count)
 
 
     used_items = {}
