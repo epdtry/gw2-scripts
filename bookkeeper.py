@@ -1339,10 +1339,12 @@ def cmd_goal(count, name):
                 )
 
         sell_price = sell_prices[item_id]
+        buy_price = buy_prices[item_id]
         cost = optimal_cost(item_id)
         print('%d %s (%d)' % (count, gw2.items.name(item_id), item_id))
         print('Cost:        %s' % format_price(cost * count))
         print('Sell price:  %s' % format_price(sell_price * count))
+        print('Buy price:   %s' % format_price(buy_price * count))
         profit = sell_price * 0.85 - cost
         profit_pct = 100 * profit / cost
         print('Profit:      %s (%.1f%%)' % (format_price(profit * count), profit_pct))
@@ -1372,11 +1374,13 @@ def cmd_profit(name):
             policy_can_craft_recipe,
             )
 
+    buy_price = buy_prices[item_id]
     sell_price = sell_prices[item_id]
     cost = optimal_cost(item_id)
     print('%s (%d)' % (gw2.items.name(item_id), item_id))
     print('Cost:        %s' % format_price(cost))
     print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
+    print('Buy price:   %s' % format_price(buy_price))
     print('Sell price:  %s' % format_price(sell_price))
     profit = sell_price * 0.85 - cost
     profit_pct = 100 * profit / cost
