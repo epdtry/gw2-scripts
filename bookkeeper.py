@@ -610,6 +610,8 @@ def policy_buy_on_demand():
 
     # Vendor items
     # TODO: include all vendor items in this set automatically
+    buy.add(gw2.items.search_name('Lump of Tin'))
+    buy.add(gw2.items.search_name('Lump of Coal'))
     buy.add(gw2.items.search_name('Superior Rune of Holding'))
     buy.add(gw2.items.search_name('Thermocatalytic Reagent'))
     buy.add(gw2.items.search_name('Spool of Gossamer Thread'))
