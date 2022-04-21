@@ -40,6 +40,15 @@ def _get():
     ))
 
 
+    # Legendary crafting - generic recipes
+
+    add(1, 'Mystic Clover', (
+        (3, 'Obsidian Shard'),
+        (3, 'Mystic Coin'),
+        (3, 'Glob of Ectoplasm'),
+        (6, "Philosopher's Stone"),
+    ))
+
     add(1, 'Gift of Condensed Might', (
         (1, 'Gift of Claws'),
         (1, 'Gift of Scales'),
@@ -54,11 +63,74 @@ def _get():
         (1, 'Gift of Dust'),
     ))
 
+    add(1, 'Gift of the Mists', (
+        (1, 'Gift of Glory'),
+        (1, 'Gift of Battle'),
+        (1, 'Gift of War'),
+        (1, 'Cube of Stabilized Dark Energy'),
+    ))
+
+    add(1, 'Gift of Glory', ((250, 'Shard of Glory'),))
+    add(1, 'Gift of War', ((250, 'Memory of Battle'),))
+
+    # Legendary crafting - gen3 weapon generic components
+
+    add(1, 'Gift of Cantha', (
+        (1, 'Gift of Seitung Province'),
+        (1, 'Gift of New Kaineng City'),
+        (1, 'Gift of the Echovald Forest'),
+        (1, "Gift of Dragon's End"),
+    ))
+
     add(1, 'Draconic Tribute', (
         (1, 'Gift of Condensed Might'),
         (1, 'Gift of Condensed Magic'),
         (1, 'Amalgamated Draconic Lodestone'),
         (1, 'Mystic Clover'),
+    ))
+
+    add(1, 'Gift of Research', (
+        (250, 'Thermocatalytic Reagent'),
+        (250, 45178),   # Essence of Luck (exotic)
+        (250, 'Hydrocatalytic Reagent'),
+        (250, 'Hydrocatalytic Reagent'),
+    ))
+
+    add(1, 'Gift of the Dragon Empire', (
+        (100, 'Jade Runestone'),
+        (200, 'Chunk of Pure Jade'),
+        (100, 'Chunk of Ancient Ambergris'),
+        (5, 'Blessing of the Jade Empress'),
+    ))
+
+    add(1, 'Gift of Jade Mastery', (
+        (1, 'Gift of the Dragon Empire'),
+        (1, 'Bloodstone Shard'),
+        (1, 'Gift of Cantha'),
+        (100, 'Antique Summoning Stone'),
+    ))
+
+    # Legendary crafting - gen3 Aurene's Wisdom
+
+    add(1, "Gift of Aurene's Wisdom", (
+        (1, 'Poem on Scepters'),
+        (100, 'Mystic Runestone'),
+        (1, 'Gift of Research'),
+        (1, 'Gift of the Mists'),
+    ))
+
+    add(1, "Aurene's Wisdom", (
+        (1, "Dragon's Wisdom"),
+        (1, "Gift of Aurene's Wisdom"),
+        (1, 'Gift of Jade Mastery'),
+        (1, 'Draconic Tribute'),
+    ))
+
+    add(1, 'Poem on Scepters', (
+        (10, 'Tale of Adventure'),
+        (10, "Lamplighter's Badge"),
+        (1, 'Spiritwood Scepter Core'),
+        (1, 'Sheet of Premium Paper'),
     ))
 
 
