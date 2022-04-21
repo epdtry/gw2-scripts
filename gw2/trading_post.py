@@ -126,14 +126,23 @@ def _update_history(kind):
         totals = None
 
     updated_totals = False
+    new_ids = set()
     for page in fetch_paginated('/v2/commerce/transactions/history/%s' % kind):
         done = False
         for tx in page:
             if data.contains(tx['id']):
-                done = True
-                break
+                if tx['id'] not in new_ids:
+                    # We found the first "old" transaction
+                    done = True
+                    break
+                else:
+                    # A repeat of a transaction we already saw in the current
+                    # session.  This can happen if a new transaction comes in
+                    # while we're iterating.
+                    continue
 
             data.add(tx['id'], tx)
+            new_ids.add(tx['id'])
             if totals is not None:
                 totals[tx['item_id']] += tx['quantity']
                 updated_totals = True
