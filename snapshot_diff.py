@@ -15,6 +15,9 @@ def snapshot_from_file(file_path):
 
 
 def main():
+    ''' Generates a diff given 2 files of snapshot data Invoke with:
+        `python snapshot_diff <path_to_snapshot1> <path_to_snapshot2>`
+    '''
     original_file = sys.argv[1]
     new_file = sys.argv[2]
 
