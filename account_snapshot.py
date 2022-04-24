@@ -41,10 +41,10 @@ def main():
     char_bank = get_bank()
     char_core = get_character_core(char_name)
 
-    data = DataSnapshot.DataSnapshot(char_name, char_inventory, char_materials, char_bank, char_core, char_magic_find)
+    timestamp = time.time()
+    data = DataSnapshot.DataSnapshot(timestamp, char_name, char_inventory, char_materials, char_bank, char_core, char_magic_find)
 
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    data_file_name = timestamp + '.json'
+    data_file_name = str(timestamp) + '.json'
     data_file = os.path.join(GW2_DATA_DIR, data_file_name)
 
     with open(data_file, 'w') as f:

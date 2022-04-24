@@ -1,5 +1,6 @@
 class DataSnapshot:
-    def __init__(self, char_name, inventory, materials, bank, char_core, magic_find):
+    def __init__(self, timestamp, char_name, inventory, materials, bank, char_core, magic_find):
+        self.timestamp = timestamp
         self.char_name = char_name
         self.inventory = inventory
         self.materials = materials
