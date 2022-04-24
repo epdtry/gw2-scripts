@@ -24,7 +24,11 @@ def get_character_core(char_name):
     return gw2.api.fetch('/v2/characters/%s/core' %
             urllib.parse.quote(char_name))
 
+
 def main():
+    ''' Generates a data snapshot of given character and magic find. Invoke with:
+        `python account_snapshot.py <character_name> <magic_find>`
+    '''
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
     gw2.api.CACHE_DIR = 'cache'
@@ -41,12 +45,12 @@ def main():
 
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     data_file_name = timestamp + '.json'
-    print()
-    print('Data written to: ', data_file_name)
     data_file = os.path.join(GW2_DATA_DIR, data_file_name)
 
     with open(data_file, 'w') as f:
         json.dump(data, f, default=vars)
+    print()
+    print('Data written to: ', data_file_name)
 
 if __name__ == '__main__':
     main()
