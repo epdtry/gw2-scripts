@@ -1,4 +1,5 @@
 import os
+import json
 
 import gw2.api
 import gw2.items
@@ -18,7 +19,7 @@ class LootBag:
         self.id = id
  
     def __repr__(self):
-        return '{' + self.name + ', ' + str(self.price) + ', ' + str(self.quantity) + ', ' + str(self.id) + '}'
+        return json.dumps(self.__dict__)
 
 def main():
     all_items = gw2.items.iter_all()
@@ -34,16 +35,17 @@ def main():
     for ip in item_prices:
         if ip == None: 
             continue
-        ip_sells = ip['sells']
-        if ip_sells == None or ip_sells['quantity'] == 0:
-            continue
-        loot_bag = LootBag(gw2.items.name(ip['id']), ip_sells['unit_price'], ip_sells['quantity'], ip['id'])
+        ip_buys = ip['buys']
+        if ip_buys == None:
+            ip_buys['price'] = 0
+            ip_buys['quantity'] = 0
+        loot_bag = LootBag(gw2.items.name(ip['id']), ip_buys['unit_price'], ip_buys['quantity'], ip['id'])
         loot_bags.append(loot_bag)
 
     loot_bags.sort(key=lambda x: x.price)
+    data = [lb for lb in loot_bags]
     with open(LOOT_BAG_FILE, 'w') as f:
-        for lb in loot_bags:
-            f.write(str(lb) + "\n")
+        json.dump(loot_bags, f, default=vars)
 
     
 
