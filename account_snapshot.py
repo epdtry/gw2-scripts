@@ -40,7 +40,7 @@ def main():
     data = DataSnapshot.DataSnapshot(char_name, char_inventory, char_materials, char_bank, char_core, char_magic_find)
 
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-    data_file_name = char_name.replace(" ", "-") + '-' + timestamp + '.json'
+    data_file_name = timestamp + '.json'
     print()
     print('Data written to: ', data_file_name)
     data_file = os.path.join(GW2_DATA_DIR, data_file_name)
