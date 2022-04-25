@@ -54,44 +54,39 @@ def diff_wallet(wallet1, wallet2):
 def diff_items(inventory1, materials1, bank1, inventory2, materials2, bank2):
     items_diff = defaultdict(int)
 
-    print()
-    print("hey")
-    print(inventory1)
-    print()
-    for bag in inventory1['bags']:
-        print(bag)
-        if bag is None:
-            continue
-        for item in bag['inventory']:
-            if item is None or item['count'] == 0:
-                continue
-            items_diff[item['id']] += item['count']
-    
-    for item in materials1:
-        if item is None or item['count'] == 0:
-            continue
-        items_diff[item['id']] += item['count']
-
-    for item in bank1:
-        if item is None or item['count'] == 0:
-            continue
-        items_diff[item['id']] += item['count']
-
     for bag in inventory2['bags']:
         if bag is None:
             continue
         for item in bag['inventory']:
-            if item is None or item['count'] == 0:
+            if item is None:
+                continue
+            items_diff[item['id']] += item['count']
+    
+    for item in materials2:
+        if item is None:
+            continue
+        items_diff[item['id']] += item['count']
+
+    for item in bank2:
+        if item is None:
+            continue
+        items_diff[item['id']] += item['count']
+
+    for bag in inventory1['bags']:
+        if bag is None:
+            continue
+        for item in bag['inventory']:
+            if item is None:
                 continue
             items_diff[item['id']] -= item['count']
     
-    for item in materials2:
-        if item is None or item['count'] == 0:
+    for item in materials1:
+        if item is None:
             continue
         items_diff[item['id']] -= item['count']
 
-    for item in bank2:
-        if item is None or item['count'] == 0:
+    for item in bank1:
+        if item is None:
             continue
         items_diff[item['id']] -= item['count']
 
@@ -102,9 +97,7 @@ def diff_items(inventory1, materials1, bank1, inventory2, materials2, bank2):
 
 def compute_diff(snapshot1, snapshot2):
     wallet_diff = diff_wallet(snapshot1.wallet, snapshot2.wallet)
-
     item_diff = diff_items(snapshot1.inventory, snapshot1.materials, snapshot1.bank, snapshot2.inventory, snapshot2.materials, snapshot2.bank)
-    print(item_diff)
 
     return DataDiff.DataDiff(time.time(), snapshot1.char_name, wallet_diff, item_diff)
 
@@ -122,7 +115,7 @@ def main():
         print('These files are not comparable. Check character name, level, magic find%....')
         return
     
-    diff_file_name = '-'.join(['diff', str(snapshot1.timestamp), str(snapshot2.timestamp)]) + '.json'
+    diff_file_name = '-'.join(['diff', str(int(snapshot1.timestamp)), str(int(snapshot2.timestamp))]) + '.json'
     diff_file = os.path.join(GW2_DIFF_DATA_DIR, diff_file_name)
 
     diff_data = compute_diff(snapshot1, snapshot2)
