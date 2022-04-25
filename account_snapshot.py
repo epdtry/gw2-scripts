@@ -20,6 +20,9 @@ def get_materials():
 def get_bank():
     return gw2.api.fetch('/v2/account/bank')
 
+def get_wallet():
+    return gw2.api.fetch('/v2/account/wallet')
+
 def get_character_core(char_name):
     return gw2.api.fetch('/v2/characters/%s/core' %
             urllib.parse.quote(char_name))
@@ -39,10 +42,11 @@ def main():
     char_inventory = get_inventory(char_name)
     char_materials = get_materials()
     char_bank = get_bank()
+    char_wallet = get_wallet()
     char_core = get_character_core(char_name)
 
     timestamp = time.time()
-    data = DataSnapshot.DataSnapshot(timestamp, char_name, char_inventory, char_materials, char_bank, char_core, char_magic_find)
+    data = DataSnapshot.DataSnapshot(timestamp, char_name, char_inventory, char_materials, char_bank, char_wallet, char_core, char_magic_find)
 
     data_file_name = str(timestamp) + '.json'
     data_file = os.path.join(GW2_DATA_DIR, data_file_name)
