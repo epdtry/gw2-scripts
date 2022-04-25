@@ -9,6 +9,7 @@ import DataSnapshot
 
 GW2_SCRIPTS_DIR = os.getcwd()
 GW2_DATA_DIR = os.path.join(os.path.abspath(os.path.join(GW2_SCRIPTS_DIR, os.pardir)), 'gw2-data')
+GW2_SNAPSHOT_DATA_DIR = os.path.join(GW2_DATA_DIR, "snapshots")
 
 def get_inventory(char_name):
     return gw2.api.fetch('/v2/characters/%s/inventory' %
@@ -48,8 +49,8 @@ def main():
     timestamp = time.time()
     data = DataSnapshot.DataSnapshot(timestamp, char_name, char_inventory, char_materials, char_bank, char_wallet, char_core, char_magic_find)
 
-    data_file_name = str(timestamp) + '.json'
-    data_file = os.path.join(GW2_DATA_DIR, data_file_name)
+    data_file_name = str(int(timestamp)) + '.json'
+    data_file = os.path.join(GW2_SNAPSHOT_DATA_DIR, data_file_name)
 
     with open(data_file, 'w') as f:
         json.dump(data, f, default=vars)
