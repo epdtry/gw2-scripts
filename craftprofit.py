@@ -100,7 +100,7 @@ def craft_or_buy_cost(item_id, prices, force_craft=False):
 
         price = 0
         for i in r['ingredients']:
-            input_cost, _ = craft_or_buy_cost(i['item_id'], prices)
+            input_cost, _ = craft_or_buy_cost(i['id'], prices)
             if input_cost is None:
                 price = None
                 break
@@ -134,7 +134,7 @@ def main():
     for r in gw2.recipes.iter_all():
         if can_craft(r):
             for i in r['ingredients']:
-                all_items.add(i['item_id'])
+                all_items.add(i['id'])
             all_items.add(r['output_item_id'])
 
     print("Fetching items")

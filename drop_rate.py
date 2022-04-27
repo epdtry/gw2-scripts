@@ -77,6 +77,7 @@ def cmd_gen_loot_tables():
 def print_worth_table(loot_table: LootTable):
     source_item = gw2.items.get(loot_table.source_item_id)
     print('Worth Table For: ', source_item['name'], '-----------')
+    print('Data from: ', loot_table.source_item_quantity, ' opens')
     source_price = gw2.trading_post.get_prices(source_item['id'])['buys']['unit_price'] + 1
 
     total_worth = 0
@@ -92,14 +93,18 @@ def print_worth_table(loot_table: LootTable):
     
     print()
     print('Item Drops:')
-    print('Item Name \t Drop Rate \t Unit Price \t Net Price')
+    print("{:<25} {:<9} {:<15} {:<15}".format('Item Name','Drop Rate','Unit Price', 'Net Price'))
     for item in loot_table.item_drop_info_list:
         dropped_item = gw2.items.get(item.id)
         dropped_item_drop_rate = item.drop_rate
         dropped_item_unit_price = gw2.trading_post.get_prices(dropped_item['id'])['buys']['unit_price']
         dropped_item_net_price = dropped_item_unit_price * dropped_item_drop_rate
         total_worth += dropped_item_net_price
-        print(dropped_item['name'], '\t', dropped_item_drop_rate, '\t', dropped_item_unit_price, '\t', dropped_item_net_price)
+        print("{:<25} {:<9} {:<15} {:<15}".format(
+            dropped_item['name'],
+            dropped_item_drop_rate,
+            dropped_item_unit_price,
+            dropped_item_net_price))
 
     print()
     print('Cost: ', source_price)
