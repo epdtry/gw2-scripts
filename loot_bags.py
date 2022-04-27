@@ -3,6 +3,7 @@ import json
 
 import gw2.api
 import gw2.items
+import gw2.recipes
 import gw2.mystic_forge
 import gw2.trading_post
 
@@ -28,8 +29,13 @@ def main():
         if(item['type'] == 'Container'):
             container_items.append(item)
 
+    print('total containers: ', len(container_items))
     container_items_ids = [t['id'] for t in container_items]
-    item_prices = gw2.trading_post.get_prices_multi(container_items_ids)
+
+    non_craftable_item_ids = [id for id in container_items_ids if not gw2.recipes.search_output(id)]
+    print('total non craftable containers: ', len(non_craftable_item_ids))
+
+    item_prices = gw2.trading_post.get_prices_multi(non_craftable_item_ids)
 
     loot_bags = []
     for ip in item_prices:
@@ -41,6 +47,8 @@ def main():
             ip_buys['quantity'] = 0
         loot_bag = LootBag(gw2.items.name(ip['id']), ip_buys['unit_price'], ip_buys['quantity'], ip['id'])
         loot_bags.append(loot_bag)
+
+    print('semi-buyable non craftable containers: ', len(loot_bags))
 
     loot_bags.sort(key=lambda x: x.price)
     data = [lb for lb in loot_bags]
