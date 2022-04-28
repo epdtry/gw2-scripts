@@ -587,8 +587,11 @@ def policy_forbid_buy():
                 forbid.add(item['id'])
             if item['name'].startswith('Exquisite'):
                 forbid.add(item['id'])
-            #if 'Inscription' in item['name'] or 'Insignia' in item['name']:
-            #    forbid.add(item['id'])
+            if 'Inscription' in item['name'] or 'Insignia' in item['name']:
+                forbid.add(item['id'])
+
+            if item['type'] in ('Weapon', 'Armor') and item['id'] in ALL_PROVISIONER_ITEMS:
+                forbid.add(item['id'])
 
     ascended_refinement = [
         gw2.items.search_name('Deldrimor Steel Ingot'),
@@ -1581,6 +1584,9 @@ PROVISIONER_ITEMS = [
     ('Tangled Depths', {15512: 1, 13894: 1, 14516: 1, 11126: 1, 11881: 1, 10707: 1}),
     ('Tangled Depths', {36779: 1, 36780: 1, 36812: 1, 36844: 1, 36842: 1, 36806: 1}),
 ]
+
+ALL_PROVISIONER_ITEMS = set(item_id for name, items in PROVISIONER_ITEMS
+        for item_id in items.keys())
 
 def cmd_provisioner():
     related_items = gather_related_items(item_id
