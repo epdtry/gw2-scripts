@@ -80,6 +80,23 @@ def parse_timestamp(s):
 
 _PRINTED_ORIGINS=set()
 
+def add_vendor_prices(buy_prices):
+    # Allow buying any vendor items that are priced in gold.
+    with open('vendorprices.json') as f:
+        j = json.load(f)
+    for k, v in j.items():
+        if k == '_origin':
+            if v not in _PRINTED_ORIGINS:
+                print('using vendor prices from %s' % v)
+                _PRINTED_ORIGINS.add(v)
+            continue
+
+        k = int(k)
+        if v['type'] != 'gold':
+            continue
+        price = v['cost'] / v['quantity']
+        buy_prices[k] = price
+
 def get_prices(item_ids):
     buy_prices = {}
     sell_prices = {}
@@ -99,26 +116,44 @@ def get_prices(item_ids):
         if price != 0:
             sell_prices[x['id']] = price
 
-    # Allow buying any vendor items that are priced in gold.
-    with open('vendorprices.json') as f:
-        j = json.load(f)
-    for k, v in j.items():
-        if k == '_origin':
-            if v not in _PRINTED_ORIGINS:
-                print('using vendor prices from %s' % v)
-                _PRINTED_ORIGINS.add(v)
-            continue
-
-        k = int(k)
-        if v['type'] != 'gold':
-            continue
-        price = v['cost'] / v['quantity']
-        buy_prices[k] = price
-
-    # Additional vendor prices
-    buy_prices[gw2.items.search_name("Master's Salvage Kit")] = 1536
-
+    add_vendor_prices(buy_prices)
     return buy_prices, sell_prices
+
+
+def get_prices_and_listings(item_ids):
+    buy_prices = {}
+    sell_prices = {}
+    buy_listings = {}
+    sell_listings = {}
+
+    for x in gw2.trading_post.get_listings_multi(item_ids):
+        if x is None:
+            continue
+
+        buys = x['buys']
+        sells = x['sells']
+
+        buy_listings[x['id']] = buys
+        sell_listings[x['id']] = sells
+
+        buy_price = None
+        sell_price = None
+
+        if len(buys) > 0:
+            buy_price = max(b['unit_price'] for b in buys)
+        if len(sells) > 0:
+            sell_price = min(s['unit_price'] for s in sells)
+
+        if buy_price is None:
+            buy_price = sell_price
+        if sell_price is None:
+            sell_price = buy_price
+
+        buy_prices[x['id']] = buy_price
+        sell_prices[x['id']] = sell_price
+
+    add_vendor_prices(buy_prices)
+    return buy_prices, sell_prices, buy_listings, sell_listings
 
 
 def get_inventory():
@@ -756,7 +791,8 @@ def calculate_status():
             shortage_items.add(item_id)
 
     related_items = gather_related_items(chain(shortage_items, goals.keys()))
-    buy_prices, sell_prices = get_prices(related_items)
+    buy_prices, sell_prices, buy_listings, sell_listings = \
+            get_prices_and_listings(related_items)
 
     for item_id, buy_price in buy_prices.items():
         if item_id not in sell_prices:
@@ -858,6 +894,8 @@ def calculate_status():
             'orig_inventory': orig_inventory,
             'buy_prices': buy_prices,
             'sell_prices': sell_prices,
+            'buy_listings': buy_listings,
+            'sell_listings': sell_listings,
             'buy_orders': buy_orders,
             'sell_orders': sell_orders,
             'sold': sold,
@@ -887,6 +925,8 @@ def cmd_status():
     gold = x['gold']
     buy_prices = x['buy_prices']
     sell_prices = x['sell_prices']
+    buy_listings = x['buy_listings']
+    sell_listings = x['sell_listings']
     buy_orders = x['buy_orders']
     sell_orders = x['sell_orders']
     sold = x['sold']
@@ -926,16 +966,27 @@ def cmd_status():
     def row_buy_order(transaction):
         if transaction['quantity'] == 0:
             return None
+
+        buried = 0
+        buy_price = buy_prices.get(transaction['item_id'])
+        if buy_price is not None:
+            bury_count = sum(l['quantity']
+                    for l in buy_listings[transaction['item_id']]
+                    if l['unit_price'] > transaction['price'])
+            tx_count = transaction['quantity']
+            buried = (bury_count + tx_count - 1) // tx_count
+
         return {
                 'item_id': transaction['item_id'],
                 'count': transaction['quantity'],
                 'unit_price': transaction['price'],
                 'alt_unit_price': sell_prices.get(transaction['item_id']),
                 'age_sec': now - parse_timestamp(transaction['created']),
+                'buried': buried,
                 }
 
     render_table('Buy orders',
-            (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(show_buried=True),
                 TotalPriceColumn(), AltPriceDeltaColumn(), AgeColumn()),
             (row_buy_order(t) for t in buy_orders))
 
@@ -1035,15 +1086,26 @@ def cmd_status():
     def row_sell_order(transaction):
         if transaction['quantity'] == 0:
             return None
+
+        buried = 0
+        sell_price = sell_prices.get(transaction['item_id'])
+        if sell_price is not None:
+            bury_count = sum(l['quantity']
+                    for l in sell_listings[transaction['item_id']]
+                    if l['unit_price'] < transaction['price'])
+            tx_count = transaction['quantity']
+            buried = (bury_count + tx_count - 1) // tx_count
+
         return {
                 'item_id': transaction['item_id'],
                 'count': transaction['quantity'],
                 'unit_price': transaction['price'],
                 'age_sec': now - parse_timestamp(transaction['created']),
+                'buried': buried,
                 }
 
     render_table('Sell orders',
-            (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
+            (CountColumn(), ItemNameColumn(), UnitPriceColumn(show_buried=True),
                 TotalPriceColumn(0.9), AgeColumn()),
             (row_sell_order(t) for t in sell_orders))
 
@@ -1189,12 +1251,16 @@ class ItemNameColumn:
         return 'Total'
 
 class UnitPriceColumn:
-    def __init__(self, key='unit_price', title='Unit Price'):
+    def __init__(self, key='unit_price', title='Unit Price', show_buried=False):
         self.key = key
         self.title_ = title
+        self.show_buried = show_buried
 
     def format(self):
-        return '%11s'
+        if self.show_buried:
+            return '%13s'
+        else:
+            return '%11s'
 
     def title(self):
         return self.title_
@@ -1203,7 +1269,23 @@ class UnitPriceColumn:
         unit_price = row.get(self.key)
         if unit_price is None:
             return ''
-        return format_price(unit_price)
+        unit_price_str = format_price(unit_price)
+
+        buried_str = ''
+        if self.show_buried:
+            buried = row.get('buried', 0)
+            if buried <= 0:
+                buried_str = '  '
+            elif buried == 1:
+                buried_str = '! '
+            elif buried == 2:
+                buried_str = '!!'
+            elif buried <= 10:
+                buried_str = '!%d' % (buried - 1)
+            else:
+                buried_str = '!*'
+
+        return unit_price_str + buried_str
 
     def render_total(self):
         return ''
