@@ -883,7 +883,9 @@ def calculate_status():
 
 
     craft_items = defaultdict(int)
-    for item_id, count in chain(craft_goal_items.items(), craft_stockpile_items.items()):
+    for item_id, count in chain(
+            sorted(craft_goal_items.items(), key=lambda x: gw2.items.name(x[0])),
+            sorted(craft_stockpile_items.items(), key=lambda x: gw2.items.name(x[0]))):
         craft_items[item_id] += count
     craft_counts = count_craftable(list(craft_items.items()), orig_inventory,
             policy_buy_on_demand())
