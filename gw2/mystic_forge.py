@@ -39,6 +39,8 @@ def _get():
         (250, 'Vicious Claw'),
     ))
 
+    add(1, 'Charged Quartz Crystal', ((25, 'Quartz Crystal'),))
+
 
     # Legendary crafting - generic recipes
 
@@ -85,8 +87,8 @@ def _get():
     add(1, 'Draconic Tribute', (
         (1, 'Gift of Condensed Might'),
         (1, 'Gift of Condensed Magic'),
-        (1, 'Amalgamated Draconic Lodestone'),
-        (1, 'Mystic Clover'),
+        (5, 'Amalgamated Draconic Lodestone'),
+        (38, 'Mystic Clover'),
     ))
 
     add(1, 'Gift of Research', (

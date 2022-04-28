@@ -1705,5 +1705,38 @@
         "position": "The Crown Pavilion, Divinity's Reach"
       }
     ]
+  },
+  "23043": {
+    "type": "gold",
+    "quantity": 1,
+    "cost": 1536,
+    "npcs": [
+      {
+        "name": "Master craftsmen",
+        "position": "Crafting stations"
+      }
+    ]
+  },
+  "95813": {
+    "type": "research-note",
+    "quantity": 10,
+    "cost": 50,
+    "npcs": [
+      {
+        "name": "Master craftsmen",
+        "position": "Crafting stations"
+      }
+    ]
+  },
+  "97829": {
+    "type": "imperial-favor",
+    "quantity": 1,
+    "cost": 500,
+    "npcs": [
+      {
+        "name": "Myung-Hee",
+        "position": "Shing Jea Monastery, Seitung Province"
+      }
+    ]
   }
 }
