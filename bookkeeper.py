@@ -25,8 +25,9 @@ def _load_dict(path):
         return {}
 
 def _dump_dict(dct, path):
-    with open(path, 'w') as f:
+    with open(path + '.new', 'w') as f:
         json.dump(list(dct.items()), f)
+    os.rename(path + '.new', path)
 
 def _load_zero_dict(path):
     dct = defaultdict(int)
@@ -36,8 +37,9 @@ def _load_zero_dict(path):
     return dct
 
 def _dump_zero_dict(dct, path):
-    with open(path, 'w') as f:
+    with open(path + '.new', 'w') as f:
         json.dump([(k,v) for k,v in dct.items() if v != 0], f)
+    os.rename(path + '.new', path)
 
 GOALS_PATH = 'books/goals.json'
 STOCKPILE_PATH = 'books/stockpile.json'
