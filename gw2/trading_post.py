@@ -13,6 +13,8 @@ from gw2.util import DataStorage
 TRADING_POST_DIR = os.path.join(STORAGE_DIR, 'trading_post')
 INDEX_FILE = os.path.join(TRADING_POST_DIR, 'index.json')
 DATA_FILE = os.path.join(TRADING_POST_DIR, 'data.json')
+LISTINGS_INDEX_FILE = os.path.join(TRADING_POST_DIR, 'listings_index.json')
+LISTINGS_DATA_FILE = os.path.join(TRADING_POST_DIR, 'listings_data.json')
 
 _DATA = None
 def _get_data():
@@ -80,11 +82,46 @@ def get_prices_multi(item_ids):
     return out
 
 
+_LISTINGS_DATA = None
+def _get_listings_data():
+    global _LISTINGS_DATA
+    try:
+        mtime = os.stat(LISTINGS_DATA_FILE).st_mtime
+        refresh = mtime < time.time() - (60 * 30)
+    except OSError:
+        refresh = True
+
+    if refresh:
+        if os.path.exists(LISTINGS_INDEX_FILE):
+            os.remove(LISTINGS_INDEX_FILE)
+        if os.path.exists(LISTINGS_DATA_FILE):
+            os.remove(LISTINGS_DATA_FILE)
+
+    if _LISTINGS_DATA is None or refresh:
+        os.makedirs(TRADING_POST_DIR, exist_ok=True)
+        _LISTINGS_DATA = DataStorage(LISTINGS_INDEX_FILE, LISTINGS_DATA_FILE)
+    return _LISTINGS_DATA
+
+@functools.lru_cache(256)
+def get_listings(item_id):
+    data = _get_listings_data()
+    if not data.contains(item_id):
+        item = fetch('/v2/commerce/listings?id=%d' % item_id)
+        data.add(item_id, item)
+        return item
+    else:
+        return data.get(item_id)
+
 def get_listings_multi(item_ids):
+    data = _get_listings_data()
+
     dct = {}
     query_ids = []
     for item_id in item_ids:
-        query_ids.append(item_id)
+        if data.contains(item_id):
+            dct[item_id] = data.get(item_id)
+        else:
+            query_ids.append(item_id)
     query_ids = sorted(set(query_ids))
 
     N = 100
@@ -99,10 +136,14 @@ def get_listings_multi(item_ids):
             else:
                 raise
         for item in items:
+            data.add(item['id'], item)
             dct[item['id']] = item
 
     out = []
     for item_id in item_ids:
+        if item_id not in dct:
+            # Record that this item was not available from the API.
+            data.add(item_id, None)
         out.append(dct.get(item_id))
     return out
 
