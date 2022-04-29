@@ -4,7 +4,6 @@ import os
 import glob
 import sys
 
-from sqlalchemy import true
 
 import gw2.api
 import gw2.items
@@ -30,7 +29,7 @@ def extract_source_item(data_diff: DataDiff):
         if quantity < 0:
             if source_found:
                 raise Exception('Multiple source items detected in diff')
-            source_found = true
+            source_found = True
             source_item = item_id
             source_quantity = quantity * -1
     
@@ -97,7 +96,11 @@ def print_worth_table(loot_table: LootTable):
     for item in loot_table.item_drop_info_list:
         dropped_item = gw2.items.get(item.id)
         dropped_item_drop_rate = item.drop_rate
-        dropped_item_unit_price = gw2.trading_post.get_prices(dropped_item['id'])['buys']['unit_price']
+        dropped_item_unit_price = 0
+        try:
+            dropped_item_unit_price = gw2.trading_post.get_prices(dropped_item['id'])['buys']['unit_price']
+        except:
+            pass
         dropped_item_net_price = dropped_item_unit_price * dropped_item_drop_rate
         total_worth += dropped_item_net_price
         print("{:<30} {:<9.3f} {:<15.3f} {:<15.3f}".format(
