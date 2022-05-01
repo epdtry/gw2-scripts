@@ -32,7 +32,7 @@ example: ```python loot_tool.py snapshot "Your Char" 196```
 
 Simplified example usage:
 ```
-* put 250 bags in clear inventory. wait 5 minutes
+* put 250 bags in a (mostly) clean inventory. wait 5 minutes
 python loot_tool.py snapshot "Your Char" 196
 * open 250 bags. wait 5 minutes.
 python loot_tool.py snapshot "Your Char" 196
