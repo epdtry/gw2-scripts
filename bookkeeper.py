@@ -27,7 +27,7 @@ def _load_dict(path):
 def _dump_dict(dct, path):
     with open(path + '.new', 'w') as f:
         json.dump(list(dct.items()), f)
-    os.rename(path + '.new', path)
+    os.replace(path + '.new', path)
 
 def _load_zero_dict(path):
     dct = defaultdict(int)
