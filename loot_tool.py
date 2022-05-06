@@ -171,7 +171,13 @@ def loot_table_from_data_diff(data_diff: DataDiff):
 
 def cmd_get_inventory(char_name):
     inventory = get_inventory(char_name)
-    print(inventory)
+    for bag in inventory['bags']:
+            if bag is None:
+                continue
+            for item in bag['inventory']:
+                if item is None or item['count'] == 0:
+                    continue
+                print(gw2.items.name(item['id']), '-', item['count'])
     return
 
 def cmd_print_help():

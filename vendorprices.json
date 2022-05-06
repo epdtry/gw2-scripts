@@ -1,5 +1,16 @@
 {
   "_origin": "gw2efficiency.com (2022-03-06)",
+  "44602": {
+    "type": "gold",
+    "quantity": 1,
+    "cost": 3,
+    "npcs": [
+      {
+        "name": "Jake The Fake Vendor",
+        "position": "Snowslide Ravine, Dredgehaunt Cliffs [N]"
+      }
+    ]
+  },
   "12337": {
     "type": "karma",
     "quantity": 25,

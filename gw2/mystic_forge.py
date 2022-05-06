@@ -150,6 +150,7 @@ def _get():
 
     # Ecto salvaging
     add(45, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (1, "Master's Salvage Kit")))
+    add(43, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (25, "Copper-Fed Salvage-o-Matic")))
 
 
     _RECIPES = recipes
