@@ -893,6 +893,11 @@ def calculate_status():
     craft_counts = count_craftable(list(craft_items.items()), orig_inventory,
             policy_buy_on_demand())
 
+    craft_only_counts = {
+            item_id: count_craftable([(item_id, count)], orig_inventory,
+                policy_buy_on_demand()).get(item_id, 0)
+            for item_id, count in craft_items.items()
+            }
 
     return {
             'gold': gold,
@@ -909,6 +914,7 @@ def calculate_status():
             'craft_stockpile_items': craft_stockpile_items,
             'craft_items': craft_items,
             'craft_counts': craft_counts,
+            'craft_only_counts': craft_only_counts,
             'buy_items': buy_items,
             'obtain_items': obtain_items,
             'used_items': used_items,
@@ -939,6 +945,7 @@ def cmd_status():
     craft_items = x['craft_items']
     craft_goal_items = x['craft_goal_items']
     craft_counts = x['craft_counts']
+    craft_only_counts = x['craft_only_counts']
     buy_items = x['buy_items']
     obtain_items = x['obtain_items']
     used_items = x['used_items']
@@ -1047,22 +1054,34 @@ def cmd_status():
                 count = craft_goal_items.get(item_id, 0) + sell_goal_items.get(item_id, 0)
                 if count == 0:
                     count = None
+                unit_price = sell_prices.get(item_id)
+                craft_cost = optimal_cost(item_id)
+                if unit_price is not None and craft_cost is not None:
+                    roi = unit_price * 0.85 / craft_cost - 1
+                else:
+                    roi = None
                 sell_rows[item_id] = {
                         'item_id': item_id,
                         'count': count,
                         'count_wait': None,
                         'count_craft': None,
+                        'count_craft_only': None,
                         'count_sell': None,
+                        'count_wait_craft': None,
+                        'count_craft_sell': None,
                         'count_listed': None,
-                        'unit_price': sell_prices.get(item_id),
+                        'unit_price': unit_price,
                         'age_sec': None,
+                        'roi': roi,
                         }
             return sell_rows[item_id]
 
         for item_id, count in craft_items.items():
             row = sell_row(item_id)
             craft_count = craft_counts.get(item_id, 0)
+            craft_only_count = craft_only_counts.get(item_id, 0)
             row['count_craft'] = craft_count
+            row['count_craft_only'] = craft_only_count
             row['count_wait'] = count - craft_count
 
         for item_id, count in sell_goal_items.items():
@@ -1075,16 +1094,39 @@ def cmd_status():
             row['recent_age_sec'] = sell_age[item_id]
             row['recent_count'] = recent_sell_amounts[item_id]
 
+        for row in sell_rows.values():
+            count_wait = row.get('count_wait') or 0
+            count_craft = row.get('count_craft') or 0
+            count_craft_only = row.get('count_craft_only') or 0
+            count_sell = row.get('count_sell') or 0
+            if count_wait + count_craft != 0:
+                row['count_wait_craft'] = count_wait + count_craft
+            if count_craft_only + count_sell != 0:
+                row['count_craft_sell'] = count_craft_only + count_sell
+
         #return sorted(sell_rows.values(), key=lambda x: gw2.items.name(x['item_id']))
         return list(sell_rows.values())
 
+    rows_sell_list = rows_sell()
+
+    render_table('Craft',
+            (CountColumn(), ItemNameColumn(),
+                AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
+                AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed'),
+                PercentColumn()),
+            [r for r in rows_sell_list if (r.get('count_wait_craft') or 0) != 0],
+            render_title=True,
+            render_total=False)
+
     render_table('Sell',
             (CountColumn(), ItemNameColumn(),
-                #UnitPriceColumn(), TotalPriceColumn(0.85),
-                AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
-                AltCountColumn('sell', 'Sell'),
-                RecentColumn(), AltCountColumn('listed', 'Listed')),
-            rows_sell(),
+                DualCountColumn('sell', 'craft_sell', 'Sell'),
+                RecentColumn(), AltCountColumn('listed', 'Listed'),
+                PercentColumn()),
+            [r for r in rows_sell_list
+                if ((r.get('count') or 0) != 0 and
+                        (r.get('count_craft_sell') or 0) != 0) or
+                    (r.get('count_listed') or 0) != 0],
             render_title=True,
             render_total=False)
 
@@ -1186,6 +1228,34 @@ class AltCountColumn:
         if count == 0:
             return '-'
         return str(count)
+
+    def render_total(self):
+        return ''
+
+class DualCountColumn:
+    def __init__(self, suffix1, suffix2, title):
+        self.suffix1 = suffix1
+        self.suffix2 = suffix2
+        self.title_ = title
+
+    def format(self):
+        return '%9s'
+
+    def title(self):
+        return self.title_
+
+    def render(self, row):
+        count1 = row.get('count_' + self.suffix1)
+        count2 = row.get('count_' + self.suffix2)
+        if count1 is None and count2 is None:
+            return ''
+        if count1 in (0, None) and count2 in (0, None):
+            return '-'
+        if count1 == count2:
+            return str(count1)
+        count1_str = '-' if count1 in (0, None) else str(count1)
+        count2_str = '-' if count2 in (0, None) else str(count2)
+        return '%s/%s' % (count1_str, count2_str)
 
     def render_total(self):
         return ''
