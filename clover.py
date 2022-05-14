@@ -33,20 +33,25 @@ def main():
                 for count, name, kind in inputs)
         print('%6d   %s' % (times * output_count, input_strs))
 
-    report([(1, 'Obsidian Shard', 'item')])
-    report([(2100, 'Karma', 'currency')])
-    report([(3, 'Laurel', 'currency')], output_count=3)
-    report([(30, 'Fractal Relic', 'currency'), (96, 'Coin', 'currency')])
-    report([(50, 'Bandit Crest', 'currency'), (96, 'Coin', 'currency')])
-    report([(100, 'Unbound Magic', 'currency'), (96, 'Coin', 'currency')])
-    report([(100, 'Volatile Magic', 'currency'), (96, 'Coin', 'currency')])
-    report([(25, 'Airship Part', 'currency'), (1050, 'Karma', 'currency')])
-    report([(25, 'Lump of Aurillium', 'currency'), (1050, 'Karma', 'currency')])
-    report([(25, 'Ley Line Crystal', 'currency'), (1050, 'Karma', 'currency')])
+    report([(1, 'Mystic Clover', 'item')])
     report([
-        (45, 'WvW Skirmish Claim Ticket', 'currency'),
-        #(20, 'Memory of Battle', 'item'),
-        ], output_count=15)
+        (30, 'Magnetite Shard', 'currency'),
+        (2, 'Mystic Coin', 'item'),
+        (2, 'Glob of Ectoplasm', 'item'),
+        (2, 'Spirit Shard', 'currency'),
+        ])
+    report([
+        (150, 'Fractal Relic', 'currency'),
+        (2, 'Mystic Coin', 'item'),
+        (2, 'Glob of Ectoplasm', 'item'),
+        (2, 'Spirit Shard', 'currency'),
+        ])
+    report([
+        (30, 'Green Prophet Shard', 'currency'),
+        (2, 'Mystic Coin', 'item'),
+        (2, 'Glob of Ectoplasm', 'item'),
+        (2, 'Spirit Shard', 'currency'),
+        ])
 
 if __name__ == '__main__':
     main()
