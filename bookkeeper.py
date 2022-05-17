@@ -972,7 +972,7 @@ def cmd_status():
 
     render_table('Buy',
             (CountColumn(), ItemNameColumn(), UnitPriceColumn(),
-                TotalPriceColumn(), AltPriceDeltaColumn()),
+                TotalPriceColumn(), AltPriceDeltaColumn(), NumberOfStacksColumn()),
             (row_buy(item_id, count) for item_id, count in buy_items.items()))
 
     def row_buy_order(transaction):
@@ -999,7 +999,7 @@ def cmd_status():
 
     render_table('Buy orders',
             (CountColumn(), ItemNameColumn(), UnitPriceColumn(show_buried=True),
-                TotalPriceColumn(), AltPriceDeltaColumn(), AgeColumn()),
+                TotalPriceColumn(), AltPriceDeltaColumn(), AgeColumn(), NumberOfStacksColumn()),
             (row_buy_order(t) for t in buy_orders))
 
     def row_obtain(item_id, count):
@@ -1278,6 +1278,25 @@ class AgeColumn:
             return '%dh' % hours
         else:
             return '%dd%02dh' % (days, hours)
+
+    def render_total(self):
+        return ''
+
+class NumberOfStacksColumn:
+    def format(self):
+        return '%8s'
+
+    def title(self):
+        return 'Number Of Stacks'
+
+    def render(self, row):
+        count = row.get('count')
+        stack_size = 250
+        if count is None:
+            return ''
+        number_of_stacks = int(count/stack_size)
+        remainder = count % stack_size
+        return str(number_of_stacks) + 'x' + str(remainder)
 
     def render_total(self):
         return ''
