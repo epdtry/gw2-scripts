@@ -48,7 +48,7 @@ def _get():
         (3, 'Obsidian Shard'),
         (3, 'Mystic Coin'),
         (3, 'Glob of Ectoplasm'),
-        (6, "Philosopher's Stone"),
+        (18, "Philosopher's Stone"),
     ))
 
     add(1, 'Gift of Condensed Might', (
