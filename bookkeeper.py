@@ -1602,6 +1602,13 @@ def cmd_stockpile(count, name):
         'increased' if count >= 0 else 'decreased',
         stockpile[item_id], gw2.items.name(item_id)))
 
+def cmd_stockpile_list():
+    stockpile = _load_dict(STOCKPILE_PATH)
+    entries = [(gw2.items.name(item_id), count)
+            for item_id, count in stockpile.items() if count != 0]
+    for name, count in sorted(entries):
+        print('%6d  %s' % (count, name))
+
 def cmd_profit(name):
     '''Show the profit to be made by crafting the named item.'''
     item_id = parse_item_id(name)
@@ -2092,6 +2099,9 @@ def main():
     elif cmd == 'stockpile':
         count, name = args
         cmd_stockpile(count, name)
+    elif cmd == 'stockpile_list':
+        assert len(args) == 0
+        cmd_stockpile_list()
     elif cmd == 'profit':
         name, = args
         cmd_profit(name)
