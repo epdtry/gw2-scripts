@@ -39,7 +39,7 @@ def main():
     print('%6.1f  Spirit Shard' % wallet_shards)
     print('%6.1f  from Fractal Relic' % fractal_shards)
     print('%6.1f  from Pristine Fractal Relic' % pristine_fractal_shards)
-    print('%6.1f  from Tome of Experience' % tome_shards)
+    print('%6.1f  from Tome of Knowledge' % tome_shards)
     print('%6.1f  from Writ of Experience' % writ_shards)
     print('%6.1f  Total' % total)
     print('')
