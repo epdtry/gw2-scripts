@@ -31,7 +31,8 @@ def main():
                 for count, name, kind in inputs)
         input_strs = '  '.join('%4d  %-15.15s' % (count, name)
                 for count, name, kind in inputs)
-        print('%6d   %s' % (times * output_count, input_strs))
+        produces_str = '' if output_count == 1 else ' (produces %d)' % output_count
+        print('%6d   %s%s' % (times * output_count, input_strs, produces_str))
 
     report([(1, 'Obsidian Shard', 'item')])
     report([(2100, 'Karma', 'currency')])
