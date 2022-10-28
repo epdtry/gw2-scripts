@@ -13,6 +13,7 @@ BUILD_FILE = os.path.join(ITEMS_DIR, 'build.txt')
 INDEX_FILE = os.path.join(ITEMS_DIR, 'index.json')
 DATA_FILE = os.path.join(ITEMS_DIR, 'data.json')
 BY_NAME_FILE = os.path.join(ITEMS_DIR, 'by_name.json')
+BY_NAME_MULTI_FILE = os.path.join(ITEMS_DIR, 'by_name_multi.json')
 
 _DATA = None
 def _get_data():
@@ -38,6 +39,7 @@ def _refresh():
     all_ids.sort()
 
     by_name = {}
+    by_name_multi = defaultdict(list)
 
     N = 100
     for i in range(0, len(all_ids), N):
@@ -55,9 +57,13 @@ def _refresh():
                 pass
             else:
                 by_name[i['name']] = i['id']
+                by_name_multi[i['name']].append(i['id'])
 
     with open(BY_NAME_FILE, 'w') as f:
         json.dump(list(by_name.items()), f)
+
+    with open(BY_NAME_MULTI_FILE, 'w') as f:
+        json.dump(list(by_name_multi.items()), f)
 
     with open(BUILD_FILE, 'w') as f:
         f.write(str(gw2.build.current()))
@@ -90,5 +96,42 @@ def _by_name():
             _BY_NAME = dict(json.load(f))
     return _BY_NAME
 
-def search_name(name):
-    return _by_name().get(name)
+_BY_NAME_MULTI = None
+def _by_name_multi():
+    global _BY_NAME_MULTI
+    if _BY_NAME_MULTI is None:
+        _get_data()
+        with open(BY_NAME_MULTI_FILE) as f:
+            _BY_NAME_MULTI = dict(json.load(f))
+    return _BY_NAME_MULTI
+
+def search_name(name, rarity=None, with_flags=None, without_flags=None):
+    if rarity is None and with_flags is None and without_flags is None:
+        return _by_name().get(name)
+
+    candidates = _by_name_multi().get(name)
+    if candidates is None:
+        return None
+    candidates = [get(item_id) for item_id in candidates]
+
+    if rarity is not None:
+        candidates = [item for item in candidates
+                if item['rarity'] == rarity]
+
+    if with_flags is not None:
+        flag_set = set(item['flags'].values())
+        candidates = [item for item in candidates
+                if all(flag in item['flags'] for flag in with_flags)]
+
+    if without_flags is not None:
+        candidates = [item for item in candidates
+                if all(flag not in item['flags'] for flag in without_flags)]
+
+    candidates = [item['id'] for item in candidates]
+    if len(candidates) == 0:
+        return None
+    elif len(candidates) == 1:
+        return candidates[0]
+    else:
+        raise ValueError('ambiguous lookup for %r, %r: %r' %
+                (name, rarity, candidates))
