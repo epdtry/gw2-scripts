@@ -355,45 +355,76 @@ class StrategyUnknown:
 
 CHEAP_INSIGNIA_PREFIXES = (
         "Cavalier's", "Shaman's", "Dire", "Rabid", "Soldier's", "Magi's")
-
 RESEARCH_NOTE_PANTS = tuple(gw2.items.search_name('%s Exalted Pants' % prefix)
     for prefix in CHEAP_INSIGNIA_PREFIXES)
-
 RESEARCH_NOTES_PER_PANTS = 75
 
+CHEAP_JEWEL_NAMES = (
+        'Ruby', 'Beryl', 'Coral', 'Emerald', 'Opal', 'Sapphire', 'Chrysocola')
+RESEARCH_NOTE_EARRINGS = tuple(
+        gw2.items.search_name('%s Mithril Earring' % jewel,
+            rarity='Fine', without_flags=('AccountBound',))
+        for jewel in CHEAP_JEWEL_NAMES)
+RESEARCH_NOTES_PER_EARRING = 5
+
+PEARL_WEAPON_TYPES = (
+        #'Reaver', 'Carver', 'Bludgeoner', 'Handcannon', 'Rod', 'Sabre',
+        #'Shell', 'Brazier', 'Siren',
+        #'Broadsword', 'Crusher', 'Stinger', 'Blunderbuss', 'Needler', 'Quarterstaff',
+        #'Speargun', 'Impaler', 'Trident',
+        )
+RESEARCH_NOTE_WEAPONS = [
+        tuple(gw2.items.search_name('%s Pearl %s' % (prefix, weapon))
+            for prefix in CHEAP_INSIGNIA_PREFIXES)
+        for weapon in PEARL_WEAPON_TYPES]
+RESEARCH_NOTES_PER_WEAPON = 45
+
+SLAYING_POTION_TYPES = (
+        #'Undead', 'Sons of Svanir', 'Destroyer', 'Grawl',
+        #'Nightmare Court', 'Ogre', 'Outlaw', 'Ice Brood', 'Dredge',
+        #'Mordrem',  # Only available as "powerful potion", not "potent potion"
+        )
+RESEARCH_NOTE_POTIONS = tuple(
+        gw2.items.search_name('Potent Potion of %s Slaying' % x)
+        for x in SLAYING_POTION_TYPES)
+RESEARCH_NOTES_PER_POTION = 1
+
 class StrategyResearchNote:
-    def __init__(self):
-        pass
+    def __init__(self, items, notes_per_item):
+        '''Build a strategy that salvages one of each item in `items` for a
+        total of `notes_per_item * len(itmes)` research notes.'''
+        self.items = items
+        self.notes_per_item = notes_per_item
 
     def cost(self):
-        pants_sum = 0
+        items_sum = 0
         count = 0
-        for item_id in RESEARCH_NOTE_PANTS:
+        for item_id in self.items:
             cost = optimal_cost(item_id)
             if cost is None:
                 continue
-            pants_sum += cost
+            items_sum += cost
             count += 1
         if count == 0:
             return None
-        return pants_sum / (count * RESEARCH_NOTES_PER_PANTS)
+        return items_sum / (count * self.notes_per_item)
 
     def apply(self, state, count):
-        notes_per_set = RESEARCH_NOTES_PER_PANTS * len(RESEARCH_NOTE_PANTS)
+        notes_per_set = self.notes_per_item * len(self.items)
         times = (count + notes_per_set - 1) // notes_per_set
 
         state.craft_items[ITEM_RESEARCH_NOTE] += notes_per_set * times
         state.inventory[ITEM_RESEARCH_NOTE] += notes_per_set * times
 
-        for pants_item_id in RESEARCH_NOTE_PANTS:
-            state.inventory[pants_item_id] -= times
-            state.pending_items.add(pants_item_id)
+        for item_id in self.items:
+            state.inventory[item_id] -= times
+            state.pending_items.add(item_id)
 
     def related_items(self):
-        return RESEARCH_NOTE_PANTS
+        return self.items
 
     def describe(self, count):
-        times = (count + RESEARCH_NOTES_PER_PANTS - 1) // RESEARCH_NOTES_PER_PANTS
+        times = (count + self.notes_per_item - 1) // self.notes_per_item
         return times, 'Salvage items for research notes'
 
 
@@ -434,7 +465,11 @@ def valid_strategies(item_id):
             yield StrategyCraft(r)
 
         if item_id == ITEM_RESEARCH_NOTE:
-            yield StrategyResearchNote()
+            yield StrategyResearchNote(RESEARCH_NOTE_PANTS, RESEARCH_NOTES_PER_PANTS)
+            yield StrategyResearchNote(RESEARCH_NOTE_EARRINGS, RESEARCH_NOTES_PER_EARRING)
+            for weapons in RESEARCH_NOTE_WEAPONS:
+                yield StrategyResearchNote(weapons, RESEARCH_NOTES_PER_WEAPON)
+            yield StrategyResearchNote(RESEARCH_NOTE_POTIONS, RESEARCH_NOTES_PER_POTION)
 
 def optimal_strategy(item_id):
     best_strategy = _OPTIMAL_STRATEGY_CACHE.get(item_id)
@@ -612,6 +647,10 @@ def policy_forbid_buy():
             forbid.remove(item_id)
 
     forbid.update(RESEARCH_NOTE_PANTS)
+    forbid.update(RESEARCH_NOTE_EARRINGS)
+    for weapons in RESEARCH_NOTE_WEAPONS:
+        forbid.update(weapons)
+    forbid.update(RESEARCH_NOTE_POTIONS)
 
     forbid.add(gw2.items.search_name('20 Slot Invisible Bag'))
     forbid.add(gw2.items.search_name('20 Slot Gossamer Bag'))
