@@ -706,6 +706,7 @@ def policy_buy_on_demand():
     buy.add(gw2.items.search_name('Congealed Putrescence'))
     buy.add(gw2.items.search_name('Evergreen Lodestone'))
     buy.add(gw2.items.search_name('Leaf Fossil'))
+    buy.add(gw2.items.search_name('Ley-Infused Sand'))
 
     buy.add(gw2.items.search_name('Pulsing Brandspark'))
     buy.add(gw2.items.search_name('Eye of Kormir'))
