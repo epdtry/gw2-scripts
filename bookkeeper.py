@@ -620,10 +620,14 @@ def policy_forbid_buy():
 
     # Forbid buying or selling intermediate crafting items.
     for r in gw2.recipes.iter_all():
+        item = gw2.items.get(r['output_item_id'])
+        if item is not None:
+            if item['type'] == 'UpgradeComponent' and item['details']['type'] == 'Gem':
+                continue
+
         if r['type'] in ('Refinement', 'Component'):
             forbid.add(r['output_item_id'])
 
-        item = gw2.items.get(r['output_item_id'])
         if item is not None:
             if item['name'].startswith('Embellished'):
                 forbid.add(item['id'])
