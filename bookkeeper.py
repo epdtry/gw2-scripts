@@ -130,7 +130,14 @@ def get_prices_and_listings(item_ids):
         if x is None:
             continue
 
-        buys = x['buys']
+        item = gw2.items.get(x['id'])
+        min_price = item['vendor_value'] / 0.85
+
+        # Filter out buy orders for less than the minimum trading post price.
+        # Notably, ruby crystals (for mithril earrings) have some old
+        # unfillable buy orders, but the actual trading price is usually set by
+        # the sell side, close to the minimum.
+        buys = [l for l in x['buys'] if l['unit_price'] >= min_price]
         sells = x['sells']
 
         buy_listings[x['id']] = buys
