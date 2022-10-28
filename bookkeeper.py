@@ -65,6 +65,17 @@ def format_price(price):
     else:
         return '%d.%02d.%02d' % (price // 10000, price // 100 % 100, price % 100)
 
+def format_price_float(price, precision=3):
+    if price < 0:
+        return '-' + format_price(-price)
+    last = '%0{}.{}f'.format(precision + 3, precision)
+    if price < 100:
+        return last % price
+    elif price < 10000:
+        return ('%d.' + last) % (price // 100, price % 100)
+    else:
+        return ('%d.%02d.' + last) % (price // 10000, price // 100 % 100, price % 100)
+
 def format_price_delta(price):
     if price < 0:
         return '-' + format_price(-price)
@@ -2127,6 +2138,35 @@ def cmd_craft_profit_buy():
             render_title=True,
             render_total=False)
 
+def cmd_research_notes():
+    '''Print a list of items that can be crafted for research notes and the
+    cost per note for each one.'''
+    related_items = gather_related_items([item_id
+        for s in valid_strategies(ITEM_RESEARCH_NOTE)
+        if isinstance(s, StrategyResearchNote)
+        for item_id in s.items])
+    buy_prices, sell_prices = get_prices(related_items)
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    xs = []
+    for strategy in valid_strategies(ITEM_RESEARCH_NOTE):
+        if not isinstance(strategy, StrategyResearchNote):
+            continue
+        for item_id in strategy.items:
+            cost = optimal_cost(item_id)
+            if cost is None:
+                print('no cost for item %s?' % gw2.items.name(item_id))
+                continue
+            cost_per_note = cost / strategy.notes_per_item
+            xs.append((cost_per_note, item_id))
+    for cost_per_note, item_id in sorted(xs):
+        print('%15s  %s' % (format_price_float(cost_per_note),
+            gw2.items.name(item_id)))
 
 def main():
     with open('api_key.txt') as f:
@@ -2174,6 +2214,9 @@ def main():
     elif cmd == 'profitable_eod_items':
         assert len(args) == 0
         cmd_profitable_eod_items()
+    elif cmd == 'research_notes':
+        assert len(args) == 0
+        cmd_research_notes()
     else:
         raise ValueError('unknown command %r' % cmd)
 
