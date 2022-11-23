@@ -673,6 +673,7 @@ def policy_forbid_buy():
 
     forbid.remove(gw2.items.search_name('Pile of Lucent Crystal'))
     forbid.add(gw2.items.search_name('Lucent Mote'))
+    forbid.add(gw2.items.search_name('Mithril Ore'))
     #forbid.remove(gw2.items.search_name('Vial of Linseed Oil'))
 
     # T6 mats
@@ -1697,67 +1698,9 @@ def cmd_profit(name):
     profit_pct = 100 * profit / cost
     print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
 
-def cmd_profitable_eod_items():
-    '''Show the profit to be made by crafting the items from list of new EoD items'''
-    new_eod_recipes = ["Recipe: Ancient Kraken Cuirass", "Recipe: Ancient Kraken Gauntlets", "Recipe: Ancient Kraken Greaves", "Recipe: Ancient Kraken Helmet", "Recipe: Ancient Kraken Pauldrons", "Recipe: Ancient Kraken Tassets", "Recipe: Ancient Ritualist Cowl", "Recipe: Ancient Ritualist Gloves", "Recipe: Ancient Ritualist Mantle", "Recipe: Ancient Ritualist Pants", "Recipe: Ancient Ritualist Shoes", "Recipe: Ancient Ritualist Vestments", "Recipe: Ancient Tahkayun Boots", "Recipe: Ancient Tahkayun Jerkin", "Recipe: Ancient Tahkayun Leggings", "Recipe: Ancient Tahkayun Mask", "Recipe: Ancient Tahkayun Shoulders", "Recipe: Ancient Tahkayun Vambraces", "Recipe: Bowl of Echovald Hotpot", "Recipe: Bowl of Fish Stew", "Recipe: Bowl of Jade Sea Bounty", "Recipe: Dragon\'s Intricate Gossamer Insignia", "Recipe: Dragon\'s Orichalcum Imbued Inscription", "Recipe: Exquisite Jade Jewel", "Recipe: Exquisite Polished-Resin Jewel", "Recipe: Fishy Rice Bowl", "Recipe: Flight of Sushi", "Recipe: Harrier\'s Monastery Gloves", "Recipe: Harrier\'s Monastery Headband", "Recipe: Harrier\'s Monastery Leggings", "Recipe: Harrier\'s Monastery Shoes", "Recipe: Harrier\'s Monastery Shoulderpads", "Recipe: Harrier\'s Monastery Vestments", "Recipe: Jade Bot Basic Skiff Supercharger", "Recipe: Jade Bot Gliding Booster", "Recipe: Jade Bot Mount Energy Booster", "Recipe: Jade Orichalcum Amulet", "Recipe: Jade Orichalcum Earring", "Recipe: Jade Orichalcum Ring", "Recipe: Jade Punk Dagger", "Recipe: Jade Punk Sword", "Recipe: Jade Punk Torch", "Recipe: Jade Punk Greatsword", "Recipe: Jade Punk Warhorn", "Recipe: Jade Punk Rifle", "Recipe: Jade Punk Short Bow", "Recipe: Jade Punk Longbow", "Recipe: Jade Punk Scepter", "Recipe: Jade Punk Focus", "Recipe: Jade Punk Pistol", "Recipe: Jade Punk Hammer", "Recipe: Jade Punk Staff", "Recipe: Jade Punk Mace", "Recipe: Jade Punk Shield", "Recipe: Jade Punk Axe", "Recipe: Jade Tech Coat", "Recipe: Jade Tech Cuirass", "Recipe: Jade Tech Gauntlets", "Recipe: Jade Tech Hat", "Recipe: Jade Tech Heavy Boots", "Recipe: Jade Tech Heavy Leggings", "Recipe: Jade Tech Helmet", "Recipe: Jade Tech Light Boots", "Recipe: Jade Tech Light Gloves", "Recipe: Jade Tech Light Shoulderpads", "Recipe: Jade Tech Masque", "Recipe: Jade Tech Medium Boots", "Recipe: Jade Tech Medium Gloves", "Recipe: Jade Tech Medium Leggings", "Recipe: Jade Tech Medium Shoulderpads", "Recipe: Jade Tech Pauldrons", "Recipe: Jade Tech Skirt", "Recipe: Jade Tech Vest", "Recipe: Kimchi Pancakes", "Recipe: Kimchi Tofu Stew", "Recipe: Meaty Asparagus Skewer", "Recipe: Meaty Rice Bowl", "Recipe: Plate of Crispy Fish Pancakes", "Recipe: Plate of Imperial Palace Special", "Recipe: Polished-Resin Orichalcum Amulet", "Recipe: Polished-Resin Orichalcum Earring", "Recipe: Polished-Resin Orichalcum Ring", "Recipe: Recycler: Bloodstone Dust", "Recipe: Recycler: Dragonite Ore", "Recipe: Recycler: Empyreal Fragments", "Recipe: Recycler: Jade Slivers", "Recipe: Recycler: Karma", "Recipe: Rescue Protocol Recharge", "Recipe: Ritualist\'s Intricate Gossamer Insignia", "Recipe: Ritualist\'s Orichalcum Imbued Inscription", "Recipe: Scavenger Protocol: Cloth", "Recipe: Scavenger Protocol: Leather", "Recipe: Scavenger Protocol: Magic Trophies", "Recipe: Scavenger Protocol: Metal", "Recipe: Scavenger Protocol: Might Trophies", "Recipe: Scavenger Protocol: Wood", "Recipe: Shadow Serpent Axe", "Recipe: Shadow Serpent Dagger", "Recipe: Shadow Serpent Focus", "Recipe: Shadow Serpent Greatsword", "Recipe: Shadow Serpent Hammer", "Recipe: Shadow Serpent Longbow", "Recipe: Shadow Serpent Mace", "Recipe: Shadow Serpent Pistol", "Recipe: Shadow Serpent Rifle", "Recipe: Shadow Serpent Scepter", "Recipe: Shadow Serpent Shield", "Recipe: Shadow Serpent Short Bow", "Recipe: Shadow Serpent Staff", "Recipe: Shadow Serpent Sword", "Recipe: Shadow Serpent Torch", "Recipe: Shadow Serpent Warhorn", "Recipe: Suun\'s Artifact", "Recipe: Suun\'s Bastion", "Recipe: Suun\'s Blade", "Recipe: Suun\'s Brazier", "Recipe: Suun\'s Breastplate", "Recipe: Suun\'s Breeches", "Recipe: Suun\'s Claymore", "Recipe: Suun\'s Doublet", "Recipe: Suun\'s Epaulets", "Recipe: Suun\'s Flanged Mace", "Recipe: Suun\'s Footwear", "Recipe: Suun\'s Greatbow", "Recipe: Suun\'s Greaves", "Recipe: Suun\'s Grips", "Recipe: Suun\'s Guise", "Recipe: Suun\'s Harpoon Gun", "Recipe: Suun\'s Herald", "Recipe: Suun\'s Impaler", "Recipe: Suun\'s Inscription", "Recipe: Suun\'s Insignia", "Recipe: Suun\'s Leggings", "Recipe: Suun\'s Masque", "Recipe: Suun\'s Musket", "Recipe: Suun\'s Pauldrons", "Recipe: Suun\'s Razor", "Recipe: Suun\'s Reaver", "Recipe: Suun\'s Revolver", "Recipe: Suun\'s Short Bow", "Recipe: Suun\'s Shoulderguard", "Recipe: Suun\'s Spire", "Recipe: Suun\'s Striders", "Recipe: Suun\'s Tassets", "Recipe: Suun\'s Trident", "Recipe: Suun\'s Visage", "Recipe: Suun\'s Visor", "Recipe: Suun\'s Wand", "Recipe: Suun\'s Warfists", "Recipe: Suun\'s Warhammer", "Recipe: Suun\'s Wristguards", "Recipe: Tier 1 Core", "Recipe: Tier 2 Core", "Recipe: Tier 3 Core", "Recipe: Tier 4 Core", "Recipe: Tier 5 Core", "Recipe: Tier 6 Core", "Recipe: Tier 7 Core", "Recipe: Tier 8 Core", "Recipe: Tier 9 Core", "Recipe: Tier 10 Core", "Recipe: Togo\'s Artifact", "Recipe: Togo\'s Bastion", "Recipe: Togo\'s Blade", "Recipe: Togo\'s Brazier", "Recipe: Togo\'s Breastplate", "Recipe: Togo\'s Breeches", "Recipe: Togo\'s Claymore", "Recipe: Togo\'s Doublet", "Recipe: Togo\'s Epaulets", "Recipe: Togo\'s Flanged Mace", "Recipe: Togo\'s Footwear", "Recipe: Togo\'s Greatbow", "Recipe: Togo\'s Greaves", "Recipe: Togo\'s Grips", "Recipe: Togo\'s Guise", "Recipe: Togo\'s Harpoon Gun", "Recipe: Togo\'s Herald", "Recipe: Togo\'s Impaler", "Recipe: Togo\'s Inscription", "Recipe: Togo\'s Insignia", "Recipe: Togo\'s Leggings", "Recipe: Togo\'s Masque", "Recipe: Togo\'s Musket", "Recipe: Togo\'s Pauldrons", "Recipe: Togo\'s Razor", "Recipe: Togo\'s Reaver", "Recipe: Togo\'s Revolver", "Recipe: Togo\'s Short Bow", "Recipe: Togo\'s Shoulderguard", "Recipe: Togo\'s Spire", "Recipe: Togo\'s Striders", "Recipe: Togo\'s Tassets", "Recipe: Togo\'s Trident", "Recipe: Togo\'s Visage", "Recipe: Togo\'s Visor", "Recipe: Togo\'s Wand", "Recipe: Togo\'s Warfists", "Recipe: Togo\'s Warhammer", "Recipe: Togo\'s Wristguards", "Recipe: Treasure Hunter Protocol", "Recipe: Turtle Siege Enhancer" ]
-    new_eod_item_names = []
-    for recipe in new_eod_recipes:
-        if recipe == 'Recipe: Tier 10 Core':
-            print(recipe)
-        item_id = parse_item_id(recipe)
-        item = gw2.items.get(item_id)
-        if not item or not item['details']:
-            continue
-        recipe_id = item['details']['recipe_id']
-        recipe = gw2.recipes.get(recipe_id)
-        if not recipe:
-            continue
-        output_item_id = recipe['output_item_id']
-        new_eod_item_names.append(gw2.items.name(output_item_id))
-
-    sellable_craftable_eod_items = []
-    
-    for name in new_eod_item_names:
-        print()
-        print(name)
-        try:
-            item_id = parse_item_id(name)
-        except:
-            print(name, 'cant be found in the items api')
-            continue
-
-        related_items = gather_related_items([item_id])
-        buy_prices, sell_prices = get_prices(related_items)
-
-        set_strategy_params(
-                buy_prices,
-                policy_forbid_buy().union((item_id,)),
-                policy_forbid_craft(),
-                policy_can_craft_recipe,
-                )
-
-        buy_price = buy_prices.get(item_id, 0)
-        sell_price = sell_prices.get(item_id, 0)
-        cost = optimal_cost(item_id)
-        if not cost:
-            print('Not profitable, check bound status.')
-            continue
-        print('%s (%d)' % (gw2.items.name(item_id), item_id))
-        print('Cost:        %s' % format_price(cost))
-        print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
-        print('Buy price:   %s' % format_price(buy_price))
-        print('Sell price:  %s' % format_price(sell_price))
-        profit = sell_price * 0.85 - cost
-        profit_pct = 100 * profit / cost
-        print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
-        sellable_craftable_eod_items.append((name, profit_pct))
-    
-    sellable_craftable_eod_items.sort(key=lambda x: x[1], reverse=True)
-    print('-----------------')
-    print('-----------------')
-    for k,v in sellable_craftable_eod_items:
-        print(k, '-', v)
-
+def cmd_jade_bot_core_profits():
+    for tier_level in range(1,11):
+     cmd_profit('Jade Bot Core: Tier ' + str(tier_level))
 
 # One line per category.  In each category, you can only sell one item per day.
 # TODO: switch to string search terms once gw2.items handles name collisions
@@ -2211,12 +2154,12 @@ def main():
     elif cmd == 'craft_profit_buy':
         assert len(args) == 0
         cmd_craft_profit_buy()
-    elif cmd == 'profitable_eod_items':
-        assert len(args) == 0
-        cmd_profitable_eod_items()
     elif cmd == 'research_notes':
         assert len(args) == 0
         cmd_research_notes()
+    elif cmd == 'jade_core_profits':
+        assert len(args) == 0
+        cmd_jade_bot_core_profits()
     else:
         raise ValueError('unknown command %r' % cmd)
 
