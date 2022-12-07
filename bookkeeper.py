@@ -631,6 +631,9 @@ def policy_forbid_buy():
 
     # Forbid buying or selling intermediate crafting items.
     for r in gw2.recipes.iter_all():
+        if not policy_can_craft_recipe(r):
+            continue
+
         item = gw2.items.get(r['output_item_id'])
         if item is not None:
             if item['type'] == 'UpgradeComponent' and item['details']['type'] == 'Gem':
