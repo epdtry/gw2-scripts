@@ -75,6 +75,45 @@ def _get():
     add(1, 'Gift of Glory', ((250, 'Shard of Glory'),))
     add(1, 'Gift of War', ((250, 'Memory of Battle'),))
 
+    # Legendary crafting - gen1 weapon generic components
+
+    add(1, 'Gift of Might', (
+        (250, 'Vicious Fang'),
+        (250, 'Armored Scale'),
+        (250, 'Vicious Claw'),
+        (250, 'Ancient Bone'),
+    ))
+
+    add(1, 'Gift of Magic', (
+        (250, 'Vial of Powerful Blood'),
+        (250, 'Powerful Venom Sac'),
+        (250, 'Elaborate Totem'),
+        (250, 'Pile of Crystalline Dust'),
+    ))
+
+    add(1, 'Gift of Fortune', (
+        (1, 'Gift of Magic'),
+        (1, 'Gift of Might'),
+        (77, 'Mystic Clover'),
+        (250, 'Glob of Ectoplasm'),
+    ))
+
+    add(1, 'Gift of Mastery', (
+        (1, 'Gift of Battle'),
+        (1, 'Gift of Exploration'),
+        (250, 'Obsidian Shard'),
+        (1, 'Bloodstone Shard'),
+    ))
+
+    # Legendary crafting - gen1 Incinerator
+
+    add(1, 'Gift of Incinerator', (
+        (1, 'Gift of Metal'),
+        (1, 'Vial of Liquid Flame'),
+        (100, 'Icy Runestone'),
+        (1, 'Superior Sigil of Fire'),
+    ))
+
     # Legendary crafting - gen3 weapon generic components
 
     add(1, 'Gift of Cantha', (
