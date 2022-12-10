@@ -365,7 +365,7 @@ class StrategyUnknown:
         return count, 'Obtain ' + gw2.items.name(self.item_id)
 
 CHEAP_INSIGNIA_PREFIXES = (
-        "Cavalier's", "Shaman's", "Dire", "Rabid", "Soldier's", "Magi's")
+        "Shaman's", "Dire", "Rabid", "Magi's")
 RESEARCH_NOTE_PANTS = tuple(gw2.items.search_name('%s Exalted Pants' % prefix)
     for prefix in CHEAP_INSIGNIA_PREFIXES)
 RESEARCH_NOTES_PER_PANTS = 75
