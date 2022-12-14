@@ -22,7 +22,9 @@ def main():
         else:
             raise ValueError('bad input kind %r' % (kind,))
 
+    acc = 0
     def report(inputs, output_count=1, note=None):
+        nonlocal acc
         times = min(count_input(kind, name) // count
                 for count, name, kind in inputs)
         input_strs = '  '.join('%4d  %-15.15s' % (count, name)
@@ -34,11 +36,15 @@ def main():
                 note = 'produces %d, %s' % (output_count, note)
         note_str = '' if not note else ' (%s)' % note
         print('%6d   %s%s' % (times * output_count, input_strs, note_str))
+        acc += times * output_count
 
-    report([(1, 'Funenary Incense', 'item')])
+    report([(1, 'Funerary Incense', 'item')])
     report([(3, 'Elegy Mosaic', 'currency')])
     report([(100, 'Trade Contract', 'currency')])
     report([(1, 'Tyrian Exchange Voucher', 'item')], output_count=10)
+    print('%6d   Total' % acc)
+    print()
+
     report([(1, 'Crystalline Ingot', 'item')], note='5/day')
     report([(5, 'Trade Contract', 'currency')], note='8/day')
 
