@@ -44,6 +44,26 @@ def _get():
 
     # Legendary crafting - generic recipes
 
+    add(10, "Philosopher's Stone", (
+        (1, 'Spirit Shard'),
+    ))
+
+    add(5, 'Mystic Crystal', (
+        (3, 'Spirit Shard'),
+    ))
+
+    add(1, 'Bloodstone Shard', (
+        (200, 'Spirit Shard'),
+    ))
+
+    add(1, 'Eldritch Scroll', (
+        (50, 'Spirit Shard'),
+    ))
+
+    add(1, "Augur's Stone", (
+        (20, 'Spirit Shard'),
+    ))
+
     add(1, 'Mystic Clover', (
         (3, 'Obsidian Shard'),
         (3, 'Mystic Coin'),

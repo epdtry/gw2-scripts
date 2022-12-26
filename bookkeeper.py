@@ -237,10 +237,13 @@ def craftable_items():
 
 CURRENCY_COIN = 1
 CURRENCY_RESEARCH_NOTE = 61
+CURRENCY_SPIRIT_SHARDS = 23
 ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
+ITEM_SPIRIT_SHARD = gw2.items.search_name('Spirit Shard')
 
 CURRENCY_ITEMS = [
         (CURRENCY_RESEARCH_NOTE, ITEM_RESEARCH_NOTE),
+        (CURRENCY_SPIRIT_SHARDS, ITEM_SPIRIT_SHARD),
         ]
 
 CURRENCY_TO_ITEM = {c: i for c, i in CURRENCY_ITEMS}
