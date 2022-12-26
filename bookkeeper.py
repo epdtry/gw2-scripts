@@ -2114,6 +2114,38 @@ def cmd_research_notes():
         print('%15s  %s' % (format_price_float(cost_per_note),
             gw2.items.name(item_id)))
 
+def cmd_charr_commendations():
+    '''Print a list of items that can be traded for Charr Comendations and the
+    cost per reward track (5,000 commendations) for each one.'''
+    # Format: (commendations produced, item count required, item name)
+    options = (
+            (125, 100, gw2.items.search_name('Elder Wood Log'), ''),
+            (125, 100, gw2.items.search_name('Mithril Ore'), ''),
+            (125, 100, gw2.items.search_name('Thick Leather Section'), ''),
+            (125, 200, gw2.items.search_name('Silk Scrap'), ''),
+            (250, 100, gw2.items.search_name('Ancient Wood Log'), 'generic'),
+            (250, 100, gw2.items.search_name('Orichalcum Ore'), 'generic'),
+            (250, 100, gw2.items.search_name('Thick Leather Section'), 'generic'),
+            (250, 200, gw2.items.search_name('Gossamer Scrap'), 'generic'),
+            (250, 50, gw2.items.search_name('Ancient Wood Log'), 'specific'),
+            (250, 50, gw2.items.search_name('Orichalcum Ore'), 'specific'),
+            (250, 50, gw2.items.search_name('Thick Leather Section'), 'specific'),
+            (250, 100, gw2.items.search_name('Gossamer Scrap'), 'specific'),
+    )
+    related_items = gather_related_items([i for _,_,i,_ in options])
+    buy_prices, sell_prices = get_prices(related_items)
+
+    xs = []
+    for opt in options:
+        out_count, in_count, item_id, _ = opt
+        cost = buy_prices[item_id] * in_count * (5000 / out_count)
+        xs.append((cost, opt))
+
+    for cost, (out_count, in_count, item_id, desc) in sorted(xs):
+        desc_str = '' if desc == '' else ' (%s)' % desc
+        print('%9s  %3d %s%s' % (format_price(cost),
+            in_count, gw2.items.name(item_id), desc_str))
+
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
@@ -2163,6 +2195,9 @@ def main():
     elif cmd == 'jade_core_profits':
         assert len(args) == 0
         cmd_jade_bot_core_profits()
+    elif cmd == 'charr_commendations':
+        assert len(args) == 0
+        cmd_charr_commendations()
     else:
         raise ValueError('unknown command %r' % cmd)
 
