@@ -134,6 +134,38 @@ def _get():
         (1, 'Superior Sigil of Fire'),
     ))
 
+    # Legendary crafting - gen2 weapon generic components
+
+    add(1, 'Gift of Maguuma Mastery', (
+        (1, 'Gift of Maguuma'),
+        (1, 'Gift of Insights'),
+        (1, 'Bloodstone Shard'),
+        (250, 'Crystalline Ingot'),
+    ))
+
+    add(1, 'Gift of Desert Mastery', (
+        (1, 'Gift of the Desert'),
+        (1, 'Gift of the Rider'),
+        (1, 'Bloodstone Shard'),
+        (250, 'Funerary Incense'),
+    ))
+
+    add(1, 'Mystic Tribute', (
+        (2, 'Gift of Condensed Might'),
+        (2, 'Gift of Condensed Magic'),
+        (77, 'Mystic Clover'),
+        (250, 'Mystic Coin'),
+    ))
+
+    # Legendary crafting - gen2.5 The Binding of Ipos
+
+    add(1, 'Gift of Ipos', (
+        (1, 'Gift of the Mists'),
+        (100, 'Mystic Runestone'),
+        (100, 'Shard of the Dark Arts'),
+        (1, 'Gift of Energy'),
+    ))
+
     # Legendary crafting - gen3 weapon generic components
 
     add(1, 'Gift of Cantha', (
