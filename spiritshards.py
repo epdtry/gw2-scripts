@@ -21,7 +21,7 @@ def main():
     tome_shards = inventory.get(gw2.items.search_name('Tome of Knowledge'), 0)
     writ_shards = inventory.get(gw2.items.search_name('Writ of Experience'), 0) / 20
 
-    total = wallet_shards + fractal_shards + pristine_fractal_shards + \
+    total = fractal_shards + pristine_fractal_shards + \
             tome_shards + writ_shards
 
     philosopher_shards = inventory.get(gw2.items.search_name("Philosopher's Stone"), 0) * 0.1
@@ -37,23 +37,25 @@ def main():
     vision_total = augur_shards + vision_shards + lesser_vision_shards
 
     print('%6.1f  Spirit Shard' % wallet_shards)
+    print('')
     print('%6.1f  from Fractal Relic' % fractal_shards)
     print('%6.1f  from Pristine Fractal Relic' % pristine_fractal_shards)
     print('%6.1f  from Tome of Knowledge' % tome_shards)
     print('%6.1f  from Writ of Experience' % writ_shards)
-    print('%6.1f  Total' % total)
+    print('%6.1f  Total from other currencies' % total)
+    print('%6.1f  Total raw shards available' % (wallet_shards + total))
     print('')
     print("%6.1f  in Philosopher's Stone" % philosopher_shards)
     print('%6.1f  in Mystic Crystal' % mystic_crystal_shards)
     print('%6.1f  in Mystic Clover' % clover_shards)
-    print('%6.1f  Total' % clover_total)
+    print('%6.1f  Total in legendary materials' % clover_total)
     print('')
     print("%6.1f  in Augur's Stone" % augur_shards)
     print('%6.1f  in Vision Crystal' % vision_shards)
     print('%6.1f  in Lesser Vision Crystal' % lesser_vision_shards)
-    print('%6.1f  Total' % vision_total)
+    print('%6.1f  Total in ascended materials' % vision_total)
     print('')
-    print('%6.1f  Grand Total' % (total + clover_total + vision_total))
+    print('%6.1f  Grand Total' % (wallet_shards + total + clover_total + vision_total))
 
 if __name__ == '__main__':
     main()
