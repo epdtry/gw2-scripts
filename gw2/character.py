@@ -75,6 +75,11 @@ def get_crafting_for_character(character_name):
             crafts[craft_skill['discipline']] = craft_skill['rating']
     return crafts
 
+def get_equipment_for_character(character_name):
+    response = fetch('/v2/characters/%s/equipment' %
+                urllib.parse.quote(character_name))
+    return response['equipment']
+
 
 def get_all_character_disciplines():
     return _get_characters_crafting()
