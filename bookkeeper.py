@@ -1673,10 +1673,10 @@ def cmd_stockpile(count, name):
 
 def cmd_stockpile_list():
     stockpile = _load_dict(STOCKPILE_PATH)
-    entries = [(gw2.items.name(item_id), count)
+    entries = [(gw2.items.name(item_id), count, item_id)
             for item_id, count in stockpile.items() if count != 0]
-    for name, count in sorted(entries):
-        print('%6d  %s' % (count, name))
+    for name, count, item_id in sorted(entries):
+        print('%6d  %s  - %d' % (count, name, item_id))
 
 def cmd_profit(name):
     '''Show the profit to be made by crafting the named item.'''
