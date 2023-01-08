@@ -352,7 +352,7 @@ class StrategyCraft:
 
         if max_times is None:
             max_times = 0
-        return times * self.recipe['output_item_count']
+        return max_times * self.recipe['output_item_count']
 
     def apply(self, state, count):
         r = self.recipe
