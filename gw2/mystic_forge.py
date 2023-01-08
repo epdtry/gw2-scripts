@@ -242,6 +242,10 @@ def _get():
         (100, 'Antique Summoning Stone'),
     ))
 
+    add(1, 'Blessing of the Jade Empress', (
+        (500, 'Imperial Favor'),
+    ))
+
     # Legendary crafting - gen3 Aurene's Wisdom
 
     add(1, "Gift of Aurene's Wisdom", (
@@ -262,6 +266,52 @@ def _get():
         (10, 'Tale of Adventure'),
         (10, "Lamplighter's Badge"),
         (1, 'Spiritwood Scepter Core'),
+        (1, 'Sheet of Premium Paper'),
+    ))
+
+    # Legendary crafting - gen3 Aurene's Claw
+
+    add(1, "Gift of Aurene's Claw", (
+        (1, 'Poem on Daggers'),
+        (100, 'Mystic Runestone'),
+        (1, 'Gift of Research'),
+        (1, 'Gift of the Mists'),
+    ))
+
+    add(1, "Aurene's Claw", (
+        (1, "Dragon's Claw"),
+        (1, "Gift of Aurene's Claw"),
+        (1, 'Gift of Jade Mastery'),
+        (1, 'Draconic Tribute'),
+    ))
+
+    add(1, 'Poem on Daggers', (
+        (10, 'Tale of Adventure'),
+        (10, "Lamplighter's Badge"),
+        (1, 'Deldrimor Steel Dagger Blade'),
+        (1, 'Sheet of Premium Paper'),
+    ))
+
+    # Legendary crafting - gen3 Aurene's Voice
+
+    add(1, "Gift of Aurene's Horn", (
+        (1, 'Poem on Warhorns'),
+        (100, 'Mystic Runestone'),
+        (1, 'Gift of Research'),
+        (1, 'Gift of the Mists'),
+    ))
+
+    add(1, "Aurene's Voice", (
+        (1, "Dragon's Voice"),
+        (1, "Gift of Aurene's Voice"),
+        (1, 'Gift of Jade Mastery'),
+        (1, 'Draconic Tribute'),
+    ))
+
+    add(1, 'Poem on Warhorns', (
+        (10, 'Tale of Adventure'),
+        (10, "Lamplighter's Badge"),
+        (1, 'Deldrimor Steel Horn'),
         (1, 'Sheet of Premium Paper'),
     ))
 
