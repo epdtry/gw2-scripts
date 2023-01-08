@@ -238,12 +238,21 @@ def craftable_items():
 CURRENCY_COIN = 1
 CURRENCY_RESEARCH_NOTE = 61
 CURRENCY_SPIRIT_SHARDS = 23
+CURRENCY_IMPERIAL_FAVOR = 68
+CURRENCY_FRACTAL_RELIC = 7
+CURRENCY_PRISTINE_FRACTAL_RELIC = 24
 ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
 ITEM_SPIRIT_SHARD = gw2.items.search_name('Spirit Shard')
+ITEM_IMPERIAL_FAVOR = gw2.items.search_name('Imperial Favor')
+ITEM_FRACTAL_RELIC = gw2.items.search_name('Fractal Relic')
+ITEM_PRISTINE_FRACTAL_RELIC = gw2.items.search_name('Pristine Fractal Relic')
 
 CURRENCY_ITEMS = [
         (CURRENCY_RESEARCH_NOTE, ITEM_RESEARCH_NOTE),
         (CURRENCY_SPIRIT_SHARDS, ITEM_SPIRIT_SHARD),
+        (CURRENCY_IMPERIAL_FAVOR, ITEM_IMPERIAL_FAVOR),
+        (CURRENCY_FRACTAL_RELIC, ITEM_FRACTAL_RELIC),
+        (CURRENCY_PRISTINE_FRACTAL_RELIC, ITEM_PRISTINE_FRACTAL_RELIC),
         ]
 
 CURRENCY_TO_ITEM = {c: i for c, i in CURRENCY_ITEMS}
@@ -319,12 +328,25 @@ class StrategyCraft:
                 costs.append((count / output_count, optimal_cost(item_id)))
         return sum_costs(costs)
 
-    def max_count(self, state):
+    def max_count(self, state, exclude=None, max_output=None):
         '''Return the maximum number of outputs that can be crafted using only
-        available inputs.'''
+        available inputs.
+
+        * `exclude` (dict): Subtract the quantities in this dict from the
+          inventory contents when counting inputs.
+        * `max_output` (int): Don't produce more than this many output items.
+        '''
         max_times = None
         for item_id, count in recipe_ingredient_items(self.recipe):
-            times = state.inventory[item_id] // count
+            avail = state.inventory[item_id]
+            if exclude:
+                avail -= exclude.get(item_id, 0)
+            times = avail // count
+            if max_times is None or max_times > times:
+                max_times = times
+
+        if max_output is not None:
+            times = max_output // self.recipe['output_item_count']
             if max_times is None or max_times > times:
                 max_times = times
 
@@ -460,7 +482,7 @@ def set_strategy_params(prices, forbid_buy, forbid_craft, can_craft_recipe):
     _OPTIMAL_STRATEGY_CACHE = {}
     _OPTIMAL_COST_CACHE = {}
 
-def valid_strategies(item_id):
+def valid_strategies(item_id, allow_refine_only=False):
     if item_id not in STRATEGY_FORBID_BUY:
         price = STRATEGY_PRICES.get(item_id)
         if price is not None:
@@ -470,12 +492,16 @@ def valid_strategies(item_id):
         recipe_ids = gw2.recipes.search_output(item_id)
         for recipe_id in recipe_ids:
             r = gw2.recipes.get(recipe_id)
+            if r.get('bookkeeper_refine_only') and not allow_refine_only:
+                continue
             if STRATEGY_CAN_CRAFT_RECIPE(r):
                 yield StrategyCraft(r)
 
         mystic_recipe_ids = gw2.mystic_forge.search_output(item_id)
         for mystic_recipe_id in mystic_recipe_ids:
             r = gw2.mystic_forge.get(mystic_recipe_id)
+            if r.get('bookkeeper_refine_only') and not allow_refine_only:
+                continue
             yield StrategyCraft(r)
 
         if item_id == ITEM_RESEARCH_NOTE:
@@ -741,9 +767,9 @@ def policy_buy_on_demand():
 
     return buy
 
-def policy_craft_suboptimal():
-    '''Items that should be crafted if needed, even if buying them is cheaper
-    than crafting.'''
+def policy_auto_refine():
+    '''Items that should be crafted if their inputs are already available, even
+    if it's cheaper to buy.'''
     return (
             gw2.items.search_name('Copper Ingot'),
             gw2.items.search_name('Bronze Ingot'),
@@ -766,6 +792,9 @@ def policy_craft_suboptimal():
             gw2.items.search_name('Bolt of Gossamer'),
 
             gw2.items.search_name('Pile of Lucent Crystal'),
+
+            gw2.items.search_name('Spirit Shard'),
+            gw2.items.search_name('Imperial Favor'),
             )
 
 
@@ -840,7 +869,7 @@ def calculate_status():
 
     # Subtract from `inventory` any additional sell orders we need to place to
     # achieve the current `goals`.
-    
+
     sell_goal_items = defaultdict(int)
     craft_goal_items = defaultdict(int)
     for item_id, goal in goals.items():
@@ -932,19 +961,40 @@ def calculate_status():
                 'strategy %r failed to produce %d %s' % (
                         strategy, shortage, gw2.items.name(item_id))
 
-    # Third pass: craft items from `policy_craft_suboptimal` if they are needed
-    # and materials are available, regardless of the optimal strategy.
-    for item_id in policy_craft_suboptimal():
-        shortage = stockpile.get(item_id, 0) - inventory.get(item_id, 0)
+    # Third pass: for items to be bought or otherwise obtained, try refining
+    # the item from extra materials on hand.
+    for item_id in policy_auto_refine():
+        buy_shortage = buy_items.get(item_id, 0)
+        obtain_shortage = obtain_items.get(item_id, 0)
+        shortage = buy_shortage + obtain_shortage
         if shortage <= 0:
             continue
 
-        recipe_ids = gw2.recipes.search_output(item_id)
-        for recipe_id in recipe_ids:
-            r = gw2.recipes.get(recipe_id)
-            strategy = StrategyCraft(r)
-            count = min(shortage, strategy.max_count(state))
+        total_refined = 0
+        for strategy in valid_strategies(item_id, allow_refine_only=True):
+            if not isinstance(strategy, StrategyCraft):
+                continue
+            count = strategy.max_count(state, exclude=stockpile, max_output=shortage)
             strategy.apply(state, count)
+            shortage -= count
+            total_refined += count
+
+        print('auto-refined %d %s' % (total_refined,
+            gw2.items.name(item_id)))
+
+        # Undo the previous decision to buy/obtain this item, since we can
+        # refine it instead.
+        count = total_refined
+        skip_buy = min(count, buy_shortage)
+        if skip_buy > 0:
+            buy_items[item_id] -= skip_buy
+            count -= skip_buy
+        skip_obtain = min(count, obtain_shortage)
+        if skip_obtain > 0:
+            obtain_items[item_id] -= skip_obtain
+            count -= skip_obtain
+        # `total_refined` should never exceed `buy_shortage + obtain_shortage`.
+        assert count == 0
 
 
     used_items = {}

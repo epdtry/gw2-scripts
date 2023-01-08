@@ -19,7 +19,7 @@ def _get():
         else:
             raise TypeError('unsupported item %r' % item)
 
-    def add(count, item, inputs):
+    def add(count, item, inputs, refine_only=False):
         item_id = parse(item)
         recipes.append({
             'id': len(recipes),
@@ -29,6 +29,7 @@ def _get():
                 'item_id': parse(input_item),
                 'count': input_count,
             } for input_count, input_item in inputs],
+            'bookkeeper_refine_only': refine_only,
         })
 
 
@@ -40,6 +41,44 @@ def _get():
     ))
 
     add(1, 'Charged Quartz Crystal', ((25, 'Quartz Crystal'),))
+
+
+    # Spirit shard conversions
+
+    add(1, 'Spirit Shard', (
+        (1, 'Tome of Knowledge'),
+    ), refine_only=True)
+
+    add(1, 'Spirit Shard', (
+        (20, 'Writ of Experience'),
+    ), refine_only=True)
+
+    add(1, 'Spirit Shard', (
+        (35, 'Fractal Relic'),
+    ), refine_only=True)
+
+    add(3, 'Spirit Shard', (
+        (7, 'Pristine Fractal Relic'),
+    ), refine_only=True)
+
+
+    # Imperial favor conversions
+
+    add(5, 'Imperial Favor', (
+        (1, 'Writ of Seitung Province'),
+    ), refine_only=True)
+
+    add(5, 'Imperial Favor', (
+        (1, 'Writ of New Kaineng City'),
+    ), refine_only=True)
+
+    add(5, 'Imperial Favor', (
+        (1, 'Writ of Echovald Wilds'),
+    ), refine_only=True)
+
+    add(5, 'Imperial Favor', (
+        (1, "Writ of Dragon's End"),
+    ), refine_only=True)
 
 
     # Legendary crafting - generic recipes
