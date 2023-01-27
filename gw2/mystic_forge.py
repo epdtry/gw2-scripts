@@ -315,6 +315,19 @@ def _get():
         (1, 'Sheet of Premium Paper'),
     ))
 
+    # Legendary crafting - runes and sigils
+
+    #add(1, 'Gift of Craftsmanship', (
+    #    (50, 'Provisioner Token'),
+    #))
+
+    add(1, 'Gift of Sigils', (
+        (75, 'Mystic Mote'),
+        (30, 'Mystic Clover'),
+        (150, 'Glob of Ectoplasm'),
+        (75, 'Obsidian Shard'),
+    ))
+
 
     # Bought from vendors
     add(1, 'Chunk of Ancient Ambergris', ((10, 'Flawless Fish Fillet'),))
