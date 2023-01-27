@@ -105,8 +105,8 @@ def _by_name_multi():
             _BY_NAME_MULTI = dict(json.load(f))
     return _BY_NAME_MULTI
 
-def search_name(name, rarity=None, with_flags=None, without_flags=None):
-    if rarity is None and with_flags is None and without_flags is None:
+def search_name(name, rarity=None, level=None, with_flags=None, without_flags=None):
+    if rarity is None and level is None and with_flags is None and without_flags is None:
         return _by_name().get(name)
 
     candidates = _by_name_multi().get(name)
@@ -117,6 +117,10 @@ def search_name(name, rarity=None, with_flags=None, without_flags=None):
     if rarity is not None:
         candidates = [item for item in candidates
                 if item['rarity'] == rarity]
+
+    if level is not None:
+        candidates = [item for item in candidates
+                if item['level'] == level]
 
     if with_flags is not None:
         flag_set = set(item['flags'].values())
