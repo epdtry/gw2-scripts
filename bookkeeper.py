@@ -393,7 +393,14 @@ CHEAP_INSIGNIA_PREFIXES = (
         "Shaman's", "Dire", "Rabid", "Magi's")
 RESEARCH_NOTE_PANTS = tuple(gw2.items.search_name('%s Exalted Pants' % prefix)
     for prefix in CHEAP_INSIGNIA_PREFIXES)
+RESEARCH_NOTE_PANTS_EXPENSIVE = tuple(gw2.items.search_name('%s Exalted Pants' % prefix)
+    for prefix in ("Cavalier's", "Soldier's"))
 RESEARCH_NOTES_PER_PANTS = 75
+
+RESEARCH_NOTE_HELMS = tuple(gw2.items.search_name('%s Barbaric Helm' % prefix,
+        rarity='Fine')
+    for prefix in ("Valkyrie", "Sentinel's", "Assassin's", "Rampager's"))
+RESEARCH_NOTES_PER_HELM = 5
 
 CHEAP_JEWEL_NAMES = (
         'Ruby', 'Beryl', 'Coral', 'Emerald', 'Opal', 'Sapphire', 'Chrysocola')
@@ -424,6 +431,9 @@ RESEARCH_NOTE_POTIONS = tuple(
         gw2.items.search_name('Potent Potion of %s Slaying' % x)
         for x in SLAYING_POTION_TYPES)
 RESEARCH_NOTES_PER_POTION = 1
+
+RESEARCH_NOTE_SWEPTWEAVE_RIFLE = (gw2.items.search_name('Sweptweave Rifle'),)
+RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE = 5
 
 class StrategyResearchNote:
     def __init__(self, items, notes_per_item):
@@ -506,10 +516,13 @@ def valid_strategies(item_id, allow_refine_only=False):
 
         if item_id == ITEM_RESEARCH_NOTE:
             yield StrategyResearchNote(RESEARCH_NOTE_PANTS, RESEARCH_NOTES_PER_PANTS)
+            yield StrategyResearchNote(RESEARCH_NOTE_PANTS_EXPENSIVE, RESEARCH_NOTES_PER_PANTS)
+            yield StrategyResearchNote(RESEARCH_NOTE_HELMS, RESEARCH_NOTES_PER_HELM)
             yield StrategyResearchNote(RESEARCH_NOTE_EARRINGS, RESEARCH_NOTES_PER_EARRING)
             for weapons in RESEARCH_NOTE_WEAPONS:
                 yield StrategyResearchNote(weapons, RESEARCH_NOTES_PER_WEAPON)
             yield StrategyResearchNote(RESEARCH_NOTE_POTIONS, RESEARCH_NOTES_PER_POTION)
+            yield StrategyResearchNote(RESEARCH_NOTE_SWEPTWEAVE_RIFLE, RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE)
 
 def optimal_strategy(item_id):
     best_strategy = _OPTIMAL_STRATEGY_CACHE.get(item_id)
@@ -694,10 +707,13 @@ def policy_forbid_buy():
             forbid.remove(item_id)
 
     forbid.update(RESEARCH_NOTE_PANTS)
+    forbid.update(RESEARCH_NOTE_PANTS_EXPENSIVE)
+    forbid.update(RESEARCH_NOTE_HELMS)
     forbid.update(RESEARCH_NOTE_EARRINGS)
     for weapons in RESEARCH_NOTE_WEAPONS:
         forbid.update(weapons)
     forbid.update(RESEARCH_NOTE_POTIONS)
+    forbid.update(RESEARCH_NOTE_SWEPTWEAVE_RIFLE)
 
     forbid.add(gw2.items.search_name('20 Slot Invisible Bag'))
     forbid.add(gw2.items.search_name('20 Slot Gossamer Bag'))
