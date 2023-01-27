@@ -798,8 +798,8 @@ def policy_auto_refine():
             gw2.items.search_name('Mithril Ingot'),
             gw2.items.search_name('Orichalcum Ingot'),
 
-            gw2.items.search_name('Elder Wood Log'),
-            gw2.items.search_name('Ancient Wood Log'),
+            gw2.items.search_name('Elder Wood Plank'),
+            gw2.items.search_name('Ancient Wood Plank'),
 
             gw2.items.search_name('Cured Thick Leather Square'),
             gw2.items.search_name('Cured Hardened Leather Square'),
