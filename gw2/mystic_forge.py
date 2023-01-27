@@ -303,7 +303,7 @@ def _get():
 
     add(1, "Aurene's Voice", (
         (1, "Dragon's Voice"),
-        (1, "Gift of Aurene's Voice"),
+        (1, "Gift of Aurene's Horn"),
         (1, 'Gift of Jade Mastery'),
         (1, 'Draconic Tribute'),
     ))
