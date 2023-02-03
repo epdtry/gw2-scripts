@@ -2,7 +2,7 @@
 ; #Warn  ; Enable warnings to assist with detecting common errors.
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
-
+toggle=0
 
 #IfWinActive Guild Wars 2
 ^LButton::
@@ -14,3 +14,11 @@ MouseClick, left
 sleep, 50
 mousemove, %x%, %y%
 return
+
+#IfWinActive Guild Wars 2
+MButton::
+Loop, 10
+{
+    MouseClick, Left,,, 2
+    sleep, 5001
+}
