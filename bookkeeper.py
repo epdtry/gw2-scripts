@@ -907,7 +907,9 @@ def calculate_status():
         if inventory.get(item_id, 0) < stockpile.get(item_id, 0):
             shortage_items.add(item_id)
 
-    related_items = gather_related_items(chain(shortage_items, goals.keys()))
+    related_items = set(chain(
+        gather_related_items(chain(shortage_items, goals.keys())),
+        buying_items, selling_items))
     buy_prices, sell_prices, buy_listings, sell_listings = \
             get_prices_and_listings(related_items)
 
