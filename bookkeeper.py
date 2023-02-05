@@ -450,41 +450,43 @@ RESEARCH_NOTE_SWEPTWEAVE_RIFLE = (gw2.items.search_name('Sweptweave Rifle'),)
 RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE = 5
 
 class StrategyResearchNote:
-    def __init__(self, items, notes_per_item):
-        '''Build a strategy that salvages one of each item in `items` for a
-        total of `notes_per_item * len(itmes)` research notes.'''
+    def __init__(self, items):
+        '''Build a strategy that salvages the items described by `items`.  Each
+        entry in `items` should be a tuple of `(item_id, count, notes)`,
+        meaning to salvage `count` instances of `item_id` for `notes` notes
+        ecah.'''
         self.items = items
-        self.notes_per_item = notes_per_item
 
     def cost(self):
         items_sum = 0
-        count = 0
-        for item_id in self.items:
+        notes_sum = 0
+        for item_id, count, notes in self.items:
             cost = optimal_cost(item_id)
             if cost is None:
                 continue
             items_sum += cost
-            count += 1
-        if count == 0:
+            notes_sum += count * notes
+        if notes_sum == 0:
             return None
-        return items_sum / (count * self.notes_per_item)
+        return items_sum / notes_sum
 
     def apply(self, state, count):
-        notes_per_set = self.notes_per_item * len(self.items)
+        notes_per_set = sum(count * notes for item_id, count, notes in self.items)
         times = (count + notes_per_set - 1) // notes_per_set
 
         state.craft_items[ITEM_RESEARCH_NOTE] += notes_per_set * times
         state.inventory[ITEM_RESEARCH_NOTE] += notes_per_set * times
 
-        for item_id in self.items:
-            state.inventory[item_id] -= times
+        for item_id, count, notes in self.items:
+            state.inventory[item_id] -= count * times
             state.pending_items.add(item_id)
 
     def related_items(self):
-        return self.items
+        return [item_id for item_id, count, notes in self.items]
 
     def describe(self, count):
-        times = (count + self.notes_per_item - 1) // self.notes_per_item
+        notes_per_set = sum(count * notes for item_id, count, notes in self.items)
+        times = (count + notes_per_set - 1) // notes_per_set
         return times, 'Salvage items for research notes'
 
 
@@ -529,14 +531,29 @@ def valid_strategies(item_id, allow_refine_only=False):
             yield StrategyCraft(r)
 
         if item_id == ITEM_RESEARCH_NOTE:
-            yield StrategyResearchNote(RESEARCH_NOTE_PANTS, RESEARCH_NOTES_PER_PANTS)
-            yield StrategyResearchNote(RESEARCH_NOTE_PANTS_EXPENSIVE, RESEARCH_NOTES_PER_PANTS)
-            yield StrategyResearchNote(RESEARCH_NOTE_HELMS, RESEARCH_NOTES_PER_HELM)
-            yield StrategyResearchNote(RESEARCH_NOTE_EARRINGS, RESEARCH_NOTES_PER_EARRING)
+            yield StrategyResearchNote(
+                    [(item_id, 1, RESEARCH_NOTES_PER_PANTS)
+                        for item_id in RESEARCH_NOTE_PANTS])
+            yield StrategyResearchNote(
+                    [(item_id, 1, RESEARCH_NOTES_PER_PANTS)
+                        for item_id in RESEARCH_NOTE_PANTS_EXPENSIVE])
+            yield StrategyResearchNote(
+                    [(item_id, 1, RESEARCH_NOTES_PER_HELM)
+                        for item_id in RESEARCH_NOTE_HELMS])
+            yield StrategyResearchNote(
+                    [(item_id, 1, RESEARCH_NOTES_PER_EARRING)
+                        for item_id in RESEARCH_NOTE_EARRINGS])
             for weapons in RESEARCH_NOTE_WEAPONS:
-                yield StrategyResearchNote(weapons, RESEARCH_NOTES_PER_WEAPON)
-            yield StrategyResearchNote(RESEARCH_NOTE_POTIONS, RESEARCH_NOTES_PER_POTION)
-            yield StrategyResearchNote(RESEARCH_NOTE_SWEPTWEAVE_RIFLE, RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE)
+                yield StrategyResearchNote(
+                        [(item_id, 1, RESEARCH_NOTES_PER_WEAPON)
+                            for item_id in weapons])
+
+            yield StrategyResearchNote(
+                    [(item_id, 1, RESEARCH_NOTES_PER_POTION)
+                        for item_id in RESEARCH_NOTE_POTIONS])
+            yield StrategyResearchNote(
+                    [(item_id, 1, RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE)
+                        for item_id in RESEARCH_NOTE_SWEPTWEAVE_RIFLE])
 
 def optimal_strategy(item_id):
     best_strategy = _OPTIMAL_STRATEGY_CACHE.get(item_id)
@@ -2193,7 +2210,7 @@ def cmd_research_notes():
     related_items = gather_related_items([item_id
         for s in valid_strategies(ITEM_RESEARCH_NOTE)
         if isinstance(s, StrategyResearchNote)
-        for item_id in s.items])
+        for item_id, count, notes in s.items])
     buy_prices, sell_prices = get_prices(related_items)
     set_strategy_params(
             buy_prices,
@@ -2206,12 +2223,12 @@ def cmd_research_notes():
     for strategy in valid_strategies(ITEM_RESEARCH_NOTE):
         if not isinstance(strategy, StrategyResearchNote):
             continue
-        for item_id in strategy.items:
+        for item_id, count, notes in strategy.items:
             cost = optimal_cost(item_id)
             if cost is None:
                 print('no cost for item %s?' % gw2.items.name(item_id))
                 continue
-            cost_per_note = cost / strategy.notes_per_item
+            cost_per_note = cost / notes
             xs.append((cost_per_note, item_id))
     for cost_per_note, item_id in sorted(xs):
         print('%15s  %s' % (format_price_float(cost_per_note),
