@@ -403,52 +403,6 @@ class StrategyUnknown:
     def describe(self, count):
         return count, 'Obtain ' + gw2.items.name(self.item_id)
 
-CHEAP_INSIGNIA_PREFIXES = (
-        "Shaman's", "Dire", "Rabid", "Magi's")
-RESEARCH_NOTE_PANTS = tuple(gw2.items.search_name('%s Exalted Pants' % prefix)
-    for prefix in CHEAP_INSIGNIA_PREFIXES)
-RESEARCH_NOTE_PANTS_EXPENSIVE = tuple(gw2.items.search_name('%s Exalted Pants' % prefix)
-    for prefix in ("Cavalier's", "Soldier's"))
-RESEARCH_NOTES_PER_PANTS = 75
-
-RESEARCH_NOTE_HELMS = tuple(gw2.items.search_name('%s Barbaric Helm' % prefix,
-        rarity='Fine')
-    for prefix in ("Valkyrie", "Sentinel's", "Assassin's", "Rampager's"))
-RESEARCH_NOTES_PER_HELM = 5
-
-CHEAP_JEWEL_NAMES = (
-        'Ruby', 'Beryl', 'Coral', 'Emerald', 'Opal', 'Sapphire', 'Chrysocola')
-RESEARCH_NOTE_EARRINGS = tuple(
-        gw2.items.search_name('%s Mithril Earring' % jewel,
-            rarity='Fine', without_flags=('AccountBound',))
-        for jewel in CHEAP_JEWEL_NAMES)
-RESEARCH_NOTES_PER_EARRING = 5
-
-PEARL_WEAPON_TYPES = (
-        #'Reaver', 'Carver', 'Bludgeoner', 'Handcannon', 'Rod', 'Sabre',
-        #'Shell', 'Brazier', 'Siren',
-        #'Broadsword', 'Crusher', 'Stinger', 'Blunderbuss', 'Needler', 'Quarterstaff',
-        #'Speargun', 'Impaler', 'Trident',
-        )
-RESEARCH_NOTE_WEAPONS = [
-        tuple(gw2.items.search_name('%s Pearl %s' % (prefix, weapon))
-            for prefix in CHEAP_INSIGNIA_PREFIXES)
-        for weapon in PEARL_WEAPON_TYPES]
-RESEARCH_NOTES_PER_WEAPON = 45
-
-SLAYING_POTION_TYPES = (
-        #'Undead', 'Sons of Svanir', 'Destroyer', 'Grawl',
-        #'Nightmare Court', 'Ogre', 'Outlaw', 'Ice Brood', 'Dredge',
-        #'Mordrem',  # Only available as "powerful potion", not "potent potion"
-        )
-RESEARCH_NOTE_POTIONS = tuple(
-        gw2.items.search_name('Potent Potion of %s Slaying' % x)
-        for x in SLAYING_POTION_TYPES)
-RESEARCH_NOTES_PER_POTION = 1
-
-RESEARCH_NOTE_SWEPTWEAVE_RIFLE = (gw2.items.search_name('Sweptweave Rifle'),)
-RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE = 5
-
 class StrategyResearchNote:
     def __init__(self, name, items):
         '''Build a strategy that salvages the items described by `items`.  Each
@@ -532,31 +486,7 @@ def valid_strategies(item_id, allow_refine_only=False):
             yield StrategyCraft(r)
 
         if item_id == ITEM_RESEARCH_NOTE:
-            yield StrategyResearchNote('Exalted Pants',
-                    [(item_id, 1, RESEARCH_NOTES_PER_PANTS)
-                        for item_id in RESEARCH_NOTE_PANTS])
-            yield StrategyResearchNote('Exalted Pants (Expensive)',
-                    [(item_id, 1, RESEARCH_NOTES_PER_PANTS)
-                        for item_id in RESEARCH_NOTE_PANTS_EXPENSIVE])
-            yield StrategyResearchNote('Barbaric Helms',
-                    [(item_id, 1, RESEARCH_NOTES_PER_HELM)
-                        for item_id in RESEARCH_NOTE_HELMS])
-            yield StrategyResearchNote('Mithril Earrings',
-                    [(item_id, 1, RESEARCH_NOTES_PER_EARRING)
-                        for item_id in RESEARCH_NOTE_EARRINGS])
-            for weapons in RESEARCH_NOTE_WEAPONS:
-                yield StrategyResearchNote(
-                        'Pearl Weapons: ' + ', '.join(gw2.items.name(item_id)
-                            for item_id in weapons),
-                        [(item_id, 1, RESEARCH_NOTES_PER_WEAPON)
-                            for item_id in weapons])
-
-            yield StrategyResearchNote('Potent Potions of Slaying',
-                    [(item_id, 1, RESEARCH_NOTES_PER_POTION)
-                        for item_id in RESEARCH_NOTE_POTIONS])
-            yield StrategyResearchNote('Sweptweave Rifle',
-                    [(item_id, 1, RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE)
-                        for item_id in RESEARCH_NOTE_SWEPTWEAVE_RIFLE])
+            yield from policy_research_note_strategies()
 
 def optimal_strategy(item_id):
     best_strategy = _OPTIMAL_STRATEGY_CACHE.get(item_id)
@@ -755,14 +685,9 @@ def policy_forbid_buy():
         if item_id in forbid:
             forbid.remove(item_id)
 
-    forbid.update(RESEARCH_NOTE_PANTS)
-    forbid.update(RESEARCH_NOTE_PANTS_EXPENSIVE)
-    forbid.update(RESEARCH_NOTE_HELMS)
-    forbid.update(RESEARCH_NOTE_EARRINGS)
-    for weapons in RESEARCH_NOTE_WEAPONS:
-        forbid.update(weapons)
-    forbid.update(RESEARCH_NOTE_POTIONS)
-    forbid.update(RESEARCH_NOTE_SWEPTWEAVE_RIFLE)
+    # Forbid buying items to be salvaged for research notes
+    for strat in policy_research_note_strategies():
+        forbid.update(strat.related_items())
 
     forbid.add(gw2.items.search_name('20 Slot Invisible Bag'))
     forbid.add(gw2.items.search_name('20 Slot Gossamer Bag'))
@@ -864,6 +789,28 @@ def policy_auto_refine():
             gw2.items.search_name('Spirit Shard'),
             gw2.items.search_name('Imperial Favor'),
             )
+
+def default_policy_research_note_strategies():
+    def group(notes, names, **kwargs):
+        return [(gw2.items.search_name(name, **kwargs), 1, notes) for name in names]
+
+    yield StrategyResearchNote('Exalted Pants', group(75,
+        ('%s Exalted Pants' % x for x in ("Shaman's", "Dire", "Rabid", "Magi's"))))
+    yield StrategyResearchNote('Exalted Pants (Expensive)', group(75,
+        ('%s Exalted Pants' % x for x in ("Cavalier's", "Soldier's"))))
+    yield StrategyResearchNote('Barbaric Helms', group(5,
+        ('%s Barbaric Helm' % x for x in (
+            "Valkyrie", "Sentinel's", "Assassin's", "Rampager's")),
+        rarity='Fine'))
+    yield StrategyResearchNote('Mithril Earrings', group(5,
+        ('%s Mithril Earring' % x for x in (
+            'Ruby', 'Beryl', 'Coral', 'Emerald', 'Opal', 'Sapphire', 'Chrysocola')),
+        rarity='Fine', without_flags=('AccountBound',)))
+    yield StrategyResearchNote('Sweptweave Rifle', group(5, ('Sweptweave Rifle',)))
+
+@policy_func
+def policy_research_note_strategies():
+    return default_policy_research_note_strategies()
 
 
 def cmd_init():
