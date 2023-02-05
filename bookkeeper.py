@@ -1,5 +1,6 @@
 from collections import defaultdict, namedtuple
 import datetime
+import functools
 from itertools import chain
 import json
 import math
@@ -15,6 +16,12 @@ import gw2.mystic_forge
 import gw2.recipes
 import gw2.trading_post
 import gw2.character
+
+
+try:
+    import policy
+except:
+    policy = None
 
 
 def _load_dict(path):
@@ -667,6 +674,20 @@ def count_craftable(targets, inventory, buy_on_demand):
     return craft_counts
 
 
+def policy_func(f):
+    '''If the user has provided a `policy.py` containing a function of the same
+    name as `f`, replace `f` with that function (passing in the default `f` as
+    the first argument to the override).  Otherwise, return `f` unchanged.'''
+    override = getattr(policy, f.__name__, None) if policy is not None else None
+    if override is not None:
+        @functools.wraps(f)
+        def g(*args, **kwargs):
+            return override(f, *args, **kwargs)
+        return g
+    else:
+        return f
+
+@policy_func
 def policy_can_craft_recipe(r):
     min_rating = r['min_rating']
     discipline_levels = gw2.character.get_max_of_each_discipline()
@@ -675,6 +696,7 @@ def policy_can_craft_recipe(r):
             return True
     return False
 
+@policy_func
 def policy_forbid_buy():
     forbid = set()
 
@@ -754,6 +776,7 @@ def policy_forbid_buy():
 
     return forbid
 
+@policy_func
 def policy_forbid_craft():
     forbid = set()
 
@@ -766,6 +789,7 @@ def policy_forbid_craft():
 
     return forbid
 
+@policy_func
 def policy_buy_on_demand():
     buy = set()
 
@@ -790,6 +814,7 @@ def policy_buy_on_demand():
 
     return buy
 
+@policy_func
 def policy_auto_refine():
     '''Items that should be crafted if their inputs are already available, even
     if it's cheaper to buy.'''
