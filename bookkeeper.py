@@ -437,7 +437,7 @@ class StrategyResearchNote:
             cost = optimal_cost(item_id)
             if cost is None:
                 continue
-            items_sum += cost
+            items_sum += count * cost
             notes_sum += count * notes
         if notes_sum == 0:
             return None
