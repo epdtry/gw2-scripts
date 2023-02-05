@@ -450,11 +450,12 @@ RESEARCH_NOTE_SWEPTWEAVE_RIFLE = (gw2.items.search_name('Sweptweave Rifle'),)
 RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE = 5
 
 class StrategyResearchNote:
-    def __init__(self, items):
+    def __init__(self, name, items):
         '''Build a strategy that salvages the items described by `items`.  Each
         entry in `items` should be a tuple of `(item_id, count, notes)`,
         meaning to salvage `count` instances of `item_id` for `notes` notes
         ecah.'''
+        self.name = name
         self.items = items
 
     def cost(self):
@@ -531,27 +532,29 @@ def valid_strategies(item_id, allow_refine_only=False):
             yield StrategyCraft(r)
 
         if item_id == ITEM_RESEARCH_NOTE:
-            yield StrategyResearchNote(
+            yield StrategyResearchNote('Exalted Pants',
                     [(item_id, 1, RESEARCH_NOTES_PER_PANTS)
                         for item_id in RESEARCH_NOTE_PANTS])
-            yield StrategyResearchNote(
+            yield StrategyResearchNote('Exalted Pants (Expensive)',
                     [(item_id, 1, RESEARCH_NOTES_PER_PANTS)
                         for item_id in RESEARCH_NOTE_PANTS_EXPENSIVE])
-            yield StrategyResearchNote(
+            yield StrategyResearchNote('Barbaric Helms',
                     [(item_id, 1, RESEARCH_NOTES_PER_HELM)
                         for item_id in RESEARCH_NOTE_HELMS])
-            yield StrategyResearchNote(
+            yield StrategyResearchNote('Mithril Earrings',
                     [(item_id, 1, RESEARCH_NOTES_PER_EARRING)
                         for item_id in RESEARCH_NOTE_EARRINGS])
             for weapons in RESEARCH_NOTE_WEAPONS:
                 yield StrategyResearchNote(
+                        'Pearl Weapons: ' + ', '.join(gw2.items.name(item_id)
+                            for item_id in weapons),
                         [(item_id, 1, RESEARCH_NOTES_PER_WEAPON)
                             for item_id in weapons])
 
-            yield StrategyResearchNote(
+            yield StrategyResearchNote('Potent Potions of Slaying',
                     [(item_id, 1, RESEARCH_NOTES_PER_POTION)
                         for item_id in RESEARCH_NOTE_POTIONS])
-            yield StrategyResearchNote(
+            yield StrategyResearchNote('Sweptweave Rifle',
                     [(item_id, 1, RESEARCH_NOTES_PER_SWEPTWEAVE_RIFLE)
                         for item_id in RESEARCH_NOTE_SWEPTWEAVE_RIFLE])
 
