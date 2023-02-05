@@ -2175,20 +2175,23 @@ def cmd_craft_profit_buy():
 def cmd_research_notes():
     '''Print a list of items that can be crafted for research notes and the
     cost per note for each one.'''
-    related_items = gather_related_items([item_id
-        for s in valid_strategies(ITEM_RESEARCH_NOTE)
-        if isinstance(s, StrategyResearchNote)
-        for item_id, count, notes in s.items])
+    all_strategies = [s for s in
+            chain(valid_strategies(ITEM_RESEARCH_NOTE),
+                default_policy_research_note_strategies())
+            if isinstance(s, StrategyResearchNote)]
+    all_strategies_items = [item_id for s in all_strategies for item_id in s.related_items()]
+
+    related_items = gather_related_items(all_strategies_items)
     buy_prices, sell_prices = get_prices(related_items)
     set_strategy_params(
             buy_prices,
-            policy_forbid_buy(),
+            policy_forbid_buy().union(all_strategies_items),
             policy_forbid_craft(),
             policy_can_craft_recipe,
             )
 
     xs = []
-    for strategy in valid_strategies(ITEM_RESEARCH_NOTE):
+    for strategy in all_strategies:
         if not isinstance(strategy, StrategyResearchNote):
             continue
 
@@ -2206,7 +2209,7 @@ def cmd_research_notes():
             if cost_per_note is not None:
                 xs.append((cost_per_note, 'Bundle: ' + strategy.name))
 
-    for cost_per_note, name in sorted(xs):
+    for cost_per_note, name in sorted(set(xs)):
         print('%15s  %s' % (format_price_float(cost_per_note), name))
 
 def cmd_charr_commendations():
