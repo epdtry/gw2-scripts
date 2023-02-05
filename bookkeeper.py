@@ -372,6 +372,13 @@ class StrategyCraft:
         times = (count + r['output_item_count'] - 1) // r['output_item_count']
         return times, 'Craft ' + gw2.items.name(self.recipe['output_item_id'])
 
+    def detailed_name(self):
+        r = self.recipe
+        output_count_str = '' if r['output_item_count'] == 1 else ' %d' % r['output_item_count']
+        inputs_str = ', '.join('%d %s' % (count, gw2.items.name(item_id))
+                for item_id, count in recipe_ingredient_items(r))
+        return 'Craft%s from %s' % (output_count_str, inputs_str)
+
 class StrategyUnknown:
     def __init__(self, item_id):
         self.item_id = item_id
@@ -2217,6 +2224,38 @@ def cmd_charr_commendations():
         print('%9s  %3d %s%s' % (format_price(cost),
             in_count, gw2.items.name(item_id), desc_str))
 
+def cmd_strategies(name):
+    '''List the known strategies for obtaining the named item and their
+    costs.'''
+    item_id = parse_item_id(name)
+
+    related_items = gather_related_items([item_id])
+    buy_prices, sell_prices = get_prices(related_items)
+
+    buy_prices[ITEM_SPIRIT_SHARD] = 10000
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy() - {item_id},
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    lines = []
+    for strat in valid_strategies(item_id, allow_refine_only=True):
+        if isinstance(strat, StrategyCraft):
+            desc = strat.detailed_name()
+        else:
+            desc = strat.describe(1)[1]
+        lines.append((strat.cost(), desc))
+
+    lines.sort(key=lambda x: x[0] or 0)
+
+    for cost, desc in lines:
+        cost_str = format_price(cost) if cost is not None else '(None)'
+        print('%8s  %s' % (cost_str, desc))
+
+
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
@@ -2269,6 +2308,9 @@ def main():
     elif cmd == 'charr_commendations':
         assert len(args) == 0
         cmd_charr_commendations()
+    elif cmd == 'strategies':
+        name, = args
+        cmd_strategies(name)
     else:
         raise ValueError('unknown command %r' % cmd)
 
