@@ -1,3 +1,14 @@
+if __name__ == '__main__':
+    # We re-import this module under its normal name (`bookkeeper`) so that
+    # `policy.py` can `import bookkeeper` and get the same module.  Otherwise,
+    # there will be two different copies of every class, such as
+    # `__main__.StrategyResearchNote` and `bookkeeper.StrategyResearchNote`,
+    # which confuses `isinstance` checks.
+    import bookkeeper
+    import sys
+    bookkeeper.main()
+    sys.exit(0)
+
 from collections import defaultdict, namedtuple
 import datetime
 import functools
@@ -2312,6 +2323,3 @@ def main():
         cmd_strategies(name)
     else:
         raise ValueError('unknown command %r' % cmd)
-
-if __name__ == '__main__':
-    main()
