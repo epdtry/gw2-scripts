@@ -2226,16 +2226,23 @@ def cmd_research_notes():
     for strategy in valid_strategies(ITEM_RESEARCH_NOTE):
         if not isinstance(strategy, StrategyResearchNote):
             continue
+
         for item_id, count, notes in strategy.items:
             cost = optimal_cost(item_id)
             if cost is None:
                 print('no cost for item %s?' % gw2.items.name(item_id))
                 continue
             cost_per_note = cost / notes
-            xs.append((cost_per_note, item_id))
-    for cost_per_note, item_id in sorted(xs):
-        print('%15s  %s' % (format_price_float(cost_per_note),
-            gw2.items.name(item_id)))
+            xs.append((cost_per_note, gw2.items.name(item_id)))
+
+        if len(strategy.items) >= 2:
+            # For bundles of items, also show the average cost of the bundle
+            cost_per_note = strategy.cost()
+            if cost_per_note is not None:
+                xs.append((cost_per_note, 'Bundle: ' + strategy.name))
+
+    for cost_per_note, name in sorted(xs):
+        print('%15s  %s' % (format_price_float(cost_per_note), name))
 
 def cmd_charr_commendations():
     '''Print a list of items that can be traded for Charr Comendations and the
