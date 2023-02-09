@@ -1763,6 +1763,13 @@ def cmd_stockpile_list():
     for name, count, item_id in sorted(entries):
         print('%6d  %s  - %d' % (count, name, item_id))
 
+def cmd_goals_list():
+    goals = _load_dict(GOALS_PATH)
+    entries = [(gw2.items.name(item_id), count, item_id)
+            for item_id, count in goals.items() if count != 0]
+    for name, count, item_id in sorted(entries):
+        print('%6d  %s  - %d' % (count, name, item_id))
+
 def cmd_profit(name):
     '''Show the profit to be made by crafting the named item.'''
     item_id = parse_item_id(name)
@@ -2331,5 +2338,8 @@ def main():
     elif cmd == 'strategies':
         name, = args
         cmd_strategies(name)
+    elif cmd == 'goals_list':
+        assert len(args) == 0
+        cmd_goals_list()
     else:
         raise ValueError('unknown command %r' % cmd)
