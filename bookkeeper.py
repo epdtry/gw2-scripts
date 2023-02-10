@@ -808,23 +808,25 @@ def policy_auto_refine():
             gw2.items.search_name('Imperial Favor'),
             )
 
-def default_policy_research_note_strategies():
+def default_policy_research_note_strategies(include_disabled=False):
     def group(notes, names, **kwargs):
         return [(gw2.items.search_name(name, **kwargs), 1, notes) for name in names]
 
     yield StrategyResearchNote('Exalted Pants', group(75,
         ('%s Exalted Pants' % x for x in ("Shaman's", "Dire", "Rabid", "Magi's"))))
-    yield StrategyResearchNote('Exalted Pants (Expensive)', group(75,
-        ('%s Exalted Pants' % x for x in ("Cavalier's", "Soldier's"))))
     yield StrategyResearchNote('Barbaric Helms', group(5,
         ('%s Barbaric Helm' % x for x in (
-            "Valkyrie", "Sentinel's", "Assassin's", "Rampager's")),
+            "Valkyrie", "Assassin's", "Rampager's")),
         rarity='Fine'))
     yield StrategyResearchNote('Mithril Earrings', group(5,
         ('%s Mithril Earring' % x for x in (
             'Ruby', 'Beryl', 'Coral', 'Emerald', 'Opal', 'Sapphire', 'Chrysocola')),
         rarity='Fine', without_flags=('AccountBound',)))
-    yield StrategyResearchNote('Sweptweave Rifle', group(5, ('Sweptweave Rifle',)))
+
+    if include_disabled:
+        yield StrategyResearchNote('Exalted Pants (Expensive)', group(75,
+            ('%s Exalted Pants' % x for x in ("Cavalier's", "Soldier's"))))
+        yield StrategyResearchNote('Sweptweave Rifle', group(5, ('Sweptweave Rifle',)))
 
 @policy_func
 def policy_research_note_strategies():
@@ -2184,7 +2186,7 @@ def cmd_research_notes():
     cost per note for each one.'''
     all_strategies = [s for s in
             chain(valid_strategies(ITEM_RESEARCH_NOTE),
-                default_policy_research_note_strategies())
+                default_policy_research_note_strategies(include_disabled=True))
             if isinstance(s, StrategyResearchNote)]
     all_strategies_items = [item_id for s in all_strategies for item_id in s.related_items()]
 
