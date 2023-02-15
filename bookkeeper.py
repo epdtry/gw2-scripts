@@ -198,13 +198,12 @@ def get_prices_and_listings(item_ids):
     add_vendor_prices(buy_prices)
     return buy_prices, sell_prices, buy_listings, sell_listings
 
-
 def get_inventory():
     '''Return a dict listing the quantities of all items in material storage,
     the bank, and character inventories.'''
     counts = defaultdict(int)
 
-    char_names = gw2.api.fetch('/v2/characters')
+    char_names = get_char_names()
     for char_name in char_names:
         char = gw2.api.fetch('/v2/characters/%s/inventory' %
                 urllib.parse.quote(char_name))
@@ -641,7 +640,6 @@ def count_craftable(targets, inventory, buy_on_demand):
 
     return craft_counts
 
-
 def policy_func(f):
     '''If the user has provided a `policy.py` containing a function of the same
     name as `f`, replace `f` with that function (passing in the default `f` as
@@ -663,6 +661,10 @@ def policy_can_craft_recipe(r):
         if discipline_levels[d] != None and min_rating <= discipline_levels[d]:
             return True
     return False
+
+@policy_func
+def get_char_names():
+    return gw2.api.fetch('/v2/characters')
 
 @policy_func
 def policy_forbid_buy():
