@@ -368,6 +368,68 @@ def cmd_gen_worth_tables():
     
     return
 
+def cmd_diff_to_text(diff_path, text_path):
+    diff_file = open(diff_path, 'r') if diff_path is not None else sys.stdin
+    diff = DataDiff(**json.load(diff_file))
+    diff_file = None
+
+    currencies_raw = gw2.api.fetch('/v2/currencies?ids=all')
+    currency_name = {x['id']: x['name'] for x in currencies_raw}
+
+    text_file = open(text_path, 'w') if text_path is not None else sys.stdout
+    text_file.write('character %s\n' % (diff.char_name,))
+    text_file.write('timestamp %f\n' % (diff.timestamp,))
+
+    currency_entries = []
+    for currency_id_str, count in diff.wallet_diff.items():
+        currency_id = int(currency_id_str)
+        currency_entries.append((currency_name[currency_id], count, currency_id))
+    for name, count, currency_id in sorted(currency_entries):
+        text_file.write('%+7d  c%-5d %s\n' % (count, currency_id, name))
+
+    item_entries = []
+    for item_id_str, count in diff.item_diff.items():
+        item_id = int(item_id_str)
+        item_entries.append((gw2.items.name(item_id), count, item_id))
+    for name, count, item_id in sorted(item_entries):
+        text_file.write('%+7d  %-5d %s\n' % (count, item_id, name))
+
+def cmd_text_to_diff(text_path, diff_path):
+    char_name = None
+    timestamp = None
+    wallet_diff = defaultdict(int)
+    item_diff = defaultdict(int)
+
+    text_file = open(text_path, 'r') if text_path is not None else sys.stdin
+    for line in text_file:
+        parts = line.strip().split()
+        if len(parts) < 2 or parts[0].startswith('#'):
+            print('skip: %r' % (line,))
+            continue
+
+        if parts[0] == 'character':
+            char_name = parts[1]
+            continue
+        elif parts[0] == 'timestamp':
+            timestamp = float(parts[1])
+            continue
+
+        count = int(parts[0])
+        id_str = parts[1]
+        if id_str.startswith('c'):
+            wallet_diff[int(id_str[1:])] += count
+        else:
+            item_diff[int(id_str)] += count
+
+    diff = DataDiff(
+            char_name = char_name,
+            timestamp = timestamp,
+            wallet_diff = wallet_diff,
+            item_diff = item_diff)
+
+    diff_file = open(diff_path, 'w') if diff_path is not None else sys.stdin
+    json.dump(diff, diff_file, default=vars)
+
 def main():
     ''' A tool with several commands to help with data collection of loot. 
     '''
@@ -398,6 +460,16 @@ def main():
     elif cmd == 'gen_worth_tables':
         assert len(args) == 0
         cmd_gen_worth_tables()
+    elif cmd == 'diff_to_text':
+        assert len(args) <= 2
+        cmd_diff_to_text(
+                args[0] if len(args) >= 1 else None,
+                args[1] if len(args) >= 2 else None)
+    elif cmd == 'text_to_diff':
+        assert len(args) <= 2
+        cmd_text_to_diff(
+                args[0] if len(args) >= 1 else None,
+                args[1] if len(args) >= 2 else None)
     else:
         raise ValueError('unknown command %r' % cmd)
 
