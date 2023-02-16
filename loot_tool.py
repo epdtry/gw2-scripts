@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import urllib.parse
+from typing import List
 
 import gw2.api
 import gw2.items
@@ -146,7 +147,7 @@ def extract_source_item(data_diff: DataDiff):
         raise Exception('No source item detected in diff')
     return source_item, source_quantity
 
-def loot_table_from_data_diff(data_diff: DataDiff):
+def loot_table_from_data_diff(data_diff: DataDiff) -> LootTable:
     source_item, source_quantity = extract_source_item(data_diff)
 
     item_drop_info_list = []
@@ -263,7 +264,7 @@ def cmd_take_diff(snapshot1_file, snapshot2_file):
     print('Data written to: ', diff_file)
     return
 
-def cmd_gen_loot_tables():
+def cmd_gen_loot_tables() -> List[LootTable]:
     diffs_paths = os.path.join(GW2_DIFF_DATA_DIR, 'diff-*.json')
     diff_files = glob.glob(diffs_paths)
 
@@ -287,14 +288,14 @@ def print_worth_table(loot_table: LootTable):
     # translate currency names later
     for currency in loot_table.wallet_drop_info_list:
         if(currency.id == 1):
-            print(currency.id, '(copper) - ', currency.drop_rate)
+            print(currency.quantity, '(copper)  ', currency.drop_rate, 'copper per container')
             total_worth += currency.drop_rate
         else:
             print(currency.id, '(todo) - ', currency.drop_rate)
     
     print()
     print('Item Drops:')
-    print("{:<30} {:<9} {:<15} {:<15}".format('Item Name','Drop Rate','Unit Price', 'Net Price'))
+    print("{:<30} {:<11} {:<9} {:<15} {:<15}".format('Item Name','Total Count', 'Drop Rate','Unit Price', 'Net Price'))
     for item in loot_table.item_drop_info_list:
         dropped_item = gw2.items.get(item.id)
         dropped_item_drop_rate = item.drop_rate
@@ -305,25 +306,66 @@ def print_worth_table(loot_table: LootTable):
             pass
         dropped_item_net_price = dropped_item_unit_price * dropped_item_drop_rate
         total_worth += dropped_item_net_price
-        print("{:<30} {:<9.3f} {:<15.3f} {:<15.3f}".format(
+        print("{:<30} {:<11} {:<9.3f} {:<15.3f} {:<15.3f}".format(
             dropped_item['name'],
+            item.quantity,
             dropped_item_drop_rate,
             dropped_item_unit_price,
             dropped_item_net_price))
 
     print()
-    print('Cost: ', source_price)
+    print('Cost Per Bag: ', source_price)
     print('Total value: ', total_worth)
     print('Buy then instant sell ROI: ', ((total_worth / source_price) - 1) * 100, '%')
     return
 
+def merge_drop_info_lists(drop_info_list_a, drop_info_list_b, source_item_quanity) -> List[DropInfo]:
+    combined_drop_info_list = defaultdict(DropInfo)
+    
+    for drop_info_a in drop_info_list_a:
+        combined_drop_info_list[drop_info_a.id] = DropInfo(drop_info_a.id, drop_info_a.quantity, drop_info_a.quantity / source_item_quanity)
+    for drop_info_b in drop_info_list_b:
+        if drop_info_b.id in combined_drop_info_list:
+            combined_drop_info_list[drop_info_b.id].quantity += drop_info_b.quantity
+            combined_drop_info_list[drop_info_b.id].drop_rate = combined_drop_info_list[drop_info_b.id].quantity / source_item_quanity
+        else:
+            combined_drop_info_list[drop_info_b.id] = DropInfo(drop_info_b.id, drop_info_b.quantity, drop_info_b.quantity / source_item_quanity)
+    
+    return [combined_drop_info_list[dropinfo] for dropinfo in combined_drop_info_list]
+
+
+def merge_loot_tables(loot_table_a: LootTable, loot_table_b: LootTable) -> LootTable:
+    if loot_table_a.source_item_id != loot_table_b.source_item_id:
+        raise Exception('Cannot merge loot tables with different source items: ' + str(loot_table_a.source_item_id) + ' != ' + str(loot_table_b.source_item_id))
+
+    source_item_id = loot_table_a.source_item_id
+    if loot_table_a.timestamp < loot_table_b.timestamp:
+        earliest_timestamp = loot_table_a.timestamp
+    else: 
+        earliest_timestamp = loot_table_b.timestamp
+    source_item_quantity = loot_table_a.source_item_quantity + loot_table_b.source_item_quantity
+
+    combined_item_list = merge_drop_info_lists(loot_table_a.item_drop_info_list, loot_table_b.item_drop_info_list, source_item_quantity)
+    combined_currency_list = merge_drop_info_lists(loot_table_a.wallet_drop_info_list, loot_table_b.wallet_drop_info_list, source_item_quantity)
+
+    combined_loot_table = LootTable(earliest_timestamp, source_item_id, source_item_quantity, combined_item_list, combined_currency_list)
+    return combined_loot_table
+
 def cmd_gen_worth_tables():
     loot_tables = cmd_gen_loot_tables()
-    
-    for loot_table in loot_tables:
-        print_worth_table(loot_table)
-        print('\n\n\n')
+    combined_table_dict = defaultdict(LootTable)
 
+    for loot_table in loot_tables:
+        if loot_table.source_item_id not in combined_table_dict:
+            combined_table_dict[loot_table.source_item_id] = loot_table
+        else:
+            merged_loot_table = merge_loot_tables(combined_table_dict.get(loot_table.source_item_id), loot_table)
+            combined_table_dict[loot_table.source_item_id] = merged_loot_table
+    
+    for loot_table in combined_table_dict:
+        print_worth_table(combined_table_dict[loot_table])
+        print('\n\n\n')
+    
     return
 
 def main():
