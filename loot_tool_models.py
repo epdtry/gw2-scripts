@@ -25,8 +25,8 @@ class DataDiff:
     def __init__(self, timestamp, char_name, wallet_diff, item_diff):
         self.timestamp = timestamp
         self.char_name = char_name
-        self.wallet_diff = wallet_diff
-        self.item_diff = item_diff
+        self.wallet_diff = {int(k): v for k,v in wallet_diff.items()}
+        self.item_diff = {int(k): v for k,v in item_diff.items()}
 
 class LootTable:
     def __init__(self, timestamp, source_item_id, source_item_quantity, item_drop_info_list, wallet_drop_info_list):
