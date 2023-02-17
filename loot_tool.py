@@ -430,6 +430,132 @@ def cmd_text_to_diff(text_path, diff_path):
     diff_file = open(diff_path, 'w') if diff_path is not None else sys.stdin
     json.dump(diff, diff_file, default=vars)
 
+ITEM_CRACKED_FRACTAL_ENCRYPTION = gw2.items.search_name('Cracked Fractal Encryption')
+ITEM_FRACTAL_ENCRYPTION_KEY = gw2.items.search_name('Fractal Encryption Key')
+ITEM_PLUS1_AGONY_INFUSION = gw2.items.search_name('+1 Agony Infusion')
+ITEM_MINI_PROFESSOR_MEW = gw2.items.search_name('Mini Professor Mew')
+ITEMS_HANDFUL_OF_FRACTAL_RELICS = set(
+        gw2.items.search_name('Handful of Fractal Relics', allow_multiple=True))
+CURRENCY_COIN = 1
+CURRENCY_FRACTAL_RELIC = 7
+
+FRACTAL_JUNK_ITEMS = set(gw2.items.search_name(x, rarity='Junk') for x in '''
+Manuscript of 'Halfway There and...'
+Manuscript of 'Proposal for a 1:1 Scale Map of Tyria'
+Manuscript of 'This Book Is False'
+Postulate of Construction
+Postulate of Continuity
+Postulate of Diameter
+Postulate of Parallels
+Postulate of Rectitude
+Postulate of Superposition
+Proof of Bask's Theorem
+Proof of Dekin's Rational Cuts
+Proof of Drik's Transformations
+Proof of Gali's Proportional Traversal
+Proof of Gott's Integral Derivation
+Proof of Neta's Square Inversion Law
+Treatise on Commensurability
+Treatise on Convergence
+Treatise on Divergence
+Treatise on Equivalence
+Treatise on Iteration
+Treatise on Symmetry
+'''.strip().splitlines())
+
+ASCENDED_MATERIAL_ITEMS = set(gw2.items.search_name(x) for x in '''
+Dragonite Ore
+Empyreal Fragment
+Pile of Bloodstone Dust
+'''.strip().splitlines())
+
+TIER_5_MATERIAL_ITEMS = set(gw2.items.search_name(x) for x in '''
+Intricate Totem
+Large Bone
+Large Claw
+Large Fang
+Large Scale
+Pile of Incandescent Dust
+Potent Venom Sac
+Vial of Potent Blood
+'''.strip().splitlines())
+
+def cmd_fractal_encryption(args):
+    loot_table = None
+    for path in args:
+        with open(path) as f:
+            diff = DataDiff(**json.load(f))
+        negative_item_ids = [int(item_id_str)
+                for item_id_str, count in diff.item_diff.items() if count < 0]
+        if negative_item_ids != [ITEM_CRACKED_FRACTAL_ENCRYPTION]:
+            print('skipping %s because items %r have negative counts' %
+                    (path, [gw2.items.name(item_id) for item_id in negative_item_ids]))
+            continue
+
+        if loot_table is None:
+            loot_table = loot_table_from_data_diff(diff)
+        else:
+            loot_table = merge_loot_tables(loot_table,
+                    loot_table_from_data_diff(diff))
+
+    gold_sum = 0
+    relics_sum = 0
+    ascended_mats_sum = 0
+    tier_5_mats_sum = 0
+    keys_sum = 0
+    infusion_sum = 0
+    mini_sum = 0
+    armor_recipes_sum = 0
+    weapon_recipes_sum = 0
+
+    for drop in loot_table.item_drop_info_list:
+        item = gw2.items.get(drop.id)
+        if drop.id in FRACTAL_JUNK_ITEMS:
+            gold_sum += drop.quantity * item['vendor_value']
+        elif drop.id in ITEMS_HANDFUL_OF_FRACTAL_RELICS:
+            relics_sum += drop.quantity * 3
+        elif drop.id in ASCENDED_MATERIAL_ITEMS:
+            ascended_mats_sum += drop.quantity
+        elif drop.id in TIER_5_MATERIAL_ITEMS:
+            tier_5_mats_sum += drop.quantity
+        elif drop.id == ITEM_FRACTAL_ENCRYPTION_KEY:
+            keys_sum += drop.quantity
+        elif drop.id == ITEM_PLUS1_AGONY_INFUSION:
+            infusion_sum += drop.quantity
+        elif drop.id == ITEM_MINI_PROFESSOR_MEW:
+            mini_sum += drop.quantity
+        elif item['name'].startswith('Recipe: Ascended'):
+            if item['name'].split()[2] in ('Light', 'Medium', 'Heavy'):
+                armor_recipes_sum += drop.quantity
+            else:
+                weapon_recipes_sum += drop.quantity
+        else:
+            print('unrecognized drop: %s' % gw2.items.name(drop.id))
+
+    for drop in loot_table.wallet_drop_info_list:
+        if drop.id == CURRENCY_COIN:
+            gold_sum += drop.quantity
+        elif drop.id == CURRENCY_FRACTAL_RELIC:
+            relics_sum += drop.quantity
+
+    entries = [
+            ('Cracked Fractal Encryption', -loot_table.source_item_quantity),
+            ('Silver', gold_sum / 100),
+            ('Fractal Relic', relics_sum),
+            ('Ascended Material', ascended_mats_sum),
+            ('Tier 5 Material', tier_5_mats_sum),
+            ('Fractal Encryption Key', keys_sum),
+            ('+1 Agony Infusion', infusion_sum),
+            ('Mini Professor Mew', mini_sum),
+            ('Ascended Armor Recipe', armor_recipes_sum),
+            ('Ascended Weapon Recipe', weapon_recipes_sum),
+            ]
+    for name, count in entries:
+        print('%8.3f  %10d  %s' % (count / loot_table.source_item_quantity,
+            count, name))
+
+
+
 def main():
     ''' A tool with several commands to help with data collection of loot. 
     '''
@@ -470,6 +596,9 @@ def main():
         cmd_text_to_diff(
                 args[0] if len(args) >= 1 else None,
                 args[1] if len(args) >= 2 else None)
+    elif cmd == 'fractal_encryption':
+        assert len(args) >= 1
+        cmd_fractal_encryption(args)
     else:
         raise ValueError('unknown command %r' % cmd)
 
