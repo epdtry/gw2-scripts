@@ -126,6 +126,11 @@ def add_vendor_prices(buy_prices):
         price = v['cost'] / v['quantity']
         buy_prices[k] = price
 
+def item_vendor_price(item):
+    if 'NoSell' in item['flags']:
+        return 0
+    return item.get('vendor_value', 0)
+
 def get_prices(item_ids):
     buy_prices = {}
     sell_prices = {}
@@ -137,7 +142,7 @@ def get_prices(item_ids):
         # The trading post doesn't allow selling items at prices so low that
         # you would receive less than vendor price after taxes.
         item = gw2.items.get(x['id'])
-        min_price = round(item['vendor_value'] / 0.85 + 0.5)
+        min_price = round(item_vendor_price(item) / 0.85 + 0.5)
 
         # Try to buy at the buy price.  If there is no buy price (for example,
         # certain items that trade very close to their vendor price), then use
@@ -167,7 +172,7 @@ def get_prices_and_listings(item_ids):
             continue
 
         item = gw2.items.get(x['id'])
-        min_price = round(item['vendor_value'] / 0.85 + 0.5)
+        min_price = round(item_vendor_price(item) / 0.85 + 0.5)
 
         # Filter out buy orders for less than the minimum trading post price.
         # Notably, ruby crystals (for mithril earrings) have some old
