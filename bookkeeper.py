@@ -85,13 +85,15 @@ def format_price(price):
 
 def format_price_float(price, precision=3):
     if price < 0:
-        return '-' + format_price(-price)
-    last = '%0{}.{}f'.format(precision + 3, precision)
+        return '-' + format_price_float(-price, precision=precision)
     if price < 100:
-        return last % price
+        last = '%{}.{}f'.format(precision + 3, precision)
+        return (last % price).strip()
     elif price < 10000:
+        last = '%0{}.{}f'.format(precision + 3, precision)
         return ('%d.' + last) % (price // 100, price % 100)
     else:
+        last = '%0{}.{}f'.format(precision + 3, precision)
         return ('%d.%02d.' + last) % (price // 10000, price // 100 % 100, price % 100)
 
 def format_price_delta(price):
@@ -473,15 +475,19 @@ STRATEGY_FORBID_CRAFT = set()
 STRATEGY_CAN_CRAFT_RECIPE = lambda r: True
 _OPTIMAL_STRATEGY_CACHE = {}
 _OPTIMAL_COST_CACHE = {}
+STRATEGY_RESEARCH_NOTE_SEPARATE = False
 
-def set_strategy_params(prices, forbid_buy, forbid_craft, can_craft_recipe):
+def set_strategy_params(prices, forbid_buy, forbid_craft, can_craft_recipe,
+        research_note_separate=False):
     '''Set prices to use for `StrategyBuy`.'''
-    global STRATEGY_PRICES, STRATEGY_FORBID_BUY, STRATEGY_FORBID_CRAFT, STRATEGY_CAN_CRAFT_RECIPE
+    global STRATEGY_PRICES, STRATEGY_FORBID_BUY, STRATEGY_FORBID_CRAFT, \
+            STRATEGY_CAN_CRAFT_RECIPE, STRATEGY_RESEARCH_NOTE_SEPARATE
     global _OPTIMAL_STRATEGY_CACHE, _OPTIMAL_COST_CACHE
     STRATEGY_PRICES = prices
     STRATEGY_FORBID_BUY = forbid_buy
     STRATEGY_FORBID_CRAFT = forbid_craft
     STRATEGY_CAN_CRAFT_RECIPE = can_craft_recipe
+    STRATEGY_RESEARCH_NOTE_SEPARATE = research_note_separate
     _OPTIMAL_STRATEGY_CACHE = {}
     _OPTIMAL_COST_CACHE = {}
 
@@ -508,7 +514,17 @@ def valid_strategies(item_id, allow_refine_only=False):
             yield StrategyCraft(r)
 
         if item_id == ITEM_RESEARCH_NOTE:
-            yield from policy_research_note_strategies()
+            if not STRATEGY_RESEARCH_NOTE_SEPARATE:
+                yield from policy_research_note_strategies()
+            else:
+                for strategy in chain(
+                        policy_research_note_strategies(),
+                        default_policy_research_note_strategies(include_disabled=True)):
+                    for item_id, count, notes in strategy.items:
+                        yield StrategyResearchNote(gw2.items.name(item_id),
+                                [(item_id, 1, notes)])
+
+
 
 def optimal_strategy(item_id):
     best_strategy = _OPTIMAL_STRATEGY_CACHE.get(item_id)
@@ -833,7 +849,34 @@ def default_policy_research_note_strategies(include_disabled=False):
     if include_disabled:
         yield StrategyResearchNote('Exalted Pants (Expensive)', group(75,
             ('%s Exalted Pants' % x for x in ("Cavalier's", "Soldier's"))))
+        yield StrategyResearchNote('Barbaric Helms (Expensive)', group(5,
+            ('%s Barbaric Helm' % x for x in (
+                'Carrion', "Knight's", "Berserker's", "Cleric's")),
+            rarity='Fine'))
+
         yield StrategyResearchNote('Sweptweave Rifle', group(5, ('Sweptweave Rifle',)))
+
+        yield StrategyResearchNote('Potent Potions of Slaying',
+                [(gw2.items.search_name('Potent Potion of %s Slaying' % x), 1, 1)
+                    for x in ('Krait', 'Flame Legion', 'Outlaw', 'Demon',
+                        'Undead', 'Sons of Svanir', 'Centaur', 'Inquest',
+                        'Outlaw', 'Destroyer', 'Dredge', 'Elemental', 'Grawl',
+                        'Halloween', 'Ice Brood', 'Ogre', 'Nightmare Court',)])
+
+        yield StrategyResearchNote('Tuning Crystals',
+                [(gw2.items.search_name('%s Tuning Crystal' % x,
+                    without_flags=('NoSalvage',)), 1, 1)
+                    for x in ('Journeyman', 'Standard', 'Artisan', 'Quality', 'Master')])
+        yield StrategyResearchNote('Maintenance Oils',
+                [(gw2.items.search_name('%s Maintenance Oil' % x,
+                    without_flags=('NoSalvage',)), 1, 1)
+                    for x in ('Journeyman', 'Standard', 'Artisan', 'Quality', 'Master')])
+        yield StrategyResearchNote('Sharpening Stones',
+                [(gw2.items.search_name('%s Sharpening Stone' % x,
+                    without_flags=('NoSalvage',)), 1, 1)
+                    for x in ('Simple', 'Standard', 'Quality', 'Hardened', 'Superior')])
+
+
 
 @policy_func
 def policy_research_note_strategies():
@@ -2291,6 +2334,195 @@ def cmd_strategies(name):
         cost_str = format_price(cost) if cost is not None else '(None)'
         print('%8s  %s' % (cost_str, desc))
 
+def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, title='Profits'):
+    dispose_item_ids = [parse_item_id(x) for x in dispose_item_names]
+
+    if row_filter is None:
+        def row_filter(x):
+            #return True
+            if x['sell_price'] >= x['buy_price'] * 1.5:
+                return False
+            if x['demand'] < 100: # or x['demand'] < x['supply']: - this isn't a good filter for gw2. see: Peice of Dragon Jade or Sup Rune of the Elementalist
+                return False
+            if x['roi'] < 0.08 or x['roi'] > 2:
+                return False
+            if x['craft_cost'] < 2000:
+                return False
+
+            item = x['item']
+            if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
+                return False
+            if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
+                return False
+            if item['type'] in ('Weapon', 'Armor'):
+                if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
+                    return False
+
+            return True
+
+    if item_ids is None:
+        output_item_ids = set(craftable_items())
+    else:
+        output_item_ids = set(item_ids)
+
+    related_items = gather_related_items(output_item_ids)
+    buy_prices, sell_prices = get_prices(related_items)
+    forbid_buy = policy_forbid_buy()
+    forbid_craft = policy_forbid_craft()
+
+    set_strategy_params({}, set(), set(), lambda x: True,
+            research_note_separate = True)
+
+    for strat in valid_strategies(ITEM_RESEARCH_NOTE):
+        forbid_buy.update(strat.related_items())
+    #forbid_buy.remove(gw2.items.search_name('Mithril Ore'))
+
+    orig_buy_prices = buy_prices.copy()
+    orig_sell_prices = sell_prices.copy()
+
+    rows = []
+    for dispose_item_id in dispose_item_ids:
+        if dispose_item_id in forbid_buy:
+            forbid_buy.remove(dispose_item_id)
+        value = orig_sell_prices[dispose_item_id] * 0.85
+        if value < buy_prices[dispose_item_id]:
+            buy_prices[dispose_item_id] = value
+        rows.append({
+            'item_id': dispose_item_id,
+            'item': gw2.items.get(dispose_item_id),
+            'buy_price': orig_buy_prices.get(dispose_item_id, 0),
+            'sell_price': orig_sell_prices.get(dispose_item_id, 0),
+            'value': value,
+            'buried': 1 if value > orig_buy_prices[dispose_item_id] else 0,
+            })
+
+    render_table('Current Prices',
+            (ItemNameColumn(),
+                UnitPriceColumn('value', 'Value', show_buried=True),
+                UnitPriceColumn('buy_price', 'Buy'),
+                UnitPriceColumn('sell_price', 'Sell'),
+                ),
+            rows,
+            render_title=True,
+            render_total=False)
+
+
+    research_note_forbid_buy = set(forbid_buy)
+    for strat in valid_strategies(ITEM_RESEARCH_NOTE):
+        research_note_forbid_buy.update(strat.related_items())
+    rows = []
+    for strat in valid_strategies(ITEM_RESEARCH_NOTE):
+        set_strategy_params(
+                orig_buy_prices,
+                research_note_forbid_buy,
+                forbid_craft,
+                policy_can_craft_recipe,
+                research_note_separate = True,
+                )
+        cost_baseline = strat.cost()
+        if cost_baseline is None:
+            continue
+
+        set_strategy_params(
+                buy_prices,
+                research_note_forbid_buy,
+                forbid_craft,
+                policy_can_craft_recipe,
+                research_note_separate = True,
+                )
+        cost_dispose = strat.cost()
+        if cost_dispose is None:
+            continue
+
+        rows.append((cost_dispose, cost_baseline, strat.name))
+    rows.sort()
+    print('\nResearch notes:')
+    for cost_dispose, cost_baseline, name in rows:
+        delta_str = "-" if cost_baseline == cost_dispose \
+                else format_price_float(cost_dispose - cost_baseline)
+        print('%10s  %10s  %7s  %s' % (format_price_float(cost_dispose),
+            format_price_float(cost_baseline),
+            delta_str, name))
+
+    rows = []
+    for item_id in output_item_ids:
+        # Get the baseline cost with normal material prices
+        set_strategy_params(
+                orig_buy_prices,
+                set(chain(forbid_buy, (item_id,))),
+                forbid_craft,
+                policy_can_craft_recipe,
+                research_note_separate = True,
+                )
+        cost_baseline = optimal_cost(item_id)
+        if cost_baseline is None:
+            continue
+
+        # Get the reduced cost after adjusting the prices of disposed items
+        set_strategy_params(
+                buy_prices,
+                set(chain(forbid_buy, (item_id,))),
+                forbid_craft,
+                policy_can_craft_recipe,
+                research_note_separate = True,
+                )
+        cost_dispose = optimal_cost(item_id)
+        if cost_dispose is None:
+            continue
+
+        sell_price = sell_prices.get(item_id)
+        #sell_price = buy_prices.get(item_id)
+        if sell_price is None:
+            continue
+
+        profit_baseline = sell_price * 0.85 - cost_baseline
+        profit_dispose = sell_price * 0.85 - cost_dispose
+        if profit_dispose <= 0:
+            continue
+
+        prices = gw2.trading_post.get_prices(item_id)
+
+        savings = (profit_dispose - profit_baseline) / cost_dispose
+        #if 'Jade' in gw2.items.name(item_id):
+            #print(gw2.items.name(item_id), cost_baseline, cost_dispose)
+        if savings <= 0:
+            continue
+
+        row = {
+            'item_id': item_id,
+            'item': gw2.items.get(item_id),
+            'craft_cost': cost_dispose,
+            'craft_cost_baseline': cost_baseline,
+            'profit': profit_dispose,
+            'profit_baseline': profit_baseline,
+            'roi': profit_dispose / cost_dispose,
+            'roi_baseline': profit_baseline / cost_baseline,
+            'dispose_savings': savings,
+            'supply': prices['sells'].get('quantity', 0),
+            'demand': prices['buys'].get('quantity', 0),
+            'sell_price': orig_sell_prices.get(item_id, 0),
+            'buy_price': orig_buy_prices.get(item_id, 0),
+            }
+        if row_filter(row):
+            rows.append(row)
+
+
+    if sort:
+        rows.sort(key=lambda row: row.get('dispose_savings', 0), reverse=True)
+
+    render_table(title,
+            (ItemNameColumn(),
+                PercentColumn(),
+                PercentColumn('roi_baseline', 'Base ROI'),
+                PercentColumn('dispose_savings', 'Savings'),
+                UnitPriceColumn('craft_cost', 'Craft Cost'),
+                UnitPriceColumn('profit', 'Unit Profit'),
+                UnitPriceColumn('profit_baseline', 'Baseline'),
+                ),
+            rows,
+            render_title=True,
+            render_total=False)
+
 
 def main():
     with open('api_key.txt') as f:
@@ -2350,5 +2582,8 @@ def main():
     elif cmd == 'goals_list':
         assert len(args) == 0
         cmd_goals_list()
+    elif cmd == 'dispose':
+        names = args
+        cmd_dispose(names)
     else:
         raise ValueError('unknown command %r' % cmd)

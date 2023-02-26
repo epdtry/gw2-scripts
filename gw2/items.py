@@ -106,9 +106,9 @@ def _by_name_multi():
     return _BY_NAME_MULTI
 
 def search_name(name, rarity=None, level=None, with_flags=None, without_flags=None,
-        allow_multiple=False):
+        allow_multiple=None):
     if rarity is None and level is None and with_flags is None and without_flags is None and \
-             not allow_multiple:
+             allow_multiple is None:
         return _by_name().get(name)
 
     candidates = _by_name_multi().get(name)
