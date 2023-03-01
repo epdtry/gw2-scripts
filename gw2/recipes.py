@@ -3,7 +3,7 @@ import functools
 import json
 import os
 
-from gw2.api import fetch
+from gw2.api import fetch, fetch_with_retries
 from gw2.constants import STORAGE_DIR
 import gw2.build
 from gw2.util import DataStorage
@@ -43,7 +43,7 @@ def _refresh():
     N = 100
     for i in range(0, len(all_ids), N):
         chunk = all_ids[i : i + N]
-        recipes = fetch('/v2/recipes?ids=' + ','.join(str(i) for i in chunk))
+        recipes = fetch_with_retries('/v2/recipes?ids=' + ','.join(str(i) for i in chunk))
         for r in recipes:
             data.add(r['id'], r)
 
