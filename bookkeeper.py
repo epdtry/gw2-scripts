@@ -212,7 +212,7 @@ def get_inventory():
 
     char_names = get_char_names()
     for char_name in char_names:
-        char = gw2.api.fetch('/v2/characters/%s/inventory' %
+        char = gw2.api.fetch_with_retries('/v2/characters/%s/inventory' %
                 urllib.parse.quote(char_name))
         for bag in char['bags']:
             if bag is None:
@@ -222,7 +222,7 @@ def get_inventory():
                     continue
                 counts[item['id']] += item['count']
 
-    materials = gw2.api.fetch('/v2/account/materials')
+    materials = gw2.api.fetch_with_retries('/v2/account/materials')
     for item in materials:
         if item is None or item['count'] == 0:
             continue

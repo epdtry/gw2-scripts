@@ -4,7 +4,7 @@ import json
 import os
 import urllib.parse
 
-from gw2.api import fetch
+from gw2.api import fetch, fetch_with_retries
 from gw2.constants import STORAGE_DIR
 import gw2.build
 
@@ -26,7 +26,7 @@ def _get_characters():
     return _CHARACTERS
 
 def _refresh():
-    char_names = fetch('/v2/characters')
+    char_names = fetch_with_retries('/v2/characters')
     characters = [i for i in char_names]
     os.makedirs(CHARACTERS_DIR, exist_ok=True)
     with open(CHARACTERS_FILE, 'w') as f:
@@ -67,7 +67,7 @@ def _refresh_crafting():
     return all_craftings
 
 def get_crafting_for_character(character_name):
-    crafting_response = fetch('/v2/characters/%s/crafting' %
+    crafting_response = fetch_with_retries('/v2/characters/%s/crafting' %
                 urllib.parse.quote(character_name))
     crafts = {}
     for craft_skill in crafting_response['crafting']:
@@ -76,7 +76,7 @@ def get_crafting_for_character(character_name):
     return crafts
 
 def get_equipment_for_character(character_name):
-    response = fetch('/v2/characters/%s/equipment' %
+    response = fetch_with_retries('/v2/characters/%s/equipment' %
                 urllib.parse.quote(character_name))
     return response['equipment']
 
