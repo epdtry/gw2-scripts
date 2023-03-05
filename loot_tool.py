@@ -427,7 +427,7 @@ def cmd_text_to_diff(text_path, diff_path):
             wallet_diff = wallet_diff,
             item_diff = item_diff)
 
-    diff_file = open(diff_path, 'w') if diff_path is not None else sys.stdin
+    diff_file = open(diff_path, 'w') if diff_path is not None else sys.stdout
     json.dump(diff, diff_file, default=vars)
 
 ITEM_CRACKED_FRACTAL_ENCRYPTION = gw2.items.search_name('Cracked Fractal Encryption')
