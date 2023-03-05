@@ -532,9 +532,11 @@ def optimal_strategy(item_id):
         strats = []
         best_strategy = None
         best_cost = None
+        
         for strategy in valid_strategies(item_id):
             cost = strategy.cost()
             strats.append((strategy, cost))
+            
             if cost is None:
                 # If all strategies have infinite cost, take the first one.
                 if best_strategy is None:
@@ -2231,6 +2233,10 @@ def cmd_craft_profit_buy():
             render_title=True,
             render_total=False)
 
+@policy_func
+def policy_get_research_note_roi_lines():
+    return None
+
 def cmd_research_notes():
     '''Print a list of items that can be crafted for research notes and the
     cost per note for each one.'''
@@ -2268,6 +2274,26 @@ def cmd_research_notes():
             if cost_per_note is not None:
                 xs.append((cost_per_note, 'Bundle: ' + strategy.name))
 
+    roi_lines = policy_get_research_note_roi_lines()
+    if roi_lines is not None:
+        tier_10 = gw2.items.search_name('Jade Bot Core: Tier 10')
+        related_items = gather_related_items([tier_10])
+        buy_prices, sell_prices = get_prices(related_items)
+        set_strategy_params(
+            buy_prices,
+            policy_forbid_buy().union((item_id,)),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+        
+        t10_partial_cost = optimal_cost(tier_10) - 1753 * optimal_cost(ITEM_RESEARCH_NOTE)
+        current_t10_sell_price = sell_prices[tier_10]
+        
+        for target_roi in roi_lines:
+            target_cost = (100 * (current_t10_sell_price * 0.85)) / (target_roi + 100)
+            note_cost_needed = (target_cost - t10_partial_cost) / 1753
+            xs.append((note_cost_needed, '-- NOTE COST NEEDED FOR ' + str(target_roi) + '% ROI on T10-- '))
+    
     for cost_per_note, name in sorted(set(xs)):
         print('%15s  %s' % (format_price_float(cost_per_note), name))
 
