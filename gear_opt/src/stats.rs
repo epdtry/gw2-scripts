@@ -47,6 +47,8 @@ pub struct Modifiers {
     pub crit_damage: f32,
     pub condition_damage: PerCondition<f32>,
     pub condition_duration: PerCondition<f32>,
+    pub boon_duration: PerBoon<f32>,
+    pub max_health: f32,
 }
 
 
@@ -92,6 +94,30 @@ impl<T> PerCondition<T> {
 }
 
 
+enumerated_struct! {
+    #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
+    pub struct PerBoon<T> {
+        enum Boon;
+        field type T;
+        fields {
+            pub aegis, Aegis;
+            pub alacrity, Alacrity;
+            pub fury, Fury;
+            pub might, Might;
+            pub protection, Protection;
+            pub quickness, Quickness;
+            pub regeneration, Regeneration;
+            pub resistance, Resistance;
+            pub resolution, Resolution;
+            pub stability, Stability;
+            pub swiftness, Swiftness;
+            pub vigor, Vigor;
+        }
+        fn map<U>, FnMut(T) -> U;
+    }
+}
+
+
 fn cap(x: f32, max: f32) -> f32 {
     if x < max { x } else { max }
 }
@@ -109,11 +135,19 @@ impl Stats {
         cap((self.precision - 895.) / 21. + mods.crit_chance, 100.)
     }
 
+    pub fn condition_duration(&self, mods: &Modifiers, condi: Condition) -> f32 {
+        cap(100. + self.expertise / 15. + mods.condition_duration[condi], 200.)
+    }
+
     pub fn condition_factor(&self, mods: &Modifiers, condi: Condition) -> f32 {
         let (damage_base, damage_factor) = condi.damage_params();
         let damage = damage_base + damage_factor * self.condition_damage;
         let damage_bonus = 1. + mods.condition_damage[condi] / 100.;
-        let duration = cap(100. + self.expertise / 15. + mods.condition_duration[condi], 200.);
+        let duration = self.condition_duration(mods, condi);
         damage * damage_bonus * duration / 100.
+    }
+
+    pub fn boon_duration(&self, mods: &Modifiers, boon: Boon) -> f32 {
+        cap(100. + self.concentration / 15. + mods.boon_duration[boon], 200.)
     }
 }
