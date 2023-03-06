@@ -1,6 +1,7 @@
 #[macro_use] mod macros;
 
 mod character;
+mod effect;
 mod gear;
 mod optimize;
 mod stats;
@@ -8,21 +9,12 @@ mod stats;
 mod generated;
 pub use generated::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 
-pub use crate::character::{CharacterModel, Baseline, DpsModel, Effect, NoEffect};
+pub use crate::character::{CharacterModel, Baseline, DpsModel};
+pub use crate::effect::{Effect, NoEffect};
+pub use crate::effect::{food, utility, rune, sigil, boon};
 pub use crate::gear::{PerGearSlot, GearSlot, PerQuality, Quality, SlotInfo, Prefix, StatFormula};
 pub use crate::stats::{PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, Condition};
 use crate::optimize::coarse::{optimize_coarse, calc_gear_stats};
-
-
-
-
-
-
-
-
-
-
-
 
 
 struct CondiVirt {
@@ -59,30 +51,27 @@ impl CondiVirt {
 impl CharacterModel for CondiVirt {
     fn apply_effects(&self, stats: &mut Stats, mods: &mut Modifiers) {
         NoEffect
-            // Rune of the Krait
-            .chain_add_permanent(|s, m| {
-                s.condition_damage += 175.;
-                m.condition_duration.bleed += 50.;
+
+            .chain(rune::Krait)
+            .chain(sigil::Agony)
+            .chain(food::PotatoLeekSoup)
+            .chain(utility::ToxicCrystal)
+
+            .chain(boon::Might(25.))
+            // Fury (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.0;
+                m.crit_chance += strength * 25.;
+                // Further bonus from Quiet Intensity
+                m.crit_chance += strength * 15.;
             })
-            // Sigil of Agony
-            .chain_add_permanent(|_s, m| {
-                m.condition_duration.bleed += 20.;
-            })
+
             // Infusions
             .chain_add_permanent(|_s, _m| {
                 //s.condition_damage += 16. * 5.;
                 //s.precision += 2. * 5.;
             })
-            // Food
-            .chain_add_permanent(|s, _m| {
-                s.precision += 100.;
-                s.condition_damage += 70.;
-            })
-            // Utility
-            .chain_distribute(|s, _m| {
-                s.condition_damage += s.power * 0.03;
-                s.condition_damage += s.precision * 0.03;
-            })
+
             // Trait: Superiority Complex
             .chain_add_temporary(|_s, m| {
                 m.crit_damage += 15.;
@@ -110,19 +99,7 @@ impl CharacterModel for CondiVirt {
             .chain_add_permanent(|_s, m| {
                 m.condition_damage.bleed += 25.;
             })
-            // Might (25 stacks)
-            .chain_add_temporary(|s, _m| {
-                let strength = 25.;
-                s.power += strength * 30.;
-                s.condition_damage += strength * 30.;
-            })
-            // Fury (100% uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 1.0;
-                m.crit_chance += strength * 25.;
-                // Further bonus from Quiet Intensity
-                m.crit_chance += strength * 15.;
-            })
+
             // Signet of Domination
             .chain_add_temporary(|s, _m| {
                 s.condition_damage += 180.;
@@ -131,6 +108,7 @@ impl CharacterModel for CondiVirt {
             .chain_add_temporary(|s, _m| {
                 s.expertise += 180.;
             })
+
             .apply(stats, mods);
     }
 
@@ -180,31 +158,18 @@ impl CharacterModel for CairnSoloArcane {
     fn apply_effects(&self, stats: &mut Stats, mods: &mut Modifiers) {
         NoEffect
 
-            // Rune of the Elementalist
-            .chain_add_permanent(|s, m| {
-                s.power += 175.;
-                s.condition_damage += 225.;
-                m.condition_duration += 10.;
-            })
-            // Sigil of Smoldering
-            .chain_add_permanent(|_s, m| {
-                m.condition_duration.burn += 20.;
-            })
+            .chain(rune::Elementalist)
+            .chain(sigil::Smoldering)
+            .chain(food::RedLentilSaobosa)
+            .chain(utility::ToxicCrystal)
+
+            .chain(boon::Might(12.))
+            .chain(boon::Fury(0.1))
+
             // Infusions
             .chain_add_permanent(|_s, _m| {
                 //s.condition_damage += 16. * 5.;
                 //s.precision += 2. * 5.;
-            })
-
-            // Food
-            .chain_add_permanent(|s, _m| {
-                s.expertise += 100.;
-                s.condition_damage += 70.;
-            })
-            // Utility
-            .chain_distribute(|s, _m| {
-                s.condition_damage += s.power * 0.03;
-                s.condition_damage += s.precision * 0.03;
             })
 
             // Trait: Empowering Flame (4/8 fire uptime)
@@ -255,17 +220,6 @@ impl CharacterModel for CairnSoloArcane {
                 s.vitality += 4. / 8. * 120.;
             })
 
-            // Might (12 stacks)
-            .chain_add_temporary(|s, _m| {
-                let strength = 12.;
-                s.power += strength * 30.;
-                s.condition_damage += strength * 30.;
-            })
-            // Fury (10% uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 0.1;
-                m.crit_chance += strength * 25.;
-            })
             // Woven Fire (1/3 uptime)
             .chain_add_temporary(|_s, m| {
                 let strength = 1./3.;
