@@ -254,14 +254,17 @@ def interpret_bonus(s):
 
     if m := match(r'\+([0-9]+) ({stat_name_re})'):
         return 's.%s += %s;' % (stat_name_map[m.group(2)], float(m.group(1)))
-    elif m := match(r'\+([0-9]+) to all stats'):
+    elif m := match(r'\+([0-9]+) to all (?:stats|attributes)'):
         return '*s += %s;' % (float(m.group(1)),)
-    elif m := match(r'convert ([0-9]+)% of your ({stat_name_re}) into ({stat_name_re})',
-            r'([0-9]+)% of (?:your )?({stat_name_re}) is converted '
-                '(?:in)?to ({stat_name_re})'):
+    elif m := match(r'convert (?P<n>[0-9]+)% of your (?P<s1>{stat_name_re}) '
+                r'into (?P<s2>{stat_name_re})',
+            r'(?P<n>[0-9]+)% of (?:your )?(?P<s1>{stat_name_re}) is converted '
+                r'(?:in)?to (?P<s2>{stat_name_re})',
+            r'gain (?P<s2>{stat_name_re}) equal to (?P<n>[0-9]+)% of '
+                r'your (?P<s1>{stat_name_re})'):
         return ('distribute', 's.%s += s.%s * %s;' % (
-            stat_name_map[m.group(3)], stat_name_map[m.group(2)],
-            float(m.group(1)) / 100))
+            stat_name_map[m.group('s2')], stat_name_map[m.group('s1')],
+            float(m.group('n')) / 100))
 
     elif m := match(r'\+(?P<n>[0-9]+)% (?P<c>{condi_name_re}) duration',
             r'increase inflicted (?P<c>{condi_name_re}) duration: (?P<n>[0-9]+)%',
@@ -303,8 +306,18 @@ def interpret_bonus(s):
         return '// -%s incoming %s duration' % (float(m.group(1)), m.group(2))
     elif m := match(r'-([0-9]+)% incoming ([^ ]*) damage'):
         return '// -%s incoming %s damage' % (float(m.group(1)), m.group(2))
+    elif m := match(r'-([0-9]+)% incoming damage'):
+        return '// -%s incoming damage' % (float(m.group(1)),)
     elif m := match(r'\+([0-9]+)% incoming heal effectiveness'):
         return '// +%s incoming heal effectiveness' % (float(m.group(1)),)
+    elif m := match(r'\+([0-9]+)% experience from kills'):
+        return '// +%s experience from kills' % (float(m.group(1)),)
+    elif m := match(r'\+([0-9]+)% (?:experience|all experience gained)'):
+        return '// +%s experience' % (float(m.group(1)),)
+    elif m := match(r'\+([0-9]+)% karma(?: bonus)'):
+        return '// +%s karma' % (float(m.group(1)),)
+    elif m := match(r'\+([0-9]+)% magic find'):
+        return '// +%s magic find' % (float(m.group(1)),)
 
     else:
         return '// unknown effect: %r' % (s,)
@@ -354,6 +367,26 @@ def print_dispatch_enum(name, items):
         print('    fn from(x: %s) -> %s { %s::%s(x) }' % (item, name, name, item))
         print('}')
 
+def build_effect_lines(bonus_descs):
+    bonuses = [interpret_bonus(part)
+            for bonus in bonus_descs
+            for part in re.split(r';|(?<!\bvs)\. \b|\n', bonus)]
+
+
+    effect_lines = {
+            'add_permanent': [],
+            'distribute': [],
+            'add_temporary': [],
+            }
+    for line in bonuses:
+        if isinstance(line, str):
+            effect_lines['add_permanent'].append(line)
+        else:
+            func, line = line
+            effect_lines[func].append(line)
+
+    return effect_lines
+
 def do_runes_sigils(kind):
     items = []
 
@@ -381,28 +414,65 @@ def do_runes_sigils(kind):
         else:
             raise ValueError('bad rune/sigil kind %r' % kind)
 
-        bonuses = [interpret_bonus(part)
-                for bonus in bonus_descs
-                for part in re.split(r';|(?<!\bvs)\. \b|\n', bonus)]
+        effect_lines = build_effect_lines(bonus_descs)
 
-
-        effect_lines = {
-                'add_permanent': [],
-                'distribute': [],
-                'add_temporary': [],
-                }
-        for line in bonuses:
-            if isinstance(line, str):
-                effect_lines['add_permanent'].append(line)
-            else:
-                func, line = line
-                effect_lines[func].append(line)
-
-        print('\n#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
+        print('\n/// %s' % item['name'])
+        print('#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
         print('pub struct %s;' % name)
         print_effect_impl(name, effect_lines)
 
         all_names.append(name)
+
+    print_dispatch_enum(kind, all_names)
+
+# Some food item descriptions are missing from the API.
+EXTRA_DESCRIPTIONS = {
+        'Red-Lentil Saobosa': '+100 Expertise; +70 Condition Damage; +1% All Experience Gained',
+        }
+
+def do_food_utility(kind):
+    items = []
+
+    for item in gw2.items.iter_all():
+        if item['level'] != 80:
+            continue
+        if item['type'] != 'Consumable':
+            continue
+        if item['details']['type'] != kind:
+            continue
+        if 'description' not in item['details'] and item['name'] not in EXTRA_DESCRIPTIONS:
+            continue
+        items.append(item)
+
+    all_names = set()
+    for item in sorted(items, key=lambda i: i['name']):
+        name = item['name']
+        name = name.removeprefix('Can of ')
+        name = name.removeprefix('Plate of ')
+        name = name.removeprefix('Filet of ')
+        name = name.removeprefix('Bowl of ')
+        name = name.removeprefix('Loaf of ')
+        name = ''.join(re.sub('^[a-z]', lambda m: m.group().upper(), x)
+                for x in name.split())
+        name = re.sub('[^a-zA-Z]', '', name)
+
+        if name in all_names:
+            print('warning: duplicate entry for %s' % name, file = sys.stderr)
+            continue
+        all_names.add(name)
+
+        if kind == 'Food' or kind == 'Utility':
+            bonus_descs = [item['details'].get('description') or
+                    EXTRA_DESCRIPTIONS[item['name']]]
+        else:
+            raise ValueError('bad food/utility kind %r' % kind)
+
+        effect_lines = build_effect_lines(bonus_descs)
+
+        print('\n/// %s' % item['name'])
+        print('#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
+        print('pub struct %s;' % name)
+        print_effect_impl(name, effect_lines)
 
     print_dispatch_enum(kind, all_names)
 
@@ -428,6 +498,10 @@ def main():
             do_runes_sigils('Rune')
         elif mode == 'sigils':
             do_runes_sigils('Sigil')
+        elif mode == 'food':
+            do_food_utility('Food')
+        elif mode == 'utility':
+            do_food_utility('Utility')
         else:
             raise ValueError('unknown mode %r' % mode)
 

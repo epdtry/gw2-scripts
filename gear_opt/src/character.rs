@@ -13,6 +13,9 @@ pub trait CharacterModel {
     /// be included in `base_effect` by the optimizer.
     fn vary_sigils(&self) -> u8 { 0 }
 
+    fn vary_food(&self) -> bool { false }
+    fn vary_utility(&self) -> bool { false }
+
     /// Apply `effect` plus any fixed effects to update the provided `stats` and `mods`.  This
     /// captures the fixed parts of the build, such as trait choices.
     fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers);

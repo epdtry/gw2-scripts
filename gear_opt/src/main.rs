@@ -51,7 +51,10 @@ impl CondiVirt {
                 .. 0.0.into()
             },
             // Base effect, capturing any customizable runes or sigils in this build.
-            effect: rune::Krait.chain(sigil::Agony),
+            effect: rune::Krait
+                .chain(sigil::Agony)
+                .chain(food::FancyPotatoAndLeekSoup)
+                .chain(utility::ToxicFocusingCrystal),
         });
         ch
     }
@@ -61,13 +64,15 @@ impl CondiVirt {
 impl CharacterModel for CondiVirt {
     fn vary_rune(&self) -> bool { true }
     fn vary_sigils(&self) -> u8 { 1 }
+    fn vary_food(&self) -> bool { true }
+    fn vary_utility(&self) -> bool { true }
     fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
         base_effect
 
             //.chain(rune::Krait)
             //.chain(sigil::Agony)
-            .chain(food::PotatoLeekSoup)
-            .chain(utility::ToxicCrystal)
+            //.chain(food::FancyPotatoAndLeekSoup)
+            //.chain(utility::ToxicFocusingCrystal)
 
             .chain(boon::Might(25.))
             // Fury (100% uptime)
@@ -163,7 +168,10 @@ impl CairnSoloArcane {
                 bleed: 10.3,
                 .. 0.0.into()
             },
-            effect: rune::Elementalist.chain(sigil::Smoldering),
+            effect: rune::Elementalist
+                .chain(sigil::Smoldering)
+                .chain(food::RedLentilSaobosa)
+                .chain(utility::ToxicFocusingCrystal),
         });
         ch
     }
@@ -173,14 +181,16 @@ impl CairnSoloArcane {
 impl CharacterModel for CairnSoloArcane {
     fn vary_rune(&self) -> bool { true }
     fn vary_sigils(&self) -> u8 { 1 }
+    fn vary_food(&self) -> bool { true }
+    fn vary_utility(&self) -> bool { true }
 
     fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
         base_effect
 
             //.chain(rune::Elementalist)
             //.chain(sigil::Smoldering)
-            .chain(food::RedLentilSaobosa)
-            .chain(utility::ToxicCrystal)
+            //.chain(food::RedLentilSaobosa)
+            //.chain(utility::ToxicCrystal)
 
             .chain(boon::Might(12.))
             .chain(boon::Fury(0.1))
@@ -250,8 +260,8 @@ impl CharacterModel for CairnSoloArcane {
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
         // Require a certain amount of sustain.
-        let min_healing_power = 500.;
-        let min_concentration = 0.;
+        let min_healing_power = 360.;
+        let min_concentration = 360.;
 
         if stats.healing_power < min_healing_power {
             return 2000. + min_healing_power - stats.healing_power;

@@ -1,6 +1,6 @@
 use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::CharacterModel;
-use crate::effect::{Effect, Rune, Sigil};
+use crate::effect::{Effect, Rune, Sigil, Food, Utility};
 use crate::gear::{GearSlot, Quality};
 use crate::stats::{Stats, Modifiers, BASE_STATS};
 
@@ -12,6 +12,8 @@ pub struct Config {
     pub prefix_weights: [f32; NUM_PREFIXES],
     pub rune: Rune,
     pub sigils: [Sigil; 2],
+    pub food: Food,
+    pub utility: Utility,
 }
 
 impl Default for Config {
@@ -23,6 +25,8 @@ impl Default for Config {
                 Sigil::from_index(0),
                 Sigil::from_index(0),
             ],
+            food: Food::from_index(0),
+            utility: Utility::from_index(0),
         }
     }
 }
@@ -36,7 +40,9 @@ impl Config {
         } else {
             None
         };
-        rune.chain(sigil0).chain(sigil1)
+        let food = if ch.vary_food() { Some(self.food) } else { None };
+        let utility = if ch.vary_utility() { Some(self.utility) } else { None };
+        rune.chain(sigil0).chain(sigil1).chain(food).chain(utility)
     }
 }
 
@@ -84,6 +90,12 @@ fn report<C: CharacterModel>(ch: &C, cfg: &Config, m: f32) {
     }
     for i in 0 .. ch.vary_sigils() as usize {
         eprintln!("sigil {} = {:?}", i + 1, cfg.sigils[i]);
+    }
+    if ch.vary_food() {
+        eprintln!("food = {:?}", cfg.food);
+    }
+    if ch.vary_utility() {
+        eprintln!("utility = {:?}", cfg.utility);
     }
     eprintln!();
 }
@@ -183,6 +195,36 @@ fn optimize_coarse_one<C: CharacterModel>(
                     best_cfg = new_cfg;
                     best_m = new_m;
                     best_desc = format!("using sigil {:?} in slot {}", sigil, i);
+                }
+            }
+        }
+
+        if ch.vary_food() {
+            for food in Food::iter() {
+                let mut new_cfg = cfg;
+                new_cfg.food = food;
+
+                let new_m = evaluate_config(ch, &new_cfg);
+
+                if new_m < best_m {
+                    best_cfg = new_cfg;
+                    best_m = new_m;
+                    best_desc = format!("using food {:?}", food);
+                }
+            }
+        }
+
+        if ch.vary_utility() {
+            for utility in Utility::iter() {
+                let mut new_cfg = cfg;
+                new_cfg.utility = utility;
+
+                let new_m = evaluate_config(ch, &new_cfg);
+
+                if new_m < best_m {
+                    best_cfg = new_cfg;
+                    best_m = new_m;
+                    best_desc = format!("using utility {:?}", utility);
                 }
             }
         }
