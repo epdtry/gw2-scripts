@@ -27,7 +27,7 @@ impl CondiVirt {
             dps: DpsModel::zero(),
         };
         // The DPS model is produced by looking at arcdps results for a known build.
-        ch.dps = DpsModel::new(&ch, &Baseline {
+        ch.dps = DpsModel::new(&ch, Baseline {
             // `gear` gives the gear stats used for the baseline, as shown when mousing over the
             // gear tab in-game.  This does not include any runes, food, boons, etc, which are all
             // applied later.
@@ -50,6 +50,8 @@ impl CondiVirt {
                 poison: 0.2,
                 .. 0.0.into()
             },
+            // Base effect, capturing any customizable runes or sigils in this build.
+            effect: NoEffect,
         });
         ch
     }
@@ -57,8 +59,8 @@ impl CondiVirt {
 
 
 impl CharacterModel for CondiVirt {
-    fn apply_effects(&self, stats: &mut Stats, mods: &mut Modifiers) {
-        NoEffect
+    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
+        base_effect
 
             .chain(rune::Krait)
             .chain(sigil::Agony)
@@ -143,7 +145,7 @@ impl CairnSoloArcane {
         let mut ch = CairnSoloArcane {
             dps: DpsModel::zero(),
         };
-        ch.dps = DpsModel::new(&ch, &Baseline {
+        ch.dps = DpsModel::new(&ch, Baseline {
             gear: Stats {
                 power: 824.,
                 precision: 793.,
@@ -159,6 +161,7 @@ impl CairnSoloArcane {
                 bleed: 10.3,
                 .. 0.0.into()
             },
+            effect: NoEffect,
         });
         ch
     }
@@ -166,8 +169,8 @@ impl CairnSoloArcane {
 
 
 impl CharacterModel for CairnSoloArcane {
-    fn apply_effects(&self, stats: &mut Stats, mods: &mut Modifiers) {
-        NoEffect
+    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
+        base_effect
 
             .chain(rune::Elementalist)
             .chain(sigil::Smoldering)
@@ -316,6 +319,6 @@ fn main() {
     let gear = calc_gear_stats(&w);
     let mut stats = BASE_STATS + gear;
     let mut mods = Modifiers::default();
-    ch.apply_effects(&mut stats, &mut mods);
+    ch.apply_effects(NoEffect, &mut stats, &mut mods);
     eprintln!("{:?}", stats.map(|_, x| x.round() as u32));
 }

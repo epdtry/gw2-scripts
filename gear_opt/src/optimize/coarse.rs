@@ -1,5 +1,6 @@
 use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::CharacterModel;
+use crate::effect::NoEffect;
 use crate::gear::{GearSlot, Quality};
 use crate::stats::{Stats, Modifiers, BASE_STATS};
 
@@ -30,7 +31,7 @@ fn evaluate_weights<C: CharacterModel>(ch: &C, w: &PrefixWeights) -> f32 {
     let gear = calc_gear_stats(&w);
     let mut stats = BASE_STATS + gear;
     let mut mods = Modifiers::default();
-    ch.apply_effects(&mut stats, &mut mods);
+    ch.apply_effects(NoEffect, &mut stats, &mut mods);
     ch.evaluate(&stats, &mods)
 }
 
