@@ -1,7 +1,14 @@
 use crate::stats::{Stats, Modifiers, PerCondition, BASE_STATS};
 
+/// `CharacterModel` describes a build to be optimized.
 pub trait CharacterModel {
+    /// Apply fixed effects to update the provided `stats` and `mods`.  This captures the fixed
+    /// parts of the build, such as trait choices.
     fn apply_effects(&self, stats: &mut Stats, mods: &mut Modifiers);
+    /// Evaluate the quality of particular `stats` and `mods` values for this build.  The optimizer
+    /// tries to minimize this function, so smaller is better.  This means DPS builds should
+    /// generally return `-dps` rather than `dps`.  This captures the goals we're optimizing for
+    /// with this build.
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32;
 }
 

@@ -26,7 +26,11 @@ impl CondiVirt {
         let mut ch = CondiVirt {
             dps: DpsModel::zero(),
         };
+        // The DPS model is produced by looking at arcdps results for a known build.
         ch.dps = DpsModel::new(&ch, &Baseline {
+            // `gear` gives the gear stats used for the baseline, as shown when mousing over the
+            // gear tab in-game.  This does not include any runes, food, boons, etc, which are all
+            // applied later.
             gear: Stats {
                 power: 986.,
                 precision: 981.,
@@ -34,7 +38,11 @@ impl CondiVirt {
                 expertise: 255.,
                 .. Stats::default()
             },
+            // The overall DPS achieved with the baseline build.
             dps: 30063.,
+            // What percent of the DPS came from each condition.  This can be found in the arcdps
+            // detailed DPS report, which you can open by clicking on your name in the squad DPS
+            // window.
             condition_percent: PerCondition {
                 bleed: 59.9,
                 torment: 10.3,
@@ -113,11 +121,14 @@ impl CharacterModel for CondiVirt {
     }
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
+        // Require 100% crit chance.  This is important for maximizing Jagged Mind procs, which the
+        // DPS model doesn't reason about.
         let crit = stats.crit_chance(mods);
         if crit < 100. {
             return 1000. + 100. - crit;
         }
 
+        // Optimize for DPS.
         -self.dps.calc_dps(stats, mods)
     }
 }
@@ -230,6 +241,7 @@ impl CharacterModel for CairnSoloArcane {
     }
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
+        // Require a certain amount of sustain.
         let min_healing_power = 0.;
         let min_concentration = 0.;
 
@@ -241,14 +253,16 @@ impl CharacterModel for CairnSoloArcane {
             return 1000. + min_concentration - stats.concentration;
         }
 
+        // Require a certain amount of DPS.
         let min_dps = 6900.;
         let dps = self.dps.calc_dps(stats, mods);
         if dps < min_dps {
             return 10000. + min_dps - dps;
         }
 
-        -stats.healing_power
+        // Optimize for DPS or for sustain.
         //-dps
+        -stats.healing_power
     }
 }
 
@@ -256,6 +270,9 @@ impl CharacterModel for CairnSoloArcane {
 fn main() {
     let ch = CondiVirt::new();
     //let ch = CairnSoloArcane::new();
+
+
+    // Slot quality configuration.  The last `let slots = ...` takes precedence.
 
     let slots = [
         (GearSlot::Weapon1H, Quality::Exotic),
@@ -273,6 +290,8 @@ fn main() {
         (GearSlot::Accessory2, Quality::Exotic),
         (GearSlot::Backpack, Quality::Exotic),
     ];
+
+    // Full ascended in every slot
     let _ = [
         (GearSlot::Weapon1H, Quality::Ascended),
         (GearSlot::Weapon1H, Quality::Ascended),
@@ -290,6 +309,8 @@ fn main() {
         (GearSlot::Backpack, Quality::Ascended),
     ];
 
+
+    // Run the optimizer and report results
     let w = optimize_coarse(&ch, &slots);
 
     let gear = calc_gear_stats(&w);
