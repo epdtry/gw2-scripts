@@ -1,4 +1,5 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+from contextlib import contextmanager
 import datetime
 from pprint import pprint
 import re
@@ -193,6 +194,18 @@ def camel_to_snake(s):
     return s
 
 def interpret_bonus(s):
+    '''Parse a bonus effect description from a rune, sigil, food, or utility
+    item.  Returns a pair of a key indicating which stat or modifier should be
+    increased and the floating-point amount of the increase.  Different bonuses
+    with the same key stack by adding their values.  The key is always a tuple;
+    the first field is a string giving the general effect type, and the
+    remaining fields are parameters.  For example, the `stat_bonus` effect type
+    takes a stat name as a parameter.
+
+    As a special case, instead of returning a single key-value pair, this
+    function may instead return a pair of the string `'multi'` and a list of
+    key-value pairs.
+    '''
     s = s.lower()
     s = re.sub('<c=@reminder>[^<>]*</c>', '', s)
     s = s.strip()
@@ -253,88 +266,136 @@ def interpret_bonus(s):
         return None
 
     if m := match(r'\+([0-9]+) ({stat_name_re})'):
-        return 's.%s += %s;' % (stat_name_map[m.group(2)], float(m.group(1)))
+        return ('stat_bonus', stat_name_map[m.group(2)]), float(m.group(1))
     elif m := match(r'\+([0-9]+) to all (?:stats|attributes)'):
-        return '*s += %s;' % (float(m.group(1)),)
+        return ('stat_bonus_all',), float(m.group(1))
     elif m := match(r'convert (?P<n>[0-9]+)% of your (?P<s1>{stat_name_re}) '
                 r'into (?P<s2>{stat_name_re})',
             r'(?P<n>[0-9]+)% of (?:your )?(?P<s1>{stat_name_re}) is converted '
                 r'(?:in)?to (?P<s2>{stat_name_re})',
             r'gain (?P<s2>{stat_name_re}) equal to (?P<n>[0-9]+)% of '
                 r'your (?P<s1>{stat_name_re})'):
-        return ('distribute', 's.%s += s.%s * %s;' % (
-            stat_name_map[m.group('s2')], stat_name_map[m.group('s1')],
-            float(m.group('n')) / 100))
+        return ('stat_distribute', stat_name_map[m.group('s1')],
+                stat_name_map[m.group('s2')]), float(m.group('n')) / 100
 
     elif m := match(r'\+(?P<n>[0-9]+)% (?P<c>{condi_name_re}) duration',
             r'increase inflicted (?P<c>{condi_name_re}) duration: (?P<n>[0-9]+)%',
             r'increase the duration of inflicted (?P<c>{condi_name_re}) by (?P<n>[0-9]+)%'):
         condi = condi_name_map[m.group('c')]
         if condi is not None:
-            return 'm.condition_duration.%s += %s;' % (condi, float(m.group('n')))
+            return ('condi_duration', condi), float(m.group('n'))
         else:
-            return '//m.condition_duration.<%s> += %s;' % (m.group('c'), float(m.group('n')))
+            return ('unimplemented', 'condi_duration', m.group('c')), float(m.group('n'))
     elif m := match(r'\+([0-9]+)% condition duration'):
-        return 'm.condition_duration += %s;' % (float(m.group(1)),)
+        return ('condi_duration_all',), float(m.group(1))
     elif m := match(r'\+([0-9]+)% condition damage'):
-        return 'm.condition_damage += %s;' % (float(m.group(1)),)
+        return ('condi_damage_percent',), float(m.group(1))
 
     elif m := match(r'\+?([0-9]+)% ({boon_name_re}) duration'):
         boon = boon_name_map[m.group(2)]
         if boon is not None:
-            return 'm.boon_duration.%s += %s;' % (boon, float(m.group(1)))
+            return ('boon_duration', boon), float(m.group(1))
         else:
-            return '//m.boon_duration.<%s> += %s;' % (m.group(2), float(m.group(1)))
+            return ('unimplemented', 'boon_duration', m.group(2)), float(m.group(1))
     elif m := match(r'\+([0-9]+)% boon duration'):
-        return 'm.boon_duration += %s;' % (float(m.group(1)),)
+        return ('boon_duration_all',), float(m.group(1))
 
     elif m := match(r'\+([0-9]+)% (increased )?maximum health'):
-        return 'm.max_health += %s;' % (float(m.group(1)),)
-    elif m := match(r'increase strike damage dealt by \+([0-9]+)%'):
-        return 'm.strike_damage += %s;' % (float(m.group(1)),)
-    elif m := match(r'\+([0-9]+)% (?:strike )?damage'):
-        return 'm.strike_damage += %s;' % (float(m.group(1)),)
+        return ('max_health',), float(m.group(1))
+    elif m := match(r'increase strike damage dealt by \+([0-9]+)%',
+            r'\+([0-9]+)% (?:strike )?damage'):
+        return ('strike_damage',), float(m.group(1))
     elif m := match(r'\+([0-9]+)% damage and \+([0-9]+)% condition damage'):
-        return 'm.strike_damage += %s; m.condition_damage += %s;' % (
-                float(m.group(1)), float(m.group(2)))
+        return 'multi', [
+                (('strike_damage',), float(m.group(1))),
+                (('condi_damage_percent',), float(m.group(2))),
+                ]
     if m := match(r'\+([0-9]+) critical chance'):
-        return 'm.crit_chance += %s;' % (float(m.group(1)),)
+        return ('crit_chance',), float(m.group(1))
 
     elif m := match(r'(?:gain |\+)?([0-9]+)% movement speed'):
-        return '// +%s movement speed' % (float(m.group(1)),)
+        return ('unimplemented', 'move_speed'), float(m.group(1))
     elif m := match(r'-([0-9]+)% incoming ([^ ]*) duration'):
-        return '// -%s incoming %s duration' % (float(m.group(1)), m.group(2))
+        return ('unimplemented', 'incoming_condi_duration', m.group(2)), -float(m.group(1))
     elif m := match(r'-([0-9]+)% incoming ([^ ]*) damage'):
-        return '// -%s incoming %s damage' % (float(m.group(1)), m.group(2))
+        return ('unimplemented', 'incoming_condi_damage', m.group(2)), -float(m.group(1))
     elif m := match(r'-([0-9]+)% incoming damage'):
-        return '// -%s incoming damage' % (float(m.group(1)),)
+        return ('unimplemented', 'incoming_damage'), -float(m.group(1))
     elif m := match(r'\+([0-9]+)% incoming heal effectiveness'):
-        return '// +%s incoming heal effectiveness' % (float(m.group(1)),)
+        return ('unimplemented', 'incoming_heal'), float(m.group(1))
     elif m := match(r'\+([0-9]+)% experience from kills'):
-        return '// +%s experience from kills' % (float(m.group(1)),)
+        return ('unimplemented', 'xp_from_kills'), float(m.group(1))
     elif m := match(r'\+([0-9]+)% (?:experience|all experience gained)'):
-        return '// +%s experience' % (float(m.group(1)),)
+        return ('unimplemented', 'xp'), float(m.group(1))
     elif m := match(r'\+([0-9]+)% karma(?: bonus)'):
-        return '// +%s karma' % (float(m.group(1)),)
+        return ('unimplemented', 'karma'), float(m.group(1))
     elif m := match(r'\+([0-9]+)% magic find'):
-        return '// +%s magic find' % (float(m.group(1)),)
+        return ('unimplemented', 'magic_find'), float(m.group(1))
 
     else:
-        return '// unknown effect: %r' % (s,)
+        return ('unknown', s), 1
+
+def interpret_bonuses(descs):
+    dct = defaultdict(float)
+
+    for desc in descs:
+        for part in re.split(r';|(?<!\bvs)\. \b|\n', desc):
+            k, v = interpret_bonus(part)
+            if k == 'multi':
+                for kk, vv in v:
+                    dct[kk] += vv
+            else:
+                dct[k] += v
+
+    return dict(dct)
+
+def bonus_key(bonus):
+    return tuple(sorted((k,v) for k,v in bonus.items()
+        if k[0] not in ('unknown', 'unimplemented')))
 
 
-def print_effect_impl(name, parts):
-    print('#[allow(unused_variables)]')
-    print('impl Effect for %s {' % name)
+class Writer:
+    def __init__(self):
+        self._indent = ''
+        self.lines = []
+
+    @contextmanager
+    def indent(self):
+        old = self._indent
+        self._indent += '    '
+        yield
+        self._indent = old
+
+    def emit(self, s):
+        for line in s.splitlines():
+            self.lines.append(self._indent + line)
+
+    def finish(self):
+        return '\n'.join(self.lines)
+
+def mk_effect_impl(w, name, display_name, parts):
+    w.emit('#[allow(unused_variables)]')
+    w.emit('impl Effect for %s {' % name)
     for method, lines in parts.items():
         if len(lines) == 0:
             continue
-        print('    fn %s(&self, s: &mut Stats, m: &mut Modifiers) {' % method)
-        print('\n'.join('        ' + line for line in lines))
-        print('    }')
-    print('}')
+        with w.indent():
+            w.emit('fn %s(&self, s: &mut Stats, m: &mut Modifiers) {' % method)
+            with w.indent():
+                for line in lines:
+                    w.emit(line)
+            w.emit('}')
+    w.emit('}')
 
-def print_dispatch_enum(name, items):
+    w.emit('impl %s {' % name)
+    with w.indent():
+        w.emit("pub fn display_name(&self) -> &'static str {")
+        with w.indent():
+            w.emit('"%s"' % display_name)
+        w.emit('}')
+    w.emit('}')
+
+def print_dispatch_enum(name, items, emit_display_name=False):
     print('\n#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]')
     print('pub enum %s {' % name)
     for item in items:
@@ -361,31 +422,158 @@ def print_dispatch_enum(name, items):
     print('    pub fn iter() -> impl Iterator<Item = %s> {' % name)
     print('        (0 .. %s::COUNT).map(%s::from_index)' % (name, name))
     print('    }')
+    print("    pub fn display_name(self) -> &'static str {")
+    print('        match self {')
+    for i, item in enumerate(items):
+        print('            %s::%s(x) => x.display_name(),' % (name, item))
+    print('        }')
+    print('    }')
     print('}')
     for item in items:
         print('impl From<%s> for %s {' % (item, name))
         print('    fn from(x: %s) -> %s { %s::%s(x) }' % (item, name, name, item))
         print('}')
 
-def build_effect_lines(bonus_descs):
-    bonuses = [interpret_bonus(part)
-            for bonus in bonus_descs
-            for part in re.split(r';|(?<!\bvs)\. \b|\n', bonus)]
-
-
+def build_bonus_lines(bonus):
     effect_lines = {
             'add_permanent': [],
             'distribute': [],
             'add_temporary': [],
             }
-    for line in bonuses:
-        if isinstance(line, str):
-            effect_lines['add_permanent'].append(line)
-        else:
-            func, line = line
-            effect_lines[func].append(line)
+
+    dest_map = {
+            'stat_bonus': 'add_permanent',
+            'stat_bonus_all': 'add_permanent',
+            'stat_distribute': 'distribute',
+            'condi_duration': 'add_permanent',
+            'condi_duration_all': 'add_permanent',
+            'condi_damage_percent': 'add_permanent',
+            'boon_duration': 'add_permanent',
+            'boon_duration_all': 'add_permanent',
+            'max_health': 'add_permanent',
+            'strike_damage': 'add_permanent',
+            'crit_chance': 'add_permanent',
+            # Unknown/unimplemented should be converted to raw by this point.
+            'raw': 'add_permanent',
+            }
+
+    for k, v in bonus:
+        kind = k[0]
+        dest_key = dest_map[kind]
+
+        if kind == 'stat_bonus':
+            which, = k[1:]
+            line = 's.%s += %s;' % (which, v)
+        elif kind == 'stat_bonus_all':
+            assert len(k) == 1
+            line = '*s += %s;' % (v,)
+        elif kind == 'stat_distribute':
+            stat1, stat2 = k[1:]
+            line = 's.%s += s.%s * %s;' % (stat2, stat1, v)
+
+        elif kind == 'condi_duration':
+            which, = k[1:]
+            line = 'm.condition_duration.%s += %s;' % (which, v)
+        elif kind == 'condi_duration_all':
+            assert len(k) == 1
+            line = 'm.condition_duration += %s;' % (v,)
+        elif kind == 'condi_damage_percent':
+            assert len(k) == 1
+            line = 'm.condition_damage += %s;' % (v,)
+
+        elif kind == 'boon_duration':
+            which, = k[1:]
+            line = 'm.boon_duration.%s += %s;' % (which, v)
+        elif kind == 'boon_duration_all':
+            assert len(k) == 1
+            line = 'm.boon_duration += %s;' % (v,)
+
+        elif kind == 'max_health':
+            assert len(k) == 1
+            line = 'm.max_health += %s;' % (v,)
+        elif kind == 'strike_damage':
+            assert len(k) == 1
+            line = 'm.strike_damage += %s;' % (v,)
+        elif kind == 'crit_chance':
+            assert len(k) == 1
+            line = 'm.crit_chance += %s;' % (v,)
+
+        elif kind == 'raw':
+            assert len(k) == 1
+            line = v
+
+        effect_lines[dest_key].append(line)
 
     return effect_lines
+
+Effect = namedtuple('Effect', ('name', 'display_name', 'bonus'))
+
+def define_effects(es):
+    groups = defaultdict(list)
+    for e in es:
+        key = bonus_key(e.bonus)
+        groups[key].append(e)
+
+    def sort_key(x):
+        if x.startswith('No') and x[2].isupper():
+            return ''
+        else:
+            return x
+
+    chunks = []
+    for g in groups.values():
+        g.sort(key = lambda e: sort_key(e.name))
+        rep = g[0]
+
+        # Build the combined bonus to put in the main effect impl.  Start with
+        # the known bonuses.
+        merged_bonus = sorted((k, v) for k,v in rep.bonus.items()
+                if k[0] not in ('unknown', 'unimplemented'))
+        # Add `raw` lines for unknown bonuses from other members of the group.
+        for e in g:
+            unknowns = sorted((k, v) for k,v in e.bonus.items()
+                    if k[0] in ('unknown', 'unimplemented'))
+            for k, v in unknowns:
+                info = []
+                if len(g) > 1:
+                    info.append(e.name)
+                if k[0] == 'unknown':
+                    assert len(k) == 2
+                    if v != 1:
+                        info.append('%dx' % v)
+                info_str = '' if not info else ' (%s)' % ', '.join(info)
+
+                if k[0] == 'unimplemented':
+                    desc = ', '.join(str(x) for x in k[1:] + (v,))
+                else:
+                    assert k[0] == 'unknown'
+                    desc = k[1]
+
+                merged_bonus.append((('raw',), '// %s%s: %s' % (k[0], info_str, desc)))
+
+
+        w = Writer()
+        w.emit('/// %s' % rep.display_name)
+        w.emit('#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
+        w.emit('pub struct %s;' % rep.name)
+        lines = build_bonus_lines(merged_bonus)
+        mk_effect_impl(w, rep.name, ' / '.join(e.display_name for e in g), lines)
+        chunks.append((rep.name, w.finish()))
+
+        for e in g[1:]:
+            w = Writer()
+            w.emit('/// %s' % e.display_name)
+            w.emit('pub type %s = %s;' % (e.name, rep.name))
+            chunks.append((e.name, w.finish()))
+
+    chunks.sort(key = lambda x: sort_key(x[0]))
+
+    for _, v in chunks:
+        print()
+        print(v)
+
+    return [g[0].name for g in groups.values()]
+
 
 def do_runes_sigils(kind):
     items = []
@@ -399,7 +587,7 @@ def do_runes_sigils(kind):
             continue
         items.append(item)
 
-    all_names = []
+    effects = [Effect('No' + kind, 'No ' + kind, {})]
     for item in sorted(items, key=lambda i: i['name']):
         name = item['name']
         name = name.removeprefix('Superior %s of ' % kind)
@@ -414,16 +602,11 @@ def do_runes_sigils(kind):
         else:
             raise ValueError('bad rune/sigil kind %r' % kind)
 
-        effect_lines = build_effect_lines(bonus_descs)
+        bonus = interpret_bonuses(bonus_descs)
+        effects.append(Effect(name, item['name'], bonus))
 
-        print('\n/// %s' % item['name'])
-        print('#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
-        print('pub struct %s;' % name)
-        print_effect_impl(name, effect_lines)
-
-        all_names.append(name)
-
-    print_dispatch_enum(kind, all_names)
+    type_names = define_effects(effects)
+    print_dispatch_enum(kind, type_names)
 
 # Some food item descriptions are missing from the API.
 EXTRA_DESCRIPTIONS = {
@@ -445,6 +628,7 @@ def do_food_utility(kind):
         items.append(item)
 
     all_names = set()
+    effects = [Effect('No' + kind, 'No ' + kind, {})]
     for item in sorted(items, key=lambda i: i['name']):
         name = item['name']
         name = name.removeprefix('Can of ')
@@ -467,14 +651,11 @@ def do_food_utility(kind):
         else:
             raise ValueError('bad food/utility kind %r' % kind)
 
-        effect_lines = build_effect_lines(bonus_descs)
+        bonus = interpret_bonuses(bonus_descs)
+        effects.append(Effect(name, item['name'], bonus))
 
-        print('\n/// %s' % item['name'])
-        print('#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
-        print('pub struct %s;' % name)
-        print_effect_impl(name, effect_lines)
-
-    print_dispatch_enum(kind, all_names)
+    type_names = define_effects(effects)
+    print_dispatch_enum(kind, type_names)
 
 
 

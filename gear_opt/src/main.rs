@@ -170,7 +170,7 @@ impl CairnSoloArcane {
             },
             effect: rune::Elementalist
                 .chain(sigil::Smoldering)
-                .chain(food::RedLentilSaobosa)
+                .chain(food::RedLentilSaobosa {})
                 .chain(utility::ToxicFocusingCrystal),
         });
         ch

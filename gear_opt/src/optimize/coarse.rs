@@ -1,6 +1,7 @@
 use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::CharacterModel;
 use crate::effect::{Effect, Rune, Sigil, Food, Utility};
+use crate::effect::{rune, sigil, food, utility};
 use crate::gear::{GearSlot, Quality};
 use crate::stats::{Stats, Modifiers, BASE_STATS};
 
@@ -20,13 +21,13 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             prefix_weights: [0.; NUM_PREFIXES],
-            rune: Rune::from_index(0),
+            rune: rune::NoRune.into(),
             sigils: [
-                Sigil::from_index(0),
-                Sigil::from_index(0),
+                sigil::NoSigil.into(),
+                sigil::NoSigil.into(),
             ],
-            food: Food::from_index(0),
-            utility: Utility::from_index(0),
+            food: food::NoFood.into(),
+            utility: utility::NoUtility.into(),
         }
     }
 }
@@ -86,16 +87,16 @@ fn report<C: CharacterModel>(ch: &C, cfg: &Config, m: f32) {
         eprintln!("{} = {}", name, w);
     }
     if ch.vary_rune() {
-        eprintln!("rune = {:?}", cfg.rune);
+        eprintln!("rune = {}", cfg.rune.display_name());
     }
     for i in 0 .. ch.vary_sigils() as usize {
-        eprintln!("sigil {} = {:?}", i + 1, cfg.sigils[i]);
+        eprintln!("sigil {} = {}", i + 1, cfg.sigils[i].display_name());
     }
     if ch.vary_food() {
-        eprintln!("food = {:?}", cfg.food);
+        eprintln!("food = {}", cfg.food.display_name());
     }
     if ch.vary_utility() {
-        eprintln!("utility = {:?}", cfg.utility);
+        eprintln!("utility = {}", cfg.utility.display_name());
     }
     eprintln!();
 }
