@@ -1,7 +1,7 @@
 use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::CharacterModel;
 use crate::gear::{GearSlot, Quality};
-use crate::stats::Stats;
+use crate::stats::{Stats, Modifiers, BASE_STATS};
 
 
 pub type PrefixWeights = [f32; NUM_PREFIXES];
@@ -28,8 +28,9 @@ fn calc_max_weight(slots: &[(GearSlot, Quality)]) -> f32 {
 
 fn evaluate_weights<C: CharacterModel>(ch: &C, w: &PrefixWeights) -> f32 {
     let gear = calc_gear_stats(&w);
-    let stats = ch.calc_stats(&gear);
-    let mods = ch.calc_modifiers();
+    let mut stats = BASE_STATS + gear;
+    let mut mods = Modifiers::default();
+    ch.apply_effects(&mut stats, &mut mods);
     ch.evaluate(&stats, &mods)
 }
 
