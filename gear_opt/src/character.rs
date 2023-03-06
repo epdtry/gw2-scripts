@@ -3,6 +3,16 @@ use crate::stats::{Stats, Modifiers, PerCondition, BASE_STATS};
 
 /// `CharacterModel` describes a build to be optimized.
 pub trait CharacterModel {
+    /// Whether the optimizer should try changing runes.  If this is set, then `apply_effects`
+    /// should not apply a rune effect; the rune effect will be included in `base_effect` by the
+    /// optimizer.
+    fn vary_rune(&self) -> bool { false }
+
+    /// How many of the sigils the optimizer should try changing.  If this is to `N`, then
+    /// `apply_effects` should only apply `2 - N` sigil effects; the other `N` sigil effects will
+    /// be included in `base_effect` by the optimizer.
+    fn vary_sigils(&self) -> u8 { 0 }
+
     /// Apply `effect` plus any fixed effects to update the provided `stats` and `mods`.  This
     /// captures the fixed parts of the build, such as trait choices.
     fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers);
@@ -14,6 +24,7 @@ pub trait CharacterModel {
 }
 
 
+#[derive(Clone, Debug)]
 pub struct Baseline<E> {
     pub gear: Stats,
     pub dps: f32,
@@ -21,6 +32,7 @@ pub struct Baseline<E> {
     pub effect: E,
 }
 
+#[derive(Clone, Debug)]
 pub struct DpsModel {
     strike_points: f32,
     condition_points: PerCondition<f32>,

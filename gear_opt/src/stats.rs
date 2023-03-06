@@ -124,11 +124,12 @@ fn cap(x: f32, max: f32) -> f32 {
 
 impl Stats {
     pub fn strike_factor(&self, mods: &Modifiers) -> f32 {
-        let damage = self.power / 10. * mods.strike_damage;
+        let damage = self.power / 10.;
+        let damage_bonus = 1. + mods.strike_damage / 100.;
         let crit_chance = self.crit_chance(mods);
         let crit_damage = (150. + self.ferocity / 15.) * (1. + mods.crit_damage / 100.);
         let crit_factor = 1. + crit_chance / 100. * (crit_damage - 100.) / 100.;
-        damage * crit_factor
+        damage * damage_bonus * crit_factor
     }
 
     pub fn crit_chance(&self, mods: &Modifiers) -> f32 {

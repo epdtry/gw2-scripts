@@ -51,7 +51,7 @@ impl CondiVirt {
                 .. 0.0.into()
             },
             // Base effect, capturing any customizable runes or sigils in this build.
-            effect: NoEffect,
+            effect: rune::Krait.chain(sigil::Agony),
         });
         ch
     }
@@ -59,11 +59,13 @@ impl CondiVirt {
 
 
 impl CharacterModel for CondiVirt {
+    fn vary_rune(&self) -> bool { true }
+    fn vary_sigils(&self) -> u8 { 1 }
     fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
         base_effect
 
-            .chain(rune::Krait)
-            .chain(sigil::Agony)
+            //.chain(rune::Krait)
+            //.chain(sigil::Agony)
             .chain(food::PotatoLeekSoup)
             .chain(utility::ToxicCrystal)
 
@@ -161,7 +163,7 @@ impl CairnSoloArcane {
                 bleed: 10.3,
                 .. 0.0.into()
             },
-            effect: NoEffect,
+            effect: rune::Elementalist.chain(sigil::Smoldering),
         });
         ch
     }
@@ -169,11 +171,14 @@ impl CairnSoloArcane {
 
 
 impl CharacterModel for CairnSoloArcane {
+    fn vary_rune(&self) -> bool { true }
+    fn vary_sigils(&self) -> u8 { 1 }
+
     fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
         base_effect
 
-            .chain(rune::Elementalist)
-            .chain(sigil::Smoldering)
+            //.chain(rune::Elementalist)
+            //.chain(sigil::Smoldering)
             .chain(food::RedLentilSaobosa)
             .chain(utility::ToxicCrystal)
 
@@ -245,7 +250,7 @@ impl CharacterModel for CairnSoloArcane {
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
         // Require a certain amount of sustain.
-        let min_healing_power = 0.;
+        let min_healing_power = 500.;
         let min_concentration = 0.;
 
         if stats.healing_power < min_healing_power {
@@ -257,15 +262,15 @@ impl CharacterModel for CairnSoloArcane {
         }
 
         // Require a certain amount of DPS.
-        let min_dps = 6900.;
+        let min_dps = 0.;
         let dps = self.dps.calc_dps(stats, mods);
         if dps < min_dps {
             return 10000. + min_dps - dps;
         }
 
         // Optimize for DPS or for sustain.
-        //-dps
-        -stats.healing_power
+        -dps
+        //-stats.healing_power
     }
 }
 
@@ -314,11 +319,11 @@ fn main() {
 
 
     // Run the optimizer and report results
-    let w = optimize_coarse(&ch, &slots);
+    let cfg = optimize_coarse(&ch, &slots);
 
-    let gear = calc_gear_stats(&w);
+    let gear = calc_gear_stats(&cfg.prefix_weights);
     let mut stats = BASE_STATS + gear;
     let mut mods = Modifiers::default();
-    ch.apply_effects(NoEffect, &mut stats, &mut mods);
+    ch.apply_effects(cfg.effect(&ch), &mut stats, &mut mods);
     eprintln!("{:?}", stats.map(|_, x| x.round() as u32));
 }

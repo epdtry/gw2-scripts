@@ -7,6 +7,11 @@ pub mod rune;
 pub mod sigil;
 pub mod utility;
 
+pub use self::food::Food;
+pub use self::rune::Rune;
+pub use self::sigil::Sigil;
+pub use self::utility::Utility;
+
 
 /// Represents an effect that influences the character's stats and/or modifiers.  Effects are
 /// applied in three stages:
@@ -92,5 +97,25 @@ pub struct AddTemporary<F>(F);
 impl<F: Fn(&mut Stats, &mut Modifiers)> Effect for AddTemporary<F> {
     fn add_temporary(&self, stats: &mut Stats, mods: &mut Modifiers) {
         (self.0)(stats, mods);
+    }
+}
+
+impl<E: Effect> Effect for Option<E> {
+    fn add_permanent(&self, stats: &mut Stats, mods: &mut Modifiers) {
+        if let Some(ref x) = *self {
+            x.add_permanent(stats, mods);
+        }
+    }
+
+    fn distribute(&self, stats: &mut Stats, mods: &mut Modifiers) {
+        if let Some(ref x) = *self {
+            x.distribute(stats, mods);
+        }
+    }
+
+    fn add_temporary(&self, stats: &mut Stats, mods: &mut Modifiers) {
+        if let Some(ref x) = *self {
+            x.add_temporary(stats, mods);
+        }
     }
 }
