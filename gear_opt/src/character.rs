@@ -18,25 +18,42 @@ pub trait CharacterModel {
 
 /// An aspect of the character model that can vary, aside from the gear prefix selection.
 pub trait Vary {
-    fn vary(&mut self, f: impl FnMut(&Self)) {
-        Self::vary_at(self, |x| x, f);
-    }
-
-    fn vary_at<T: ?Sized>(base: &mut T, proj: impl FnMut(&mut T) -> &mut Self, f: impl FnMut(&T));
+    fn num_fields(&self) -> usize;
+    fn num_field_values(&self, field: usize) -> usize;
+    fn set_field(&mut self, field: usize, value: usize);
 }
 
 macro_rules! impl_vary_for_tuple {
     ($($I:tt $A:ident),*) => {
+        #[allow(unused)]
         impl<$($A: Vary + 'static,)*> Vary for ($($A,)*) {
-            #[allow(unused)]
-            fn vary_at<T: ?Sized>(
-                base: &mut T,
-                mut proj: impl FnMut(&mut T) -> &mut Self,
-                mut f: impl FnMut(&T),
-            ) {
+            fn num_fields(&self) -> usize {
+                0
+                    $( + self.$I.num_fields() )*
+            }
+
+            fn num_field_values(&self, field: usize) -> usize {
+                let mut field = field;
                 $(
-                    $A::vary_at(base, |x| &mut proj(x).$I, |x| f(x));
+                    if field < self.$I.num_fields() {
+                        return self.$I.num_field_values(field);
+                    } else {
+                        field -= self.$I.num_fields();
+                    }
                 )*
+                unreachable!()
+            }
+
+            fn set_field(&mut self, field: usize, value: usize) {
+                let mut field = field;
+                $(
+                    if field < self.$I.num_fields() {
+                        return self.$I.set_field(field, value);
+                    } else {
+                        field -= self.$I.num_fields();
+                    }
+                )*
+                unreachable!()
             }
         }
     };

@@ -389,15 +389,9 @@ def mk_effect_impl(w, name, display_name, parts):
 
     w.emit('impl Vary for %s {' % name)
     with w.indent():
-        w.emit('fn vary_at<T: ?Sized>(')
-        with w.indent():
-            w.emit('base: &mut T,')
-            w.emit('_proj: impl FnMut(&mut T) -> &mut Self,')
-            w.emit('mut f: impl FnMut(&T),')
-        w.emit(') {')
-        with w.indent():
-            w.emit('f(base);')
-        w.emit('}')
+        w.emit('fn num_fields(&self) -> usize { 0 }')
+        w.emit('fn num_field_values(&self, _field: usize) -> usize { panic!() }')
+        w.emit('fn set_field(&mut self, _field: usize, _value: usize) { panic!() }')
     w.emit('}')
 
     w.emit('impl %s {' % name)
@@ -457,18 +451,11 @@ def print_dispatch_enum(name, items, emit_display_name=False):
 
     w.emit('impl Vary for %s {' % name)
     with w.indent():
-        w.emit('fn vary_at<T: ?Sized>(')
+        w.emit('fn num_fields(&self) -> usize { 1 }')
+        w.emit('fn num_field_values(&self, _field: usize) -> usize { %d }' % len(items))
+        w.emit('fn set_field(&mut self, _field: usize, value: usize) {')
         with w.indent():
-            w.emit('base: &mut T,')
-            w.emit('mut proj: impl FnMut(&mut T) -> &mut Self,')
-            w.emit('mut f: impl FnMut(&T),')
-        w.emit(') {')
-        with w.indent():
-            w.emit('let old = *proj(base);')
-            for item in items:
-                w.emit('*proj(base) = %s::%s(%s);' % (name, item, item))
-                w.emit('f(base);')
-            w.emit('*proj(base) = old;')
+            w.emit('*self = %s::from_index(value);' % name)
         w.emit('}')
     w.emit('}')
 

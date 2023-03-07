@@ -126,15 +126,19 @@ fn optimize_coarse_one<C: CharacterModel>(
 
         // Try adjusting config
         let gear = calc_gear_stats(&pw);
-        cfg.vary(|new_cfg| {
-            let new_m = evaluate_config(ch, &gear, new_cfg);
-            if new_m < best_m {
-                best_pw = pw;
-                best_cfg = new_cfg.clone();
-                best_m = new_m;
-                best_desc = format!("using config {:?}", new_cfg);
+        for field in 0 .. cfg.num_fields() {
+            for value in 0 .. cfg.num_field_values(field) {
+                let mut new_cfg = cfg.clone();
+                new_cfg.set_field(field, value);
+                let new_m = evaluate_config(ch, &gear, &new_cfg);
+                if new_m < best_m {
+                    best_desc = format!("using config {:?}", new_cfg);
+                    best_pw = pw;
+                    best_cfg = new_cfg;
+                    best_m = new_m;
+                }
             }
-        });
+        }
 
 
         if best_desc.len() > 0 {
