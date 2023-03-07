@@ -117,6 +117,15 @@ enumerated_struct! {
     }
 }
 
+impl Boon {
+    pub fn max_stacks(self) -> f32 {
+        match self {
+            Boon::Might => 25.,
+            _ => 1.,
+        }
+    }
+}
+
 
 fn cap(x: f32, max: f32) -> f32 {
     if x < max { x } else { max }
@@ -148,7 +157,13 @@ impl Stats {
         damage * damage_bonus * duration / 100.
     }
 
+    /// Calculate boon duration for a specific boon, in percent.
     pub fn boon_duration(&self, mods: &Modifiers, boon: Boon) -> f32 {
         cap(100. + self.concentration / 15. + mods.boon_duration[boon], 200.)
+    }
+
+    /// Heal per second provided by each stack of regeneration.
+    pub fn regen_heal(&self, mods: &Modifiers) -> f32 {
+        130. + 0.125 * self.healing_power
     }
 }

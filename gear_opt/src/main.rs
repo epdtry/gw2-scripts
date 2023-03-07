@@ -13,7 +13,9 @@ pub use crate::character::{CharacterModel, Baseline, DpsModel};
 pub use crate::effect::{Effect, NoEffect};
 pub use crate::effect::{food, utility, rune, sigil, boon};
 pub use crate::gear::{PerGearSlot, GearSlot, PerQuality, Quality, SlotInfo, Prefix, StatFormula};
-pub use crate::stats::{PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, Condition};
+pub use crate::stats::{
+    PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, PerBoon, Condition,
+};
 use crate::optimize::coarse::{optimize_coarse, calc_gear_stats};
 
 
@@ -48,6 +50,9 @@ impl CondiVirt {
                 torment: 10.3,
                 confuse: 1.3,
                 poison: 0.2,
+                .. 0.0.into()
+            },
+            boon_uptime: PerBoon {
                 .. 0.0.into()
             },
             // Base effect, capturing any customizable runes or sigils in this build.
@@ -168,6 +173,9 @@ impl CairnSoloArcane {
                 bleed: 10.3,
                 .. 0.0.into()
             },
+            boon_uptime: PerBoon {
+                .. 0.0.into()
+            },
             effect: rune::Elementalist
                 .chain(sigil::Smoldering)
                 .chain(food::RedLentilSaobosa {})
@@ -260,8 +268,8 @@ impl CharacterModel for CairnSoloArcane {
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
         // Require a certain amount of sustain.
-        let min_healing_power = 360.;
-        let min_concentration = 360.;
+        let min_healing_power = 0.;
+        let min_concentration = 0.;
 
         if stats.healing_power < min_healing_power {
             return 2000. + min_healing_power - stats.healing_power;
@@ -287,7 +295,7 @@ impl CharacterModel for CairnSoloArcane {
 
 fn main() {
     let ch = CondiVirt::new();
-    //let ch = CairnSoloArcane::new();
+    let ch = CairnSoloArcane::new();
 
 
     // Slot quality configuration.  The last `let slots = ...` takes precedence.
@@ -310,7 +318,7 @@ fn main() {
     ];
 
     // Full ascended in every slot
-    let _ = [
+    let slots = [
         (GearSlot::Weapon1H, Quality::Ascended),
         (GearSlot::Weapon1H, Quality::Ascended),
         (GearSlot::Helm, Quality::Ascended),
