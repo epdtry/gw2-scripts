@@ -10,7 +10,7 @@ mod generated;
 pub use generated::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 
 pub use crate::character::{CharacterModel, Baseline, DpsModel};
-pub use crate::effect::{Effect, NoEffect};
+pub use crate::effect::{Effect, NoEffect, Rune, Sigil, Food, Utility};
 pub use crate::effect::{food, utility, rune, sigil, boon};
 pub use crate::gear::{PerGearSlot, GearSlot, PerQuality, Quality, SlotInfo, Prefix, StatFormula};
 pub use crate::stats::{
@@ -41,6 +41,14 @@ impl CondiVirt {
                 expertise: 255.,
                 .. Stats::default()
             },
+            // `config` gives the `Character::Config` value that was used for the DPS baseline.
+            config: (
+                rune::Krait.into(),
+                sigil::Agony.into(),
+                sigil::Earth {},
+                food::FancyPotatoAndLeekSoup.into(),
+                utility::ToxicFocusingCrystal.into(),
+            ),
             // The overall DPS achieved with the baseline build.
             dps: 30063.,
             // What percent of the DPS came from each condition.  This can be found in the arcdps
@@ -56,29 +64,26 @@ impl CondiVirt {
             boon_uptime: PerBoon {
                 .. 0.0.into()
             },
-            // Base effect, capturing any customizable runes or sigils in this build.
-            effect: rune::Krait
-                .chain(sigil::Agony)
-                .chain(food::FancyPotatoAndLeekSoup)
-                .chain(utility::ToxicFocusingCrystal),
         });
         ch
     }
 }
 
-
 impl CharacterModel for CondiVirt {
-    fn vary_rune(&self) -> bool { true }
-    fn vary_sigils(&self) -> u8 { 1 }
-    fn vary_food(&self) -> bool { true }
-    fn vary_utility(&self) -> bool { true }
-    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
-        base_effect
+    type Config = (Rune, Sigil, sigil::Earth, Food, Utility);
 
-            //.chain(rune::Krait)
-            //.chain(sigil::Agony)
-            //.chain(food::FancyPotatoAndLeekSoup)
-            //.chain(utility::ToxicFocusingCrystal)
+    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
+        let mut stats = &BASE_STATS + gear;
+        let mut mods = Modifiers::default();
+
+        let (rune, sigil1, sigil2, food, utility) = *config;
+
+        NoEffect
+            .chain(rune)
+            .chain(sigil1)
+            .chain(sigil2)
+            .chain(food)
+            .chain(utility)
 
             .chain(boon::Might(25.))
             // Fury (100% uptime)
@@ -132,7 +137,9 @@ impl CharacterModel for CondiVirt {
                 s.expertise += 180.;
             })
 
-            .apply(stats, mods);
+            .apply(&mut stats, &mut mods);
+
+        (stats, mods)
     }
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
@@ -168,6 +175,13 @@ impl CairnSoloArcane {
                 concentration: 189.,
                 .. Stats::default()
             },
+            config: (
+                rune::Elementalist.into(),
+                sigil::Smoldering.into(),
+                sigil::Battle {}.into(),
+                food::RedLentilSaobosa {}.into(),
+                utility::ToxicFocusingCrystal.into(),
+            ),
             dps: 6708.,
             condition_percent: PerCondition {
                 burn: 68.9,
@@ -177,29 +191,26 @@ impl CairnSoloArcane {
             boon_uptime: PerBoon {
                 .. 0.0.into()
             },
-            effect: rune::Elementalist
-                .chain(sigil::Smoldering)
-                .chain(food::RedLentilSaobosa {})
-                .chain(utility::ToxicFocusingCrystal),
         });
         ch
     }
 }
 
-
 impl CharacterModel for CairnSoloArcane {
-    fn vary_rune(&self) -> bool { true }
-    fn vary_sigils(&self) -> u8 { 1 }
-    fn vary_food(&self) -> bool { true }
-    fn vary_utility(&self) -> bool { true }
+    type Config = (Rune, Sigil, sigil::Battle, Food, Utility);
 
-    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
-        base_effect
+    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
+        let mut stats = &BASE_STATS + gear;
+        let mut mods = Modifiers::default();
 
-            //.chain(rune::Elementalist)
-            //.chain(sigil::Smoldering)
-            //.chain(food::RedLentilSaobosa)
-            //.chain(utility::ToxicCrystal)
+        let (rune, sigil1, sigil2, food, utility) = *config;
+
+        NoEffect
+            .chain(rune)
+            .chain(sigil1)
+            .chain(sigil2)
+            .chain(food)
+            .chain(utility)
 
             .chain(boon::Might(12.))
             .chain(boon::Fury(0.1))
@@ -264,7 +275,9 @@ impl CharacterModel for CairnSoloArcane {
                 m.condition_damage += strength * 20.;
             })
 
-            .apply(stats, mods);
+            .apply(&mut stats, &mut mods);
+
+        (stats, mods)
     }
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
@@ -313,6 +326,13 @@ impl CairnSoloAir {
                 concentration: 189.,
                 .. Stats::default()
             },
+            config: (
+                rune::Tormenting.into(),
+                sigil::Bursting.into(),
+                sigil::Torment {},
+                food::RedLentilSaobosa {}.into(),
+                utility::ToxicFocusingCrystal.into(),
+            ),
             dps: 8358.,
             condition_percent: PerCondition {
                 burn: 60.61,
@@ -328,24 +348,26 @@ impl CairnSoloAir {
                 swiftness: 89.016,
                 .. 0.0.into()
             },
-            effect: rune::Tormenting
-                .chain(sigil::Bursting)
-                .chain(food::RedLentilSaobosa {})
-                .chain(utility::ToxicFocusingCrystal),
         });
         ch
     }
 }
 
-
 impl CharacterModel for CairnSoloAir {
-    fn vary_rune(&self) -> bool { true }
-    fn vary_sigils(&self) -> u8 { 1 }
-    fn vary_food(&self) -> bool { true }
-    fn vary_utility(&self) -> bool { true }
+    type Config = (Rune, Sigil, sigil::Torment, Food, Utility);
 
-    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
-        base_effect
+    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
+        let mut stats = &BASE_STATS + gear;
+        let mut mods = Modifiers::default();
+
+        let (rune, sigil1, sigil2, food, utility) = *config;
+
+        NoEffect
+            .chain(rune)
+            .chain(sigil1)
+            .chain(sigil2)
+            .chain(food)
+            .chain(utility)
 
             //.chain(rune::Tormenting)
             .chain(sigil::Torment {})
@@ -420,7 +442,9 @@ impl CharacterModel for CairnSoloAir {
                 m.condition_damage += strength * 20.;
             })
 
-            .apply(stats, mods);
+            .apply(&mut stats, &mut mods);
+
+        (stats, mods)
     }
 
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
@@ -507,11 +531,9 @@ fn main() {
 
 
     // Run the optimizer and report results
-    let cfg = optimize_coarse(&ch, &slots);
+    let (pw, config) = optimize_coarse(&ch, &slots);
 
-    let gear = calc_gear_stats(&cfg.prefix_weights);
-    let mut stats = BASE_STATS + gear;
-    let mut mods = Modifiers::default();
-    ch.apply_effects(cfg.effect(&ch), &mut stats, &mut mods);
+    let gear = calc_gear_stats(&pw);
+    let (stats, mods) = ch.calc_stats(&gear, &config);
     eprintln!("{:?}", stats.map(|_, x| x.round() as u32));
 }

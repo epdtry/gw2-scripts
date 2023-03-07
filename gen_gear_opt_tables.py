@@ -387,6 +387,19 @@ def mk_effect_impl(w, name, display_name, parts):
             w.emit('}')
     w.emit('}')
 
+    w.emit('impl Vary for %s {' % name)
+    with w.indent():
+        w.emit('fn vary_at<T: ?Sized>(')
+        with w.indent():
+            w.emit('base: &mut T,')
+            w.emit('_proj: impl FnMut(&mut T) -> &mut Self,')
+            w.emit('mut f: impl FnMut(&T),')
+        w.emit(') {')
+        with w.indent():
+            w.emit('f(base);')
+        w.emit('}')
+    w.emit('}')
+
     w.emit('impl %s {' % name)
     with w.indent():
         w.emit("pub fn display_name(&self) -> &'static str {")
@@ -433,6 +446,33 @@ def print_dispatch_enum(name, items, emit_display_name=False):
         print('impl From<%s> for %s {' % (item, name))
         print('    fn from(x: %s) -> %s { %s::%s(x) }' % (item, name, name, item))
         print('}')
+
+    # TODO: migrate remaining defs to Writer
+    w = Writer()
+
+    w.emit('impl Default for %s {' % name)
+    with w.indent():
+        w.emit('fn default() -> %s { %s::%s(%s) }' % (name, name, items[0], items[0]))
+    w.emit('}')
+
+    w.emit('impl Vary for %s {' % name)
+    with w.indent():
+        w.emit('fn vary_at<T: ?Sized>(')
+        with w.indent():
+            w.emit('base: &mut T,')
+            w.emit('mut proj: impl FnMut(&mut T) -> &mut Self,')
+            w.emit('mut f: impl FnMut(&T),')
+        w.emit(') {')
+        with w.indent():
+            w.emit('let old = *proj(base);')
+            for item in items:
+                w.emit('*proj(base) = %s::%s(%s);' % (name, item, item))
+                w.emit('f(base);')
+            w.emit('*proj(base) = old;')
+        w.emit('}')
+    w.emit('}')
+
+    print(w.finish())
 
 def build_bonus_lines(bonus):
     effect_lines = {
@@ -675,9 +715,9 @@ def main():
             do_gear_slots()
         elif mode == 'prefixes':
             do_prefixes()
-        elif mode == 'runes':
+        elif mode == 'rune':
             do_runes_sigils('Rune')
-        elif mode == 'sigils':
+        elif mode == 'sigil':
             do_runes_sigils('Sigil')
         elif mode == 'food':
             do_food_utility('Food')

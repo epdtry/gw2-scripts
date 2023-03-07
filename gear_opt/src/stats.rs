@@ -180,7 +180,7 @@ impl Stats {
     }
 
     /// Heal per second provided by each stack of regeneration.
-    pub fn regen_heal(&self, mods: &Modifiers) -> f32 {
+    pub fn regen_heal(&self, _mods: &Modifiers) -> f32 {
         130. + 0.125 * self.healing_power
     }
 

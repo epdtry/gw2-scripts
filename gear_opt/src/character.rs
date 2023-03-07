@@ -1,24 +1,14 @@
-use crate::effect::Effect;
-use crate::stats::{Stats, Modifiers, PerCondition, Boon, PerBoon, BASE_STATS};
+use std::fmt;
+use crate::stats::{Stats, Modifiers, PerCondition, Boon, PerBoon};
 
 /// `CharacterModel` describes a build to be optimized.
 pub trait CharacterModel {
-    /// Whether the optimizer should try changing runes.  If this is set, then `apply_effects`
-    /// should not apply a rune effect; the rune effect will be included in `base_effect` by the
-    /// optimizer.
-    fn vary_rune(&self) -> bool { false }
+    type Config: Vary + Clone + Default + fmt::Debug;
 
-    /// How many of the sigils the optimizer should try changing.  If this is to `N`, then
-    /// `apply_effects` should only apply `2 - N` sigil effects; the other `N` sigil effects will
-    /// be included in `base_effect` by the optimizer.
-    fn vary_sigils(&self) -> u8 { 0 }
+    /// Calculate stats and modifiers for a set of `gear` and `config`.  This captures the fixed
+    /// parts of the build, such as trait choices.
+    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers);
 
-    fn vary_food(&self) -> bool { false }
-    fn vary_utility(&self) -> bool { false }
-
-    /// Apply `effect` plus any fixed effects to update the provided `stats` and `mods`.  This
-    /// captures the fixed parts of the build, such as trait choices.
-    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers);
     /// Evaluate the quality of particular `stats` and `mods` values for this build.  The optimizer
     /// tries to minimize this function, so smaller is better.  This means DPS builds should
     /// generally return `-dps` rather than `dps`.  This captures the goals we're optimizing for
@@ -26,16 +16,56 @@ pub trait CharacterModel {
     fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32;
 }
 
+/// An aspect of the character model that can vary, aside from the gear prefix selection.
+pub trait Vary {
+    fn vary(&mut self, f: impl FnMut(&Self)) {
+        Self::vary_at(self, |x| x, f);
+    }
+
+    fn vary_at<T: ?Sized>(base: &mut T, proj: impl FnMut(&mut T) -> &mut Self, f: impl FnMut(&T));
+}
+
+macro_rules! impl_vary_for_tuple {
+    ($($I:tt $A:ident),*) => {
+        impl<$($A: Vary + 'static,)*> Vary for ($($A,)*) {
+            #[allow(unused)]
+            fn vary_at<T: ?Sized>(
+                base: &mut T,
+                mut proj: impl FnMut(&mut T) -> &mut Self,
+                mut f: impl FnMut(&T),
+            ) {
+                $(
+                    $A::vary_at(base, |x| &mut proj(x).$I, |x| f(x));
+                )*
+            }
+        }
+    };
+}
+
+impl_vary_for_tuple!();
+impl_vary_for_tuple!(0 A);
+impl_vary_for_tuple!(0 A, 1 B);
+impl_vary_for_tuple!(0 A, 1 B, 2 C);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I, 9 J);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I, 9 J, 10 K);
+impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I, 9 J, 10 K, 11 L);
+
 
 #[derive(Clone, Debug)]
-pub struct Baseline<E> {
+pub struct Baseline<C> {
     pub gear: Stats,
+    pub config: C,
     pub dps: f32,
     pub condition_percent: PerCondition<f32>,
     /// Uptime of each boon, in percent.  For multi-stack boons like might, this is the average
     /// number of stacks times 100.
     pub boon_uptime: PerBoon<f32>,
-    pub effect: E,
 }
 
 #[derive(Clone, Debug)]
@@ -55,13 +85,11 @@ impl DpsModel {
         }
     }
 
-    pub fn new<C: CharacterModel, E: Effect>(
+    pub fn new<C: CharacterModel>(
         ch: &C,
-        baseline: Baseline<E>,
+        baseline: Baseline<C::Config>,
     ) -> DpsModel {
-        let mut stats = BASE_STATS + baseline.gear;
-        let mut mods = Modifiers::default();
-        ch.apply_effects(baseline.effect, &mut stats, &mut mods);
+        let (stats, mods) = ch.calc_stats(&baseline.gear, &baseline.config);
 
         let total_dps = baseline.dps;
 
