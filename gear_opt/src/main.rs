@@ -142,7 +142,7 @@ impl CharacterModel for CondiVirt {
         (stats, mods)
     }
 
-    fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
+    fn evaluate(&self, _config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
         // Require 100% crit chance.  This is important for maximizing Jagged Mind procs, which the
         // DPS model doesn't reason about.
         let crit = stats.crit_chance(mods);
@@ -280,7 +280,7 @@ impl CharacterModel for CairnSoloArcane {
         (stats, mods)
     }
 
-    fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
+    fn evaluate(&self, _config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
         // Require a certain amount of sustain.
         let min_healing_power = 0.;
         let min_concentration = 0.;
@@ -447,14 +447,24 @@ impl CharacterModel for CairnSoloAir {
         (stats, mods)
     }
 
-    fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
+    fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
+        let mut dps = self.dps.clone();
+
+        if config.0 != rune::Tormenting.into() {
+            // Assume 3 seconds of regen per 6 seconds (5s ICD + 1s to get a crit)
+            dps.boon_points.regeneration -= 0.5;
+            if dps.boon_points.regeneration < 0. {
+                dps.boon_points.regeneration = 0.;
+            }
+        }
+
         // Approximate heal per second from regen, glyph, and barrier
         let glyph_heal = 6494. + 1.2 * stats.healing_power;
         let stone_heal = (1069. + 0.15 * stats.healing_power) * 5.;
         let rock_heal = 1753. + 0.4 * stats.healing_power;
         let water_heal = 1832. + 1.0 * stats.healing_power;
         let regen_heal =
-            self.dps.calc_boon_uptime(stats, mods, Boon::Regeneration) * stats.regen_heal(mods);
+            dps.calc_boon_uptime(stats, mods, Boon::Regeneration) * stats.regen_heal(mods);
         let hps = regen_heal + glyph_heal / 16. + stone_heal / 50. + rock_heal / 15.
             + water_heal * 2. / 30.;
 
@@ -467,14 +477,14 @@ impl CharacterModel for CairnSoloAir {
         }
 
         let min_swiftness = 1.0;
-        let swiftness = self.dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
+        let swiftness = dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
         if swiftness < min_swiftness {
             return 20000. + (min_swiftness - swiftness) * 100.;
         }
 
         // Require a certain amount of DPS.
         let min_dps = 0.;
-        let dps = self.dps.calc_dps(stats, mods);
+        let dps = dps.calc_dps(stats, mods);
         if dps < min_dps {
             return 10000. + min_dps - dps;
         }

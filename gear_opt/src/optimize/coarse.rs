@@ -28,7 +28,7 @@ fn calc_max_weight(slots: &[(GearSlot, Quality)]) -> f32 {
 
 fn evaluate_config<C: CharacterModel>(ch: &C, gear: &Stats, cfg: &C::Config) -> f32 {
     let (stats, mods) = ch.calc_stats(gear, cfg);
-    ch.evaluate(&stats, &mods)
+    ch.evaluate(cfg, &stats, &mods)
 }
 
 fn report<C: CharacterModel>(_ch: &C, pw: &PrefixWeights, cfg: &C::Config, m: f32) {

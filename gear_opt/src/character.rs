@@ -13,7 +13,7 @@ pub trait CharacterModel {
     /// tries to minimize this function, so smaller is better.  This means DPS builds should
     /// generally return `-dps` rather than `dps`.  This captures the goals we're optimizing for
     /// with this build.
-    fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32;
+    fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32;
 }
 
 /// An aspect of the character model that can vary, aside from the gear prefix selection.
@@ -87,9 +87,12 @@ pub struct Baseline<C> {
 
 #[derive(Clone, Debug)]
 pub struct DpsModel {
-    strike_points: f32,
-    condition_points: PerCondition<f32>,
-    boon_points: PerBoon<f32>,
+    /// Strike points per second.  One strike point is one 100-damage attack at 1000 power.
+    pub strike_points: f32,
+    /// Condition points per second.  One condition point is one stack with 1 second base duration.
+    pub condition_points: PerCondition<f32>,
+    /// Boon points per second.  One boon point is one stack with 1 second base duration.
+    pub boon_points: PerBoon<f32>,
 }
 
 impl DpsModel {
