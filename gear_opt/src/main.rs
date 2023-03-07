@@ -14,7 +14,8 @@ pub use crate::effect::{Effect, NoEffect};
 pub use crate::effect::{food, utility, rune, sigil, boon};
 pub use crate::gear::{PerGearSlot, GearSlot, PerQuality, Quality, SlotInfo, Prefix, StatFormula};
 pub use crate::stats::{
-    PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, PerBoon, Condition,
+    PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, PerBoon, Condition, Boon,
+    HealthTier,
 };
 use crate::optimize::coarse::{optimize_coarse, calc_gear_stats};
 
@@ -293,9 +294,178 @@ impl CharacterModel for CairnSoloArcane {
 }
 
 
+struct CairnSoloAir {
+    dps: DpsModel,
+}
+
+impl CairnSoloAir {
+    pub fn new() -> CairnSoloAir {
+        let mut ch = CairnSoloAir {
+            dps: DpsModel::zero(),
+        };
+        ch.dps = DpsModel::new(&ch, Baseline {
+            gear: Stats {
+                power: 824.,
+                precision: 793.,
+                condition_damage: 1173.,
+                expertise: 444.,
+                healing_power: 189.,
+                concentration: 189.,
+                .. Stats::default()
+            },
+            dps: 8358.,
+            condition_percent: PerCondition {
+                burn: 60.61,
+                bleed: 8.729,
+                torment: 8.589,
+                .. 0.0.into()
+            },
+            boon_uptime: PerBoon {
+                might: 6778.,
+                fury: 75.419,
+                regeneration: 43.26,
+                vigor: 25.868,
+                swiftness: 89.016,
+                .. 0.0.into()
+            },
+            effect: rune::Tormenting
+                .chain(sigil::Bursting)
+                .chain(food::RedLentilSaobosa {})
+                .chain(utility::ToxicFocusingCrystal),
+        });
+        ch
+    }
+}
+
+
+impl CharacterModel for CairnSoloAir {
+    fn vary_rune(&self) -> bool { true }
+    fn vary_sigils(&self) -> u8 { 1 }
+    fn vary_food(&self) -> bool { true }
+    fn vary_utility(&self) -> bool { true }
+
+    fn apply_effects<E: Effect>(&self, base_effect: E, stats: &mut Stats, mods: &mut Modifiers) {
+        base_effect
+
+            //.chain(rune::Tormenting)
+            .chain(sigil::Torment {})
+            //.chain(food::RedLentilSaobosa)
+            //.chain(utility::ToxicCrystal)
+
+            .chain(boon::Might(6.7))
+            .chain(boon::Fury(0.75))
+
+            // Infusions
+            .chain_add_permanent(|_s, _m| {
+                //s.condition_damage += 16. * 5.;
+                //s.precision += 2. * 5.;
+            })
+
+            // Trait: Empowering Flame (4/8 fire uptime)
+            .chain_add_temporary(|s, _m| {
+                let strength = 4. / 8.;
+                s.condition_damage += strength * 150.;
+            })
+            // Trait: Burning Precision
+            .chain_add_permanent(|_s, m| {
+                m.condition_duration.burn += 20.;
+            })
+            // Trait: Burning Rage
+            .chain_add_permanent(|s, _m| {
+                s.condition_damage += 180.;
+            })
+            // Trait: Pyromancer's Training (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.;
+                m.strike_damage += strength * 10.;
+            })
+            // Trait: Persisting Flames (9 stacks)
+            .chain_add_temporary(|_s, m| {
+                let strength = 9.;
+                m.strike_damage += strength * 1.;
+            })
+            // Trait: Zephyr's Speed
+            .chain_add_permanent(|_s, m| {
+                m.crit_chance += 5.;
+            })
+            // Trait: Aeromancer's Training
+            .chain_add_permanent(|s, _m| {
+                s.ferocity += 150.;
+                // Also adds +150 ferocity while attuned to air.
+            })
+            // Trait: Superior Elements (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.;
+                m.crit_chance += strength * 15.;
+            })
+            // Trait: Weaver's Prowess (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.;
+                m.condition_damage += strength * 10.;
+                m.condition_duration += strength * 20.;
+            })
+            // Trait: Elemental Polyphony
+            // Rotation: F/F, E/F, A/E, F/A, F/F, E/F, W/E, F/W
+            // When either the mainhand or offhand attunement is fire, gain 120 power (etc.)
+            .chain_add_temporary(|s, _m| {
+                s.power += 6. / 8. * 120.;
+                s.healing_power += 2. / 8. * 120.;
+                s.ferocity += 2. / 8. * 120.;
+                s.vitality += 4. / 8. * 120.;
+            })
+
+            // Woven Fire (1/3 uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1./3.;
+                m.condition_damage += strength * 20.;
+            })
+
+            .apply(stats, mods);
+    }
+
+    fn evaluate(&self, stats: &Stats, mods: &Modifiers) -> f32 {
+        // Approximate heal per second from regen, glyph, and barrier
+        let glyph_heal = 6494. + 1.2 * stats.healing_power;
+        let stone_heal = (1069. + 0.15 * stats.healing_power) * 5.;
+        let rock_heal = 1753. + 0.4 * stats.healing_power;
+        let water_heal = 1832. + 1.0 * stats.healing_power;
+        let regen_heal =
+            self.dps.calc_boon_uptime(stats, mods, Boon::Regeneration) * stats.regen_heal(mods);
+        let hps = regen_heal + glyph_heal / 16. + stone_heal / 50. + rock_heal / 15.
+            + water_heal * 2. / 30.;
+
+        let base_dps = 600.;
+        let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
+
+        let min_hps = base_dps + agony_dps;
+        if hps < min_hps {
+            return 30000. + min_hps - hps;
+        }
+
+        let min_swiftness = 1.0;
+        let swiftness = self.dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
+        if swiftness < min_swiftness {
+            return 20000. + (min_swiftness - swiftness) * 100.;
+        }
+
+        // Require a certain amount of DPS.
+        let min_dps = 0.;
+        let dps = self.dps.calc_dps(stats, mods);
+        if dps < min_dps {
+            return 10000. + min_dps - dps;
+        }
+
+        // Optimize for DPS or for sustain.
+        -dps
+        //-hps
+    }
+}
+
+
 fn main() {
     let ch = CondiVirt::new();
     let ch = CairnSoloArcane::new();
+    let ch = CairnSoloAir::new();
 
 
     // Slot quality configuration.  The last `let slots = ...` takes precedence.

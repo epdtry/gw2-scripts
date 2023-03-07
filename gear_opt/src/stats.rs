@@ -131,6 +131,23 @@ fn cap(x: f32, max: f32) -> f32 {
     if x < max { x } else { max }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum HealthTier {
+    Low,
+    Mid,
+    High,
+}
+
+impl HealthTier {
+    pub fn base_health(self) -> f32 {
+        match self {
+            HealthTier::Low => 1645.,
+            HealthTier::Mid => 5922.,
+            HealthTier::High => 9212.,
+        }
+    }
+}
+
 impl Stats {
     pub fn strike_factor(&self, mods: &Modifiers) -> f32 {
         let damage = self.power / 10.;
@@ -165,5 +182,11 @@ impl Stats {
     /// Heal per second provided by each stack of regeneration.
     pub fn regen_heal(&self, mods: &Modifiers) -> f32 {
         130. + 0.125 * self.healing_power
+    }
+
+    pub fn max_health(&self, mods: &Modifiers, tier: HealthTier) -> f32 {
+        let health = tier.base_health() + self.vitality * 10.;
+        let health_bonus = 1. + mods.max_health / 100.;
+        health * health_bonus
     }
 }
