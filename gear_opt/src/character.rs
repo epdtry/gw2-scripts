@@ -19,8 +19,9 @@ pub trait CharacterModel {
 /// An aspect of the character model that can vary, aside from the gear prefix selection.
 pub trait Vary {
     fn num_fields(&self) -> usize;
-    fn num_field_values(&self, field: usize) -> usize;
-    fn set_field(&mut self, field: usize, value: usize);
+    fn num_field_values(&self, field: usize) -> u16;
+    fn get_field(&self, field: usize) -> u16;
+    fn set_field(&mut self, field: usize, value: u16);
 }
 
 macro_rules! impl_vary_for_tuple {
@@ -32,7 +33,7 @@ macro_rules! impl_vary_for_tuple {
                     $( + self.$I.num_fields() )*
             }
 
-            fn num_field_values(&self, field: usize) -> usize {
+            fn num_field_values(&self, field: usize) -> u16 {
                 let mut field = field;
                 $(
                     if field < self.$I.num_fields() {
@@ -44,7 +45,19 @@ macro_rules! impl_vary_for_tuple {
                 unreachable!()
             }
 
-            fn set_field(&mut self, field: usize, value: usize) {
+            fn get_field(&self, field: usize) -> u16 {
+                let mut field = field;
+                $(
+                    if field < self.$I.num_fields() {
+                        return self.$I.get_field(field);
+                    } else {
+                        field -= self.$I.num_fields();
+                    }
+                )*
+                unreachable!()
+            }
+
+            fn set_field(&mut self, field: usize, value: u16) {
                 let mut field = field;
                 $(
                     if field < self.$I.num_fields() {

@@ -390,8 +390,9 @@ def mk_effect_impl(w, name, display_name, parts):
     w.emit('impl Vary for %s {' % name)
     with w.indent():
         w.emit('fn num_fields(&self) -> usize { 0 }')
-        w.emit('fn num_field_values(&self, _field: usize) -> usize { panic!() }')
-        w.emit('fn set_field(&mut self, _field: usize, _value: usize) { panic!() }')
+        w.emit('fn num_field_values(&self, _field: usize) -> u16 { panic!() }')
+        w.emit('fn get_field(&self, _field: usize) -> u16 { panic!() }')
+        w.emit('fn set_field(&mut self, _field: usize, _value: u16) { panic!() }')
     w.emit('}')
 
     w.emit('impl %s {' % name)
@@ -419,6 +420,12 @@ def print_dispatch_enum(name, items, emit_display_name=False):
     print('}')
     print('impl %s {' % name)
     print('    pub const COUNT: usize = %d;' % len(items))
+    print('    pub fn index(self) -> usize {')
+    print('        match self {')
+    for i, item in enumerate(items):
+        print('            %s::%s(%s) => %d,' % (name, item, item, i))
+    print('        }')
+    print('    }')
     print('    pub fn from_index(i: usize) -> %s {' % name)
     print('        match i {')
     for i, item in enumerate(items):
@@ -452,10 +459,14 @@ def print_dispatch_enum(name, items, emit_display_name=False):
     w.emit('impl Vary for %s {' % name)
     with w.indent():
         w.emit('fn num_fields(&self) -> usize { 1 }')
-        w.emit('fn num_field_values(&self, _field: usize) -> usize { %d }' % len(items))
-        w.emit('fn set_field(&mut self, _field: usize, value: usize) {')
+        w.emit('fn num_field_values(&self, _field: usize) -> u16 { %d }' % len(items))
+        w.emit('fn get_field(&self, _field: usize) -> u16 {')
         with w.indent():
-            w.emit('*self = %s::from_index(value);' % name)
+            w.emit('self.index() as u16')
+        w.emit('}')
+        w.emit('fn set_field(&mut self, _field: usize, value: u16) {')
+        with w.indent():
+            w.emit('*self = %s::from_index(value as usize);' % name)
         w.emit('}')
     w.emit('}')
 
