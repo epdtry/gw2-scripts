@@ -7,10 +7,10 @@ pub mod rune;
 pub mod sigil;
 pub mod utility;
 
-pub use self::food::Food;
-pub use self::rune::Rune;
-pub use self::sigil::Sigil;
-pub use self::utility::Utility;
+pub use self::food::{Food, KnownFood};
+pub use self::rune::{Rune, KnownRune};
+pub use self::sigil::{Sigil, KnownSigil};
+pub use self::utility::{Utility, KnownUtility};
 
 
 /// Represents an effect that influences the character's stats and/or modifiers.  Effects are

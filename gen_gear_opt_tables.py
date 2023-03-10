@@ -497,6 +497,63 @@ def print_dispatch_enum(name, items):
 
     print(w.finish())
 
+def print_known_impls(all_enum, known_enum, all_names, known_names, rep_map):
+    w = Writer()
+
+    # Inherent methods on All
+    w.emit('impl %s {' % (all_enum,))
+    with w.indent():
+        w.emit('pub fn is_known(self) -> bool {')
+        with w.indent():
+            w.emit('match self {')
+            with w.indent():
+                for name in known_names:
+                    w.emit('%s::%s(_) => true,' % (all_enum, name))
+                w.emit('_ => false,')
+            w.emit('}')
+        w.emit('}')
+
+        w.emit('pub fn as_known(self) -> %s {' % (known_enum,))
+        with w.indent():
+            w.emit('match self {')
+            with w.indent():
+                for name in all_names:
+                    rep_name = rep_map[name]
+                    w.emit('%s::%s(%s) => %s::%s(%s),' % (
+                        all_enum, name, name, known_enum, rep_name, rep_name))
+            w.emit('}')
+        w.emit('}')
+    w.emit('}')
+
+    # Inherent methods on separate effect types
+    for name in all_names:
+        w.emit('impl %s {' % (name,))
+        with w.indent():
+            w.emit('pub fn as_known(self) -> %s {' % (known_enum,))
+            with w.indent():
+                rep_name = rep_map[name]
+                w.emit('%s::%s(%s)' % (known_enum, rep_name, rep_name))
+            w.emit('}')
+        w.emit('}')
+
+    # From<Known> for All
+    w.emit('impl From<%s> for %s {' % (known_enum, all_enum))
+    with w.indent():
+        w.emit('fn from(x: %s) -> %s {' % (known_enum, all_enum))
+        with w.indent():
+            w.emit('match x {')
+            with w.indent():
+                for name in known_names:
+                    w.emit('%s::%s(y) => %s::%s(y),' % (
+                        known_enum, name, all_enum, name))
+            w.emit('}')
+        w.emit('}')
+    w.emit('}')
+
+    print()
+    print(w.finish())
+
+
 def build_bonus_lines(bonus):
     effect_lines = {
             'add_permanent': [],
@@ -516,7 +573,8 @@ def build_bonus_lines(bonus):
             'max_health': 'add_permanent',
             'strike_damage': 'add_permanent',
             'crit_chance': 'add_permanent',
-            # Unknown/unimplemented should be converted to raw by this point.
+            'unknown': 'add_permanent',
+            'unimplemented': 'add_permanent',
             'raw': 'add_permanent',
             }
 
@@ -561,6 +619,13 @@ def build_bonus_lines(bonus):
             assert len(k) == 1
             line = 'm.crit_chance += %s;' % (v,)
 
+        elif kind == 'unknown':
+            assert len(k) == 2
+            mult = '' if v == 1 else ' (%dx)' % v
+            line = '// unknown%s: %s' % (mult, k[1])
+        elif kind == 'unimplemented':
+            mult = '' if v == 1 else ' (%dx)' % v
+            line = '// unimplemented%s: %s' % (mult, k)
         elif kind == 'raw':
             assert len(k) == 1
             line = v
@@ -572,70 +637,52 @@ def build_bonus_lines(bonus):
 Effect = namedtuple('Effect', ('name', 'display_name', 'bonus'))
 
 def define_effects(es):
-    groups = defaultdict(list)
-    for e in es:
-        key = bonus_key(e.bonus)
-        groups[key].append(e)
+    '''Process a list of `Effect` items and print a Rust definition for each
+    one.  Returns `all_names, known_names, rep_map`, which are the names of the
+    Rust structs for all items, the names of only the known items, and the map
+    from each name to its known representative.
 
+    "Known" items are those that remain after removing all unknown and
+    unimplemented effects and then deduplicating.  This doesn't mean that all
+    effects of the item are known, only that enough are known to distinguish it
+    from all other known items.  For example, Rune of Altruism and Rune of the
+    Rebirth differ only in their unknown final effect, so only one can be a
+    known item (we arbitrarily pick Altruism, since it comes first
+    alphabetically).
+    '''
     def sort_key(x):
         if x.startswith('No') and x[2].isupper():
             return ''
         else:
             return x
 
-    chunks = []
-    for g in groups.values():
-        g.sort(key = lambda e: sort_key(e.name))
-        rep = g[0]
-
-        # Build the combined bonus to put in the main effect impl.  Start with
-        # the known bonuses.
-        merged_bonus = sorted((k, v) for k,v in rep.bonus.items()
-                if k[0] not in ('unknown', 'unimplemented'))
-        # Add `raw` lines for unknown bonuses from other members of the group.
-        for e in g:
-            unknowns = sorted((k, v) for k,v in e.bonus.items()
-                    if k[0] in ('unknown', 'unimplemented'))
-            for k, v in unknowns:
-                info = []
-                if len(g) > 1:
-                    info.append(e.name)
-                if k[0] == 'unknown':
-                    assert len(k) == 2
-                    if v != 1:
-                        info.append('%dx' % v)
-                info_str = '' if not info else ' (%s)' % ', '.join(info)
-
-                if k[0] == 'unimplemented':
-                    desc = ', '.join(str(x) for x in k[1:] + (v,))
-                else:
-                    assert k[0] == 'unknown'
-                    desc = k[1]
-
-                merged_bonus.append((('raw',), '// %s%s: %s' % (k[0], info_str, desc)))
-
-
+    all_names = []
+    groups = defaultdict(list)
+    for e in sorted(es, key = lambda e: sort_key(e.name)):
         w = Writer()
-        w.emit('/// %s' % rep.display_name)
+        w.emit('/// %s' % e.display_name)
         w.emit('#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]')
-        w.emit('pub struct %s;' % rep.name)
-        lines = build_bonus_lines(merged_bonus)
-        mk_effect_impl(w, rep.name, ' / '.join(e.display_name for e in g), lines)
-        chunks.append((rep.name, w.finish()))
+        w.emit('pub struct %s;' % e.name)
+        lines = build_bonus_lines(e.bonus.items())
+        mk_effect_impl(w, e.name, e.display_name, lines)
+        print('')
+        print(w.finish())
 
-        for e in g[1:]:
-            w = Writer()
-            w.emit('/// %s' % e.display_name)
-            w.emit('pub type %s = %s;' % (e.name, rep.name))
-            chunks.append((e.name, w.finish()))
+        all_names.append(e.name)
 
-    chunks.sort(key = lambda x: sort_key(x[0]))
+        key = bonus_key(e.bonus)
+        groups[key].append(e.name)
 
-    for _, v in chunks:
-        print()
-        print(v)
+    known_names = []
+    rep_map = {}
+    for g in groups.values():
+        g.sort(key = sort_key)
+        rep_name = g[0]
+        known_names.append(rep_name)
+        for name in g:
+            rep_map[name] = rep_name
 
-    return [g[0].name for g in groups.values()]
+    return all_names, known_names, rep_map
 
 
 def do_runes_sigils(kind):
@@ -668,8 +715,10 @@ def do_runes_sigils(kind):
         bonus = interpret_bonuses(bonus_descs)
         effects.append(Effect(name, item['name'], bonus))
 
-    type_names = define_effects(effects)
-    print_dispatch_enum(kind, type_names)
+    all_names, known_names, rep_map = define_effects(effects)
+    print_dispatch_enum(kind, all_names)
+    print_dispatch_enum('Known' + kind, known_names)
+    print_known_impls(kind, 'Known' + kind, all_names, known_names, rep_map)
 
 # Some food item descriptions are missing from the API.
 EXTRA_DESCRIPTIONS = {
@@ -717,8 +766,10 @@ def do_food_utility(kind):
         bonus = interpret_bonuses(bonus_descs)
         effects.append(Effect(name, item['name'], bonus))
 
-    type_names = define_effects(effects)
-    print_dispatch_enum(kind, type_names)
+    all_names, known_names, rep_map = define_effects(effects)
+    print_dispatch_enum(kind, all_names)
+    print_dispatch_enum('Known' + kind, known_names)
+    print_known_impls(kind, 'Known' + kind, all_names, known_names, rep_map)
 
 
 

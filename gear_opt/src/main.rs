@@ -10,7 +10,7 @@ mod generated;
 pub use generated::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 
 pub use crate::character::{CharacterModel, Baseline, DpsModel};
-pub use crate::effect::{Effect, NoEffect, Rune, Sigil, Food, Utility};
+pub use crate::effect::{Effect, NoEffect, KnownRune, KnownSigil, KnownFood, KnownUtility};
 pub use crate::effect::{food, utility, rune, sigil, boon};
 pub use crate::gear::{PerGearSlot, GearSlot, PerQuality, Quality, SlotInfo, Prefix, StatFormula};
 pub use crate::stats::{
@@ -45,7 +45,7 @@ impl CondiVirt {
             config: (
                 rune::Krait.into(),
                 sigil::Agony.into(),
-                sigil::Earth {},
+                sigil::Earth,
                 food::FancyPotatoAndLeekSoup.into(),
                 utility::ToxicFocusingCrystal.into(),
             ),
@@ -70,7 +70,7 @@ impl CondiVirt {
 }
 
 impl CharacterModel for CondiVirt {
-    type Config = (Rune, Sigil, sigil::Earth, Food, Utility);
+    type Config = (KnownRune, KnownSigil, sigil::Earth, KnownFood, KnownUtility);
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
         let mut stats = &BASE_STATS + gear;
@@ -178,8 +178,8 @@ impl CairnSoloArcane {
             config: (
                 rune::Elementalist.into(),
                 sigil::Smoldering.into(),
-                sigil::Battle {}.into(),
-                food::RedLentilSaobosa {}.into(),
+                sigil::Battle.into(),
+                food::RedLentilSaobosa.as_known(),
                 utility::ToxicFocusingCrystal.into(),
             ),
             dps: 6708.,
@@ -197,7 +197,7 @@ impl CairnSoloArcane {
 }
 
 impl CharacterModel for CairnSoloArcane {
-    type Config = (Rune, Sigil, sigil::Battle, Food, Utility);
+    type Config = (KnownRune, KnownSigil, sigil::Battle, KnownFood, KnownUtility);
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
         let mut stats = &BASE_STATS + gear;
@@ -330,8 +330,8 @@ impl CairnSoloAir {
         let config_torment = (
             rune::Tormenting.into(),
             sigil::Bursting.into(),
-            sigil::Torment {},
-            food::RedLentilSaobosa {}.into(),
+            sigil::Torment,
+            food::RedLentilSaobosa.as_known(),
             utility::ToxicFocusingCrystal.into(),
         );
 
@@ -383,7 +383,7 @@ impl CairnSoloAir {
 }
 
 impl CharacterModel for CairnSoloAir {
-    type Config = (Rune, Sigil, sigil::Torment, Food, Utility);
+    type Config = (KnownRune, KnownSigil, sigil::Torment, KnownFood, KnownUtility);
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
         let mut stats = &BASE_STATS + gear;
@@ -399,7 +399,7 @@ impl CharacterModel for CairnSoloAir {
             .chain(utility)
 
             //.chain(rune::Tormenting)
-            .chain(sigil::Torment {})
+            .chain(sigil::Torment)
             //.chain(food::RedLentilSaobosa)
             //.chain(utility::ToxicCrystal)
 
@@ -558,8 +558,8 @@ impl CairnSoloAirStaff {
         let config_torment = (
             rune::Tormenting.into(),
             sigil::Bursting.into(),
-            sigil::Torment {},
-            food::RedLentilSaobosa {}.into(),
+            sigil::Torment,
+            food::RedLentilSaobosa.as_known(),
             utility::ToxicFocusingCrystal.into(),
         );
 
@@ -589,7 +589,7 @@ impl CairnSoloAirStaff {
 }
 
 impl CharacterModel for CairnSoloAirStaff {
-    type Config = (Rune, Sigil, sigil::Torment, Food, Utility);
+    type Config = (KnownRune, KnownSigil, sigil::Torment, KnownFood, KnownUtility);
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
         let mut stats = &BASE_STATS + gear;
@@ -605,7 +605,7 @@ impl CharacterModel for CairnSoloAirStaff {
             .chain(utility)
 
             //.chain(rune::Tormenting)
-            .chain(sigil::Torment {})
+            .chain(sigil::Torment)
             //.chain(food::RedLentilSaobosa)
             //.chain(utility::ToxicCrystal)
 
