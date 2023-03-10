@@ -403,59 +403,84 @@ def mk_effect_impl(w, name, display_name, parts):
         w.emit('}')
     w.emit('}')
 
-def print_dispatch_enum(name, items, emit_display_name=False):
-    print('\n#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]')
-    print('pub enum %s {' % name)
-    for item in items:
-        print('    %s(%s),' % (item, item))
-    print('}')
-    print('impl Effect for %s {' % name)
-    for method in ['add_permanent', 'distribute', 'add_temporary']:
-        print('    fn %s(&self, s: &mut Stats, m: &mut Modifiers) {' % method)
-        print('        match *self {')
-        for item in items:
-            print('            %s::%s(x) => x.%s(s, m),' % (name, item, method))
-        print('        }')
-        print('    }')
-    print('}')
-    print('impl %s {' % name)
-    print('    pub const COUNT: usize = %d;' % len(items))
-    print('    pub fn index(self) -> usize {')
-    print('        match self {')
-    for i, item in enumerate(items):
-        print('            %s::%s(%s) => %d,' % (name, item, item, i))
-    print('        }')
-    print('    }')
-    print('    pub fn from_index(i: usize) -> %s {' % name)
-    print('        match i {')
-    for i, item in enumerate(items):
-        print('            %d => %s::%s(%s),' % (i, name, item, item))
-    print('            _ => panic!("index {} out of range for %s", i),' % name)
-    print('        }')
-    print('    }')
-    print('    pub fn iter() -> impl Iterator<Item = %s> {' % name)
-    print('        (0 .. %s::COUNT).map(%s::from_index)' % (name, name))
-    print('    }')
-    print("    pub fn display_name(self) -> &'static str {")
-    print('        match self {')
-    for i, item in enumerate(items):
-        print('            %s::%s(x) => x.display_name(),' % (name, item))
-    print('        }')
-    print('    }')
-    print('}')
-    for item in items:
-        print('impl From<%s> for %s {' % (item, name))
-        print('    fn from(x: %s) -> %s { %s::%s(x) }' % (item, name, name, item))
-        print('}')
-
-    # TODO: migrate remaining defs to Writer
+def print_dispatch_enum(name, items):
     w = Writer()
 
+    # Enum definition
+    w.emit('\n#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]')
+    w.emit('pub enum %s {' % name)
+    with w.indent():
+        for item in items:
+            w.emit('%s(%s),' % (item, item))
+    w.emit('}')
+
+    # Default impl
     w.emit('impl Default for %s {' % name)
     with w.indent():
         w.emit('fn default() -> %s { %s::%s(%s) }' % (name, name, items[0], items[0]))
     w.emit('}')
 
+    # Inherent methods
+    w.emit('impl %s {' % name)
+    with w.indent():
+        w.emit('pub const COUNT: usize = %d;' % len(items))
+
+        w.emit('pub fn index(self) -> usize {')
+        with w.indent():
+            w.emit('match self {')
+            with w.indent():
+                for i, item in enumerate(items):
+                    w.emit('%s::%s(%s) => %d,' % (name, item, item, i))
+            w.emit('}')
+        w.emit('}')
+
+        w.emit('pub fn from_index(i: usize) -> %s {' % name)
+        with w.indent():
+            w.emit('match i {')
+            with w.indent():
+                for i, item in enumerate(items):
+                    w.emit('%d => %s::%s(%s),' % (i, name, item, item))
+                w.emit('_ => panic!("index {} out of range for %s", i),' % name)
+            w.emit('}')
+        w.emit('}')
+
+        w.emit('pub fn iter() -> impl Iterator<Item = %s> {' % name)
+        with w.indent():
+            w.emit('(0 .. %s::COUNT).map(%s::from_index)' % (name, name))
+        w.emit('}')
+
+        w.emit("pub fn display_name(self) -> &'static str {")
+        with w.indent():
+            w.emit('match self {')
+            with w.indent():
+                for i, item in enumerate(items):
+                    w.emit('%s::%s(x) => x.display_name(),' % (name, item))
+            w.emit('}')
+        w.emit('}')
+    w.emit('}')
+
+    # Effect impl
+    w.emit('impl Effect for %s {' % name)
+    with w.indent():
+        for method in ['add_permanent', 'distribute', 'add_temporary']:
+            w.emit('fn %s(&self, s: &mut Stats, m: &mut Modifiers) {' % method)
+            with w.indent():
+                w.emit('match *self {')
+                with w.indent():
+                    for item in items:
+                        w.emit('%s::%s(x) => x.%s(s, m),' % (name, item, method))
+                w.emit('}')
+            w.emit('}')
+    w.emit('}')
+
+    # From impls
+    for item in items:
+        w.emit('impl From<%s> for %s {' % (item, name))
+        with w.indent():
+            w.emit('fn from(x: %s) -> %s { %s::%s(x) }' % (item, name, name, item))
+        w.emit('}')
+
+    # Vary impl
     w.emit('impl Vary for %s {' % name)
     with w.indent():
         w.emit('fn num_fields(&self) -> usize { 1 }')
