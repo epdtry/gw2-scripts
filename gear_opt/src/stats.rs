@@ -148,6 +148,25 @@ impl HealthTier {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum ArmorWeight {
+    Light,
+    Medium,
+    Heavy,
+}
+
+impl ArmorWeight {
+    pub fn base_armor(self) -> f32 {
+        // TODO: these numbers only apply for full sets of ascended; exotic armor values are
+        // slightly lower
+        match self {
+            ArmorWeight::Light => 967.,
+            ArmorWeight::Medium => 1118.,
+            ArmorWeight::Heavy => 1271.,
+        }
+    }
+}
+
 impl Stats {
     pub fn strike_factor(&self, mods: &Modifiers) -> f32 {
         let damage = self.power / 10.;
@@ -188,5 +207,9 @@ impl Stats {
         let health = tier.base_health() + self.vitality * 10.;
         let health_bonus = 1. + mods.max_health / 100.;
         health * health_bonus
+    }
+
+    pub fn armor(&self, mods: &Modifiers, weight: ArmorWeight) -> f32 {
+        weight.base_armor() + self.toughness
     }
 }

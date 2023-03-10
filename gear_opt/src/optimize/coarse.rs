@@ -93,7 +93,7 @@ fn optimize_coarse_one<C: CharacterModel>(
     let gear = calc_gear_stats(&pw);
     let mut m = evaluate_config(ch, &gear, &cfg);
 
-    for i in 0 .. 10 {
+    for i in 0 .. 20 {
         let c_base = 0.85_f32.powi(i);
 
         let mut best_pw = pw;

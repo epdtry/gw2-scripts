@@ -15,7 +15,7 @@ pub use crate::effect::{food, utility, rune, sigil, boon};
 pub use crate::gear::{PerGearSlot, GearSlot, PerQuality, Quality, SlotInfo, Prefix, StatFormula};
 pub use crate::stats::{
     PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, PerBoon, Condition, Boon,
-    HealthTier,
+    HealthTier, ArmorWeight,
 };
 use crate::optimize::coarse::{optimize_coarse, calc_gear_stats};
 
@@ -316,23 +316,29 @@ impl CairnSoloAir {
         let mut ch = CairnSoloAir {
             dps: DpsModel::zero(),
         };
+
+        let gear_viper_seraph = Stats {
+            power: 824.,
+            precision: 793.,
+            condition_damage: 1173.,
+            expertise: 444.,
+            healing_power: 189.,
+            concentration: 189.,
+            .. Stats::default()
+        };
+
+        let config_torment = (
+            rune::Tormenting.into(),
+            sigil::Bursting.into(),
+            sigil::Torment {},
+            food::RedLentilSaobosa {}.into(),
+            utility::ToxicFocusingCrystal.into(),
+        );
+
+        /*
         ch.dps = DpsModel::new(&ch, Baseline {
-            gear: Stats {
-                power: 824.,
-                precision: 793.,
-                condition_damage: 1173.,
-                expertise: 444.,
-                healing_power: 189.,
-                concentration: 189.,
-                .. Stats::default()
-            },
-            config: (
-                rune::Tormenting.into(),
-                sigil::Bursting.into(),
-                sigil::Torment {},
-                food::RedLentilSaobosa {}.into(),
-                utility::ToxicFocusingCrystal.into(),
-            ),
+            gear: gear_viper_seraph,
+            config: config_torment,
             dps: 8358.,
             condition_percent: PerCondition {
                 burn: 60.61,
@@ -341,7 +347,7 @@ impl CairnSoloAir {
                 .. 0.0.into()
             },
             boon_uptime: PerBoon {
-                might: 6778.,
+                might: 677.8,
                 fury: 75.419,
                 regeneration: 43.26,
                 vigor: 25.868,
@@ -349,6 +355,29 @@ impl CairnSoloAir {
                 .. 0.0.into()
             },
         });
+        */
+
+        // 2023-03-09, with water trident
+        ch.dps = DpsModel::new(&ch, Baseline {
+            gear: gear_viper_seraph,
+            config: config_torment,
+            dps: 7844.,
+            condition_percent: PerCondition {
+                burn: 63.5,
+                bleed: 6.1,
+                torment: 8.3,
+                .. 0.0.into()
+            },
+            boon_uptime: PerBoon {
+                might: 525.,
+                fury: 78.,
+                regeneration: 54.,
+                vigor: 30.,
+                swiftness: 131.,
+                .. 0.0.into()
+            },
+        });
+
         ch
     }
 }
@@ -463,15 +492,25 @@ impl CharacterModel for CairnSoloAir {
         let stone_heal = (1069. + 0.15 * stats.healing_power) * 5.;
         let rock_heal = 1753. + 0.4 * stats.healing_power;
         let water_heal = 1832. + 1.0 * stats.healing_power;
+        let dual_heal = 523. + 0.2875 * stats.healing_power;
         let regen_heal =
             dps.calc_boon_uptime(stats, mods, Boon::Regeneration) * stats.regen_heal(mods);
-        let hps = regen_heal + glyph_heal / 16. + stone_heal / 50. + rock_heal / 15.
-            + water_heal * 2. / 30.;
+        let rotation_dur = 4.5 * 9.;
+        let hps = regen_heal
+            + glyph_heal / 16.
+            + stone_heal / 50.
+            + rock_heal * 2. / rotation_dur
+            + water_heal * 2. / rotation_dur
+            + dual_heal * 6. / rotation_dur
+            ;
 
-        let base_dps = 600.;
+        let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
+        //let aura_dps = 500.;
         let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
+        let hps_margin = 100.;
 
-        let min_hps = base_dps + agony_dps;
+        //let min_hps = 0.;
+        let min_hps = aura_dps + agony_dps + hps_margin;
         if hps < min_hps {
             return 30000. + min_hps - hps;
         }
@@ -491,7 +530,208 @@ impl CharacterModel for CairnSoloAir {
 
         // Optimize for DPS or for sustain.
         -dps
-        //-hps
+        //-(hps - agony_dps - aura_dps)
+    }
+}
+
+
+struct CairnSoloAirStaff {
+    dps: DpsModel,
+}
+
+impl CairnSoloAirStaff {
+    pub fn new() -> CairnSoloAirStaff {
+        let mut ch = CairnSoloAirStaff {
+            dps: DpsModel::zero(),
+        };
+
+        let gear_viper_seraph = Stats {
+            power: 824.,
+            precision: 793.,
+            condition_damage: 1173.,
+            expertise: 444.,
+            healing_power: 189.,
+            concentration: 189.,
+            .. Stats::default()
+        };
+
+        let config_torment = (
+            rune::Tormenting.into(),
+            sigil::Bursting.into(),
+            sigil::Torment {},
+            food::RedLentilSaobosa {}.into(),
+            utility::ToxicFocusingCrystal.into(),
+        );
+
+        // 2023-03-09, staff with double water
+        ch.dps = DpsModel::new(&ch, Baseline {
+            gear: gear_viper_seraph,
+            config: config_torment,
+            dps: 5489.,
+            condition_percent: PerCondition {
+                burn: 50.9,
+                bleed: 11.6,
+                torment: 11.5,
+                .. 0.0.into()
+            },
+            boon_uptime: PerBoon {
+                might: 243.,
+                fury: 57.,
+                regeneration: 0.,
+                vigor: 0.,
+                swiftness: 120.,
+                .. 0.0.into()
+            },
+        });
+
+        ch
+    }
+}
+
+impl CharacterModel for CairnSoloAirStaff {
+    type Config = (Rune, Sigil, sigil::Torment, Food, Utility);
+
+    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
+        let mut stats = &BASE_STATS + gear;
+        let mut mods = Modifiers::default();
+
+        let (rune, sigil1, sigil2, food, utility) = *config;
+
+        NoEffect
+            .chain(rune)
+            .chain(sigil1)
+            .chain(sigil2)
+            .chain(food)
+            .chain(utility)
+
+            //.chain(rune::Tormenting)
+            .chain(sigil::Torment {})
+            //.chain(food::RedLentilSaobosa)
+            //.chain(utility::ToxicCrystal)
+
+            .chain(boon::Might(2.5))
+            .chain(boon::Fury(0.6))
+
+            // Trait: Empowering Flame (4/8 fire uptime)
+            .chain_add_temporary(|s, _m| {
+                let strength = 4. / 8.;
+                s.condition_damage += strength * 150.;
+            })
+            // Trait: Burning Precision
+            .chain_add_permanent(|_s, m| {
+                m.condition_duration.burn += 20.;
+            })
+            // Trait: Burning Rage
+            .chain_add_permanent(|s, _m| {
+                s.condition_damage += 180.;
+            })
+            // Trait: Pyromancer's Training (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.;
+                m.strike_damage += strength * 10.;
+            })
+            // Trait: Persisting Flames (9 stacks)
+            .chain_add_temporary(|_s, m| {
+                let strength = 9.;
+                m.strike_damage += strength * 1.;
+            })
+            // Trait: Zephyr's Speed
+            .chain_add_permanent(|_s, m| {
+                m.crit_chance += 5.;
+            })
+            // Trait: Aeromancer's Training
+            .chain_add_permanent(|s, _m| {
+                s.ferocity += 150.;
+                // Also adds +150 ferocity while attuned to air.
+            })
+            // Trait: Superior Elements (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.;
+                m.crit_chance += strength * 15.;
+            })
+            // Trait: Weaver's Prowess (100% uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1.;
+                m.condition_damage += strength * 10.;
+                m.condition_duration += strength * 20.;
+            })
+            // Trait: Elemental Polyphony
+            // Rotation: F/F, E/F, A/E, F/A, F/F, E/F, W/E, F/W
+            // When either the mainhand or offhand attunement is fire, gain 120 power (etc.)
+            .chain_add_temporary(|s, _m| {
+                s.power += 6. / 8. * 120.;
+                s.healing_power += 2. / 8. * 120.;
+                s.ferocity += 2. / 8. * 120.;
+                s.vitality += 4. / 8. * 120.;
+            })
+
+            // Woven Fire (1/3 uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1./3.;
+                m.condition_damage += strength * 20.;
+            })
+            // Woven Air (1/4 uptime)
+            .chain_add_temporary(|_s, m| {
+                let strength = 1./4.;
+                m.strike_damage += strength * 10.;
+            })
+
+            .apply(&mut stats, &mut mods);
+
+        (stats, mods)
+    }
+
+    fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
+        let mut dps = self.dps.clone();
+
+        // Approximate heal per second from regen, glyph, and barrier
+        let regen_factor = stats.regen_heal(mods)
+            * stats.boon_duration(mods, Boon::Regeneration) / 100.;
+        let glyph_heal = 6494. + 1.2 * stats.healing_power;
+        let stone_heal = (1069. + 0.15 * stats.healing_power) * 5.;
+        let dual_heal = 523. + 0.2875 * stats.healing_power;
+        let torment_hps = if config.0 == rune::Tormenting.into() {
+            0.5 * regen_factor
+        } else { 0. };
+        let geyser_heal = 2760. + 2.0 * stats.healing_power;
+        let rain_heal = 3. * 4. * regen_factor;
+        let rotation_dur = 4. * 9.;
+        let hps = 0.
+            + torment_hps
+            + glyph_heal / 16.
+            + stone_heal / 50.
+            + dual_heal * 6. / rotation_dur
+            + geyser_heal / rotation_dur
+            + rain_heal / rotation_dur
+            ;
+
+        let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
+        //let aura_dps = 500.;
+        let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
+        let hps_margin = 100.;
+
+        //let min_hps = 0.;
+        let min_hps = aura_dps + agony_dps + hps_margin;
+        if hps < min_hps {
+            return 30000. + min_hps - hps;
+        }
+
+        let min_swiftness = 1.0;
+        let swiftness = dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
+        if swiftness < min_swiftness {
+            return 20000. + (min_swiftness - swiftness) * 100.;
+        }
+
+        // Require a certain amount of DPS.
+        let min_dps = 0.;
+        let dps = dps.calc_dps(stats, mods);
+        if dps < min_dps {
+            return 10000. + min_dps - dps;
+        }
+
+        // Optimize for DPS or for sustain.
+        -dps
+        //-(hps - agony_dps - aura_dps)
     }
 }
 
@@ -500,6 +740,7 @@ fn main() {
     let ch = CondiVirt::new();
     let ch = CairnSoloArcane::new();
     let ch = CairnSoloAir::new();
+    //let ch = CairnSoloAirStaff::new();
 
 
     // Slot quality configuration.  The last `let slots = ...` takes precedence.
