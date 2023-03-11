@@ -1,4 +1,5 @@
 use std::cmp;
+use std::collections::HashSet;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
@@ -167,7 +168,7 @@ fn optimize_coarse_one_ex<C: CharacterModel>(
     let gear = calc_gear_stats(&pw);
     let mut m = evaluate_config(ch, &gear, &cfg);
 
-    for i in 0 .. 20 {
+    for i in 0 .. 10 {
         let c_base = 0.85_f32.powi(i);
 
         let mut best_pw = pw;
@@ -177,9 +178,7 @@ fn optimize_coarse_one_ex<C: CharacterModel>(
 
         // Try adjusting prefix weights
         for j in 0 .. NUM_PREFIXES {
-            for k in 1 ..= 100 {
-                let c = c_base * k as f32 / 100.;
-
+            let mut try_one = |c| {
                 let mut new_pw = pw;
                 increase_prefix_weight(&mut new_pw, max_weight, j, c);
 
@@ -197,12 +196,70 @@ fn optimize_coarse_one_ex<C: CharacterModel>(
                 let new_m = evaluate_config(ch, &new_gear, &cfg);
                 callback(&new_pw, &cfg, new_m);
 
-                if new_m < best_m {
-                    best_pw = new_pw;
-                    best_cfg = cfg.clone();
-                    best_m = new_m;
-                    //best_desc = format!("using {} points of {}", c * 100., PREFIXES[j].name);
+                new_m
+            };
+
+            // Optimize the amount of this prefix to add.  We can add any amount `0 <= c <= 1`.
+            //
+            // We start by subdividing the range into 8 segments (determined by `INITIAL_BITS`) and
+            // measuring `m` (via `try_one(c)`) at the endpoints of those segments.  This gives us
+            // the values of `m` at c = 0, 1/8, 2/8, ..., 7/8, 1.
+            //
+            // For the next iteration, we take the three points with the best `m` values and try
+            // offsets of +/- 1/16 from those points.  For example, if the best `m` values were at
+            // 1/8, 2/8, and 1, we would visit 1/16, 3/16, 5/16, and 15/16.  Note that we only
+            // visit 3/16 once, even though it's adjacent to two of the previous points (3/16 = 1/8
+            // + 1/16 = 2/8 - 1/16).  Also note that we don't visit 17/16, since it's out of range.
+            // At each of these new points, we measure `m` and add the point to the list of
+            // candidates.
+            //
+            // We then repeat, taking the top three points from the candidate list and stepping by
+            // +/- 1/32, then by +/- 1/64, and so on.
+
+            const INITIAL_BITS: usize = 3;
+            const MAX_CANDIDATES: usize = 3;
+            let mut candidates = Vec::with_capacity(
+                cmp::max((1 << INITIAL_BITS) + 1, MAX_CANDIDATES * 3));
+            candidates.push((0, m));
+            candidates.extend((1 ..= 1 << INITIAL_BITS).map(|k| {
+                let c = c_base * k as f32 / (1 << INITIAL_BITS) as f32;
+                let m = try_one(c);
+                // Since `f32` doesn't implement `Hash`, we instead use unsigned `1.15` fixed
+                // point.
+                ((k as u16) << (15 - INITIAL_BITS), m)
+            }));
+            candidates.sort_by_key(|&(_, m)| AssertTotal(m));
+            candidates.truncate(MAX_CANDIDATES);
+
+            let mut next_candidates = HashSet::new();
+            for ii in 0 .. 6 {
+                let b = 15 - INITIAL_BITS - (i + 1) as usize;
+                let step = 1 << b;
+                for &(k, _) in &candidates {
+                    next_candidates.insert(k.saturating_sub(step));
+                    next_candidates.insert(cmp::min(1 << 15, k + step));
                 }
+
+                for k in next_candidates.drain() {
+                    let c = c_base * k as f32 / (1 << 15) as f32;
+                    let m = try_one(c);
+                    candidates.push((k, m));
+                }
+
+                candidates.sort_by_key(|&(_, m)| AssertTotal(m));
+                candidates.truncate(MAX_CANDIDATES);
+            }
+
+            let (new_k, new_m) = candidates[0];
+            if new_m < best_m {
+                let c = c_base * new_k as f32 / (1 << 15) as f32;
+                let mut new_pw = pw;
+                increase_prefix_weight(&mut new_pw, max_weight, j, c);
+
+                best_pw = new_pw;
+                best_cfg = cfg.clone();
+                best_m = new_m;
+                //best_desc = format!("using {} points of {}", c * 100., PREFIXES[j].name);
             }
         }
 
@@ -423,6 +480,7 @@ pub fn optimize_coarse_basin_hopping<C: CharacterModel>(
         }
     }
 
+    report(ch, &best_pw, &best_cfg, best_m);
     (best_pw, best_cfg)
 }
 

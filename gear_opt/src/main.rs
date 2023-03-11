@@ -1029,25 +1029,31 @@ fn main() {
     let (pw, cfg) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(200));
     //let (pw, cfg) = coarse::optimize_coarse_randomized(&ch, &slots);
 
-    let prefix_idxs = (0 .. NUM_PREFIXES).filter(|&i| pw[i] > 0.).collect::<Vec<_>>();
-    eprintln!("running fine optimization with {} prefixes", prefix_idxs.len());
-    let (slot_prefixes, infusions) = fine::optimize_fine(&ch, &cfg, &slots, &prefix_idxs);
+    const OPTIMIZE_FINE: bool = false;
+    let gear = if OPTIMIZE_FINE {
+        let prefix_idxs = (0 .. NUM_PREFIXES).filter(|&i| pw[i] > 0.).collect::<Vec<_>>();
+        eprintln!("running fine optimization with {} prefixes", prefix_idxs.len());
+        let (slot_prefixes, infusions) = fine::optimize_fine(&ch, &cfg, &slots, &prefix_idxs);
 
-    let mut gear = Stats::default();
-    for (&(slot, quality), &prefix_idx) in slots.iter().zip(slot_prefixes.iter()) {
-        eprintln!("{:?} = {}", slot, PREFIXES[prefix_idx].name);
-        gear += GEAR_SLOTS[slot].calc_stats(&PREFIXES[prefix_idx], quality)
-            .map(|_, x| x.round());
-    }
-    for stat in Stat::iter() {
-        if infusions[stat] == 0 {
-            continue;
+        let mut gear = Stats::default();
+        for (&(slot, quality), &prefix_idx) in slots.iter().zip(slot_prefixes.iter()) {
+            eprintln!("{:?} = {}", slot, PREFIXES[prefix_idx].name);
+            gear += GEAR_SLOTS[slot].calc_stats(&PREFIXES[prefix_idx], quality)
+                .map(|_, x| x.round());
         }
-        eprintln!("infusion: {:?} = {}", stat, infusions[stat]);
-        gear[stat] += 5. * infusions[stat] as f32;
-    }
+        for stat in Stat::iter() {
+            if infusions[stat] == 0 {
+                continue;
+            }
+            eprintln!("infusion: {:?} = {}", stat, infusions[stat]);
+            gear[stat] += 5. * infusions[stat] as f32;
+        }
 
-    //let gear = calc_gear_stats(&pw);
+        gear
+    } else {
+        calc_gear_stats(&pw)
+    };
+
     eprintln!("{:?}", gear.map(|_, x| x.round() as u32));
     let (stats, mods) = ch.calc_stats(&gear, &cfg);
     eprintln!("{:?}", stats.map(|_, x| x.round() as u32));
