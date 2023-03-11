@@ -1,22 +1,11 @@
-use std::cmp::{self, Ordering};
+use std::cmp;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::{CharacterModel, Vary};
 use crate::gear::{GearSlot, Quality};
 use crate::stats::Stats;
-
-
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Hash, Default)]
-struct AssertTotal<T>(pub T);
-
-impl<T: PartialEq> Eq for AssertTotal<T> {}
-
-impl<T: PartialEq + PartialOrd> Ord for AssertTotal<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap()
-    }
-}
+use super::{AssertTotal, evaluate_config};
 
 
 pub type PrefixWeights = [f32; NUM_PREFIXES];
@@ -39,11 +28,6 @@ fn calc_max_weight(slots: &[(GearSlot, Quality)]) -> f32 {
         acc += GEAR_SLOTS[slot].calc_stats(prefix, quality).power;
     }
     acc / prefix.formulas.power.factor
-}
-
-fn evaluate_config<C: CharacterModel>(ch: &C, gear: &Stats, cfg: &C::Config) -> f32 {
-    let (stats, mods) = ch.calc_stats(gear, cfg);
-    ch.evaluate(cfg, &stats, &mods)
 }
 
 fn report<C: CharacterModel>(ch: &C, pw: &PrefixWeights, cfg: &C::Config, m: f32) {

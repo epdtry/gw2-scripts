@@ -62,11 +62,13 @@ pub struct SlotInfo {
     pub add_base: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Prefix {
     pub name: &'static str,
     pub formulas: PerStat<StatFormula>,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct StatFormula {
     pub factor: f32,
     pub base: PerQuality<f32>,

@@ -20,6 +20,7 @@ pub use crate::stats::{
     HealthTier, ArmorWeight,
 };
 use crate::optimize::coarse::{self, calc_gear_stats};
+use crate::optimize::fine;
 
 
 struct CondiVirt {
@@ -1024,13 +1025,24 @@ fn main() {
 
 
     // Run the optimizer and report results
-    //let (pw, config) = coarse::optimize_coarse(&ch, &slots);
-    let (pw, config) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(1000));
-    //let (pw, config) = coarse::optimize_coarse_randomized(&ch, &slots);
+    //let (pw, cfg) = coarse::optimize_coarse(&ch, &slots);
+    let (pw, cfg) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(200));
+    //let (pw, cfg) = coarse::optimize_coarse_randomized(&ch, &slots);
 
-    let gear = calc_gear_stats(&pw);
+    let prefix_idxs = (0 .. NUM_PREFIXES).filter(|&i| pw[i] > 0.).collect::<Vec<_>>();
+    eprintln!("running fine optimization with {} prefixes", prefix_idxs.len());
+    let slot_prefixes = fine::optimize_fine(&ch, &cfg, &slots, &prefix_idxs);
+
+    let mut gear = Stats::default();
+    for (&(slot, quality), &prefix_idx) in slots.iter().zip(slot_prefixes.iter()) {
+        eprintln!("{:?} = {}", slot, PREFIXES[prefix_idx].name);
+        gear += GEAR_SLOTS[slot].calc_stats(&PREFIXES[prefix_idx], quality)
+            .map(|_, x| x.round());
+    }
+
+    //let gear = calc_gear_stats(&pw);
     eprintln!("{:?}", gear.map(|_, x| x.round() as u32));
-    let (stats, mods) = ch.calc_stats(&gear, &config);
+    let (stats, mods) = ch.calc_stats(&gear, &cfg);
     eprintln!("{:?}", stats.map(|_, x| x.round() as u32));
-    eprintln!("{:#?}", mods);
+    //eprintln!("{:#?}", mods);
 }
