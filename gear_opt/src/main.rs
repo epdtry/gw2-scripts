@@ -981,9 +981,9 @@ impl CharacterModel for CairnSoloEarth {
 fn main() {
     //let ch = CondiVirt::new();
     let ch = CairnSoloArcane::new();
-    //let ch = CairnSoloAir::new();
+    let ch = CairnSoloAir::new();
     //let ch = CairnSoloAirStaff::new();
-    let ch = CairnSoloEarth::new();
+    //let ch = CairnSoloEarth::new();
 
 
     // Slot quality configuration.  The last `let slots = ...` takes precedence.
@@ -1031,13 +1031,20 @@ fn main() {
 
     let prefix_idxs = (0 .. NUM_PREFIXES).filter(|&i| pw[i] > 0.).collect::<Vec<_>>();
     eprintln!("running fine optimization with {} prefixes", prefix_idxs.len());
-    let slot_prefixes = fine::optimize_fine(&ch, &cfg, &slots, &prefix_idxs);
+    let (slot_prefixes, infusions) = fine::optimize_fine(&ch, &cfg, &slots, &prefix_idxs);
 
     let mut gear = Stats::default();
     for (&(slot, quality), &prefix_idx) in slots.iter().zip(slot_prefixes.iter()) {
         eprintln!("{:?} = {}", slot, PREFIXES[prefix_idx].name);
         gear += GEAR_SLOTS[slot].calc_stats(&PREFIXES[prefix_idx], quality)
             .map(|_, x| x.round());
+    }
+    for stat in Stat::iter() {
+        if infusions[stat] == 0 {
+            continue;
+        }
+        eprintln!("infusion: {:?} = {}", stat, infusions[stat]);
+        gear[stat] += 5. * infusions[stat] as f32;
     }
 
     //let gear = calc_gear_stats(&pw);

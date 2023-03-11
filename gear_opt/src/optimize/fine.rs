@@ -3,7 +3,7 @@ use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::CharacterModel;
 use crate::gear::{GearSlot, Quality, Prefix, StatFormula, PerQuality};
 use crate::optimize::coarse::PrefixWeights;
-use crate::stats::{Stats, PerStat};
+use crate::stats::{Stats, PerStat, Stat};
 use super::{AssertTotal, evaluate_config};
 
 
@@ -15,14 +15,16 @@ struct SlotExt {
 }
 
 #[derive(Clone, Debug)]
-struct Candidate {
-    slot_prefixes: Vec<u8>,
+pub struct Candidate {
+    pub slot_prefixes: Vec<u8>,
+    pub infusions: PerStat<u8>,
 }
 
 impl Candidate {
     pub fn new(num_slots: usize) -> Candidate {
         Candidate {
             slot_prefixes: vec![0; num_slots],
+            infusions: 0.into(),
         }
     }
 }
@@ -31,6 +33,7 @@ struct Optimizer<'a, C: CharacterModel> {
     ch: &'a C,
     cfg: &'a C::Config,
     slots: &'a [SlotExt],
+    num_infusions: usize,
     prefixes: &'a [Prefix],
     /// For each slot, an upper bound on the stats that could be provided by choosing prefixes from
     /// `prefixes` for this slot and all further slots.
@@ -46,31 +49,18 @@ impl<'a, C: CharacterModel> Optimizer<'a, C> {
         ch: &'a C,
         cfg: &'a C::Config,
         slots: &'a [SlotExt],
+        num_infusions: usize,
         prefixes: &'a [Prefix],
     ) -> Optimizer<'a, C> {
-        // Build the hypothetical "super-prefix", which provides an upper bound on the stats that
-        // could be obtained by selecting from `prefixes`.
-        let super_prefix = Prefix {
-            name: "Super",
-            formulas: PerStat::from_fn(|stat| {
-                StatFormula {
-                    factor: prefixes.iter().map(|p| p.formulas[stat].factor).fold(0., f32::max),
-                    base: PerQuality::from_fn(|quality| {
-                        prefixes.iter().map(|p| p.formulas[stat].base[quality]).fold(0., f32::max)
-                    }),
-                }
-            }),
-        };
-
         let mut slot_remaining_stats = vec![Stats::default(); slots.len()];
         for i in (0 .. slots.len()).rev() {
             let slot = &slots[i];
             let prev = slot_remaining_stats.get(i + 1).cloned()
-                .unwrap_or_else(Stats::default);
+                .unwrap_or_else(|| max_infusion_stats(num_infusions));
 
             let mut slot_stats = Stats::default();
             for prefix in prefixes {
-                let s = GEAR_SLOTS[slot.gear_slot].calc_stats(&super_prefix, slot.quality);
+                let s = GEAR_SLOTS[slot.gear_slot].calc_stats(&prefix, slot.quality);
                 slot_stats = Stats::from_fn(|stat| {
                     f32::max(slot_stats[stat], s[stat])
                 });
@@ -82,7 +72,7 @@ impl<'a, C: CharacterModel> Optimizer<'a, C> {
         eprintln!("all stats = {:#?}", slot_remaining_stats[0]);
 
         Optimizer {
-            ch, cfg, slots, prefixes,
+            ch, cfg, slots, num_infusions, prefixes,
             slot_remaining_stats,
             cur: Candidate::new(slots.len()),
             best_m: 999999999.,
@@ -96,19 +86,11 @@ impl<'a, C: CharacterModel> Optimizer<'a, C> {
         evaluate_config(self.ch, &gear, self.cfg)
     }
 
-    fn go(&mut self, i: usize, gear: Stats) {
+    fn go_slots(&mut self, i: usize, gear: Stats) {
         if i >= self.slots.len() {
-            let m = self.evaluate_current(gear);
-            if m < self.best_m {
-                self.best_m = m;
-                self.best_candidate = self.cur.clone();
-                eprintln!("metric = {}", m);
-                eprintln!("gear = {:?}", gear);
-                eprintln!();
-            }
+            self.go_infusions(0, self.num_infusions, gear);
             return;
         }
-
 
         let max_gear = gear + self.slot_remaining_stats[i];
         let max_m = self.evaluate_current(max_gear);
@@ -120,7 +102,6 @@ impl<'a, C: CharacterModel> Optimizer<'a, C> {
             // some cases!
             return;
         }
-
 
         let slot = &self.slots[i];
 
@@ -144,13 +125,59 @@ impl<'a, C: CharacterModel> Optimizer<'a, C> {
 
             let slot_stats = GEAR_SLOTS[slot.gear_slot].calc_stats(prefix, slot.quality)
                 .map(|_, x| x.round());
-            self.go(i + 1, gear + slot_stats);
+            self.go_slots(i + 1, gear + slot_stats);
+        }
+    }
+
+    fn go_infusions(&mut self, stat_idx: usize, num_unassigned: usize, gear: Stats) {
+        if stat_idx >= Stat::COUNT || num_unassigned == 0 {
+            let m = self.evaluate_current(gear);
+            if m < self.best_m {
+                self.best_m = m;
+                self.best_candidate = self.cur.clone();
+                eprintln!("metric = {}", m);
+                eprintln!("gear = {:?}", gear);
+                eprintln!();
+            }
+            return;
+        }
+
+        let optimistic_gear = Stats::from_fn(|stat| {
+            if (stat as usize) < stat_idx {
+                0.
+            } else {
+                5. * num_unassigned as f32
+            }
+        });
+        let max_gear = gear + optimistic_gear;
+        let max_m = self.evaluate_current(max_gear);
+        if max_m > self.best_m {
+            // Prune this branch.
+            //
+            // NB: This assumes that higher stats are always better.  This might not be true in
+            // some cases!
+            return;
+        }
+
+        let stat = Stat::from_index(stat_idx);
+        for n in 0 ..= num_unassigned {
+            self.cur.infusions[stat] = n as u8;
+            let mut infusion_stats = Stats::from(0.);
+            infusion_stats[stat] = 5. * n as f32;
+            self.go_infusions(stat_idx + 1, num_unassigned - n, gear + infusion_stats);
+            self.cur.infusions[stat] = 0;
         }
     }
 
     pub fn optimize(&mut self) {
-        self.go(0, Stats::default());
+        self.go_slots(0, Stats::default());
     }
+}
+
+/// Get an upper bound on the total stats that could be supplied by `n` infusions.
+fn max_infusion_stats(n: usize) -> Stats {
+    // The upper bound on infusions is +5 to all stats per infusion.
+    Stats::from(5. * n as f32)
 }
 
 pub fn optimize_fine<C: CharacterModel>(
@@ -158,7 +185,7 @@ pub fn optimize_fine<C: CharacterModel>(
     cfg: &C::Config,
     slots: &[(GearSlot, Quality)],
     prefix_idxs: &[usize],
-) -> Vec<usize> {
+) -> (Vec<usize>, PerStat<u8>) {
     // Sort slots in decreasing order by amount of stats provided.  This results in us picking
     // prefixes for the biggest pieces first.
     let prefix_berserker = PREFIXES.iter().find(|p| p.name == "Berserker's").unwrap();
@@ -176,7 +203,8 @@ pub fn optimize_fine<C: CharacterModel>(
 
     let prefixes = prefix_idxs.iter().map(|&i| PREFIXES[i]).collect::<Vec<_>>();
 
-    let mut opt = Optimizer::new(ch, cfg, &slots, &prefixes);
+    let num_infusions = 0;
+    let mut opt = Optimizer::new(ch, cfg, &slots, num_infusions, &prefixes);
     opt.optimize();
 
     eprintln!("tried = {}", opt.tried);
@@ -186,5 +214,7 @@ pub fn optimize_fine<C: CharacterModel>(
         out[slot.orig_idx as usize] = prefix_idxs[*choice as usize];
     }
 
-    out
+    let infusions = opt.best_candidate.infusions;
+
+    (out, infusions)
 }

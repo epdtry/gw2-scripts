@@ -26,18 +26,40 @@ macro_rules! enumerated_struct {
                 }
             }
 
-                pub fn map<F, $($B,)?>(self, mut f: F) -> $Struct<$($B,)?>
-                where F: FnMut($Enum, $MapSrcTy) -> $MapDestTy {
-                    $Struct {
-                        $( $field: f($Enum::$Variant, self.$field), )*
-                    }
+            pub fn map<F, $($B,)?>(self, mut f: F) -> $Struct<$($B,)?>
+            where F: FnMut($Enum, $MapSrcTy) -> $MapDestTy {
+                $Struct {
+                    $( $field: f($Enum::$Variant, self.$field), )*
                 }
+            }
         }
 
         impl<$($A,)?> From<$FTy> for $Struct<$($A,)?>
         where $FTy: Clone {
             fn from(x: $FTy) -> $Struct<$($A,)?> {
                 Self::from_fn(|_| x.clone())
+            }
+        }
+
+        impl $Enum {
+            pub const COUNT: usize = 0
+                $( + 1 + (0 * $Enum::$Variant as usize) )*
+                ;
+
+            #[allow(unused_variables)]
+            pub fn from_index(i: usize) -> $Enum {
+                let orig_i = i;
+                $(
+                    if i == 0 {
+                        return $Enum::$Variant;
+                    }
+                    let i = i - 1;
+                )*
+                panic!(concat!("index {} out of bounds for ", stringify!($Enum)), orig_i)
+            }
+
+            pub fn iter() -> impl Iterator<Item = $Enum> {
+                (0 .. $Enum::COUNT).map($Enum::from_index)
             }
         }
 
