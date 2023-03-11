@@ -19,7 +19,7 @@ pub use crate::stats::{
     PerStat, Stat, Stats, BASE_STATS, Modifiers, PerCondition, PerBoon, Condition, Boon,
     HealthTier, ArmorWeight,
 };
-use crate::optimize::coarse::{optimize_coarse, calc_gear_stats};
+use crate::optimize::coarse::{self, calc_gear_stats};
 
 
 struct CondiVirt {
@@ -702,8 +702,8 @@ impl CharacterModel for CairnSoloAir {
             return 30000. + min_hps - hps;
         }
 
-        let min_swiftness = 1.0;
-        let swiftness = dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
+        let min_swiftness = 1.05;
+        let swiftness = dps.calc_boon_uptime_raw(stats, mods, Boon::Swiftness);
         if swiftness < min_swiftness {
             return 20000. + (min_swiftness - swiftness) * 100.;
         }
@@ -1024,7 +1024,9 @@ fn main() {
 
 
     // Run the optimizer and report results
-    let (pw, config) = optimize_coarse(&ch, &slots);
+    //let (pw, config) = coarse::optimize_coarse(&ch, &slots);
+    let (pw, config) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(1000));
+    //let (pw, config) = coarse::optimize_coarse_randomized(&ch, &slots);
 
     let gear = calc_gear_stats(&pw);
     eprintln!("{:?}", gear.map(|_, x| x.round() as u32));
