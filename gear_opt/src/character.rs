@@ -135,18 +135,23 @@ impl DpsModel {
         let strike_points = strike_dps / stats.strike_factor(&mods);
 
         let condition_percent = baseline.condition_percent;
-        let condition_points = PerCondition::from_fn(|condi| {
+        let total_condition_points = PerCondition::from_fn(|condi| {
             let percent = condition_percent[condi];
             let dps = total_dps * percent / 100.;
             let points = dps / stats.condition_factor(&mods, condi);
             points
         });
+        // We subtract out the points provided by gear, so that the `DpsModel` only reflects the
+        // effect of the rotation.  Note that these numbers may be negative, which typically means
+        // the rotation failed to proc the relevant runes/sigils as often as expected.
+        let condition_points = total_condition_points - mods.condition_points;
 
         let boon_uptime = baseline.boon_uptime;
-        let boon_points = PerBoon::from_fn(|boon| {
+        let total_boon_points = PerBoon::from_fn(|boon| {
             let points = boon_uptime[boon] / stats.boon_duration(&mods, boon);
             points
         });
+        let boon_points = total_boon_points - mods.boon_points;
 
         DpsModel { strike_points, condition_points, boon_points }
     }
@@ -154,7 +159,8 @@ impl DpsModel {
     pub fn calc_dps(&self, stats: &Stats, mods: &Modifiers) -> f32 {
         let strike_dps = self.strike_points * stats.strike_factor(mods);
         let condition_factor = PerCondition::from_fn(|condi| stats.condition_factor(mods, condi));
-        let condition_dps = self.condition_points * condition_factor;
+        let condition_points = self.condition_points + mods.condition_points;
+        let condition_dps = condition_points * condition_factor;
         strike_dps + condition_dps.sum()
     }
 
@@ -162,7 +168,8 @@ impl DpsModel {
     /// average number of stacks to expect.  The result is capped at the maximum stack count for
     /// the boon in question.
     pub fn calc_boon_uptime(&self, stats: &Stats, mods: &Modifiers, boon: Boon) -> f32 {
-        let stacks = self.boon_points[boon] * stats.boon_duration(mods, boon) / 100.;
+        let points = self.boon_points[boon] + mods.boon_points[boon];
+        let stacks = points * stats.boon_duration(mods, boon) / 100.;
         if stacks > boon.max_stacks() {
             boon.max_stacks()
         } else {

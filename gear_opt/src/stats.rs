@@ -49,6 +49,15 @@ pub struct Modifiers {
     pub condition_duration: PerCondition<f32>,
     pub boon_duration: PerBoon<f32>,
     pub max_health: f32,
+
+    /// Extra condition points per second provided by gear, as opposed to points that come from the
+    /// skill rotation.  One point = one stack * one second.  For example, Superior Sigil of
+    /// Torment has the effect "Inflict 2 stacks of torment for 5 seconds to enemies around your
+    /// target upon landing a critical hit (cooldown: 5 seconds)"; the `CharacterModel` would then
+    /// add torment points equal to `2. * 5. / interval`, where `interval` is an estimate of how
+    /// often the sigil will proc.
+    pub condition_points: PerCondition<f32>,
+    pub boon_points: PerBoon<f32>,
 }
 
 

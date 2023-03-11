@@ -935,6 +935,10 @@ impl CairnSoloEarth {
 
         ch
     }
+
+    const ROTATION_DUR: f32 = 4.5 * 3.;
+    /// The rotation uses one dual skill per rotation.
+    const DUAL_INTERVAL: f32 = Self::ROTATION_DUR / 1.;
 }
 
 impl CharacterModel for CairnSoloEarth {
@@ -1047,6 +1051,63 @@ impl CharacterModel for CairnSoloEarth {
                 m.condition_damage += strength * 20.;
             })
 
+            .chain_add_permanent(|s, m| {
+                // Healing skill has a 16s cooldown, after applying the reduction from the air
+                // glyph trait.
+                let healing_interval = 16.;
+                let dual_interval = Self::DUAL_INTERVAL;
+
+                match rune {
+                    Rune::Fireworks(_) => {
+                        // Procs once per 20 seconds while in combat.
+                        m.boon_points.might += 6. * 6. / 20.;
+                        m.boon_points.fury += 6. / 20.;
+                        m.boon_points.vigor += 6. / 20.;
+                    },
+                    Rune::Pack(_) => {
+                        // Procs once per 30 seconds while in combat.
+                        m.boon_points.might += 5. * 8. / 30.;
+                        m.boon_points.fury += 8. / 30.;
+                        m.boon_points.swiftness += 8. / 30.;
+                    },
+                    Rune::Brawler(_) => {
+                        // Procs on every healing skill.  Our healing skill has a 16s cooldown,
+                        // after applying the reduction from the air glyph trait.
+                        m.boon_points.might += 5. * 10. / 16.;
+                    },
+                    Rune::Centaur(_) => {
+                        // Procs on every healing skill.
+                        m.boon_points.swiftness += 10. / 16.;
+                    },
+                    Rune::Aristocracy(_) => {
+                        // Procs when applying weakness.
+                        m.boon_points.might += 5. * 4. / dual_interval;
+                    },
+                    _ => {},
+                }
+            })
+
+            .chain_add_permanent(|s, m| {
+                for &sigil in [sigil1, sigil2].iter() {
+                    match sigil {
+                        Sigil::Torment(_) => {
+                            // Procs on crit; ICD: 5 seconds.
+                            m.condition_points.torment += 2. * 5. / 5.5;
+                        },
+                        Sigil::Battle(_) => {
+                            // Procs on weapon/attunement swap; ICD: 9 seconds.
+                            m.boon_points.might += 5. * 12. / 10.;
+                        },
+                        Sigil::Agility(_) => {
+                            // Procs on weapon/attunement swap; ICD: 9 seconds.
+                            m.boon_points.swiftness += 5. / 10.;
+                            m.boon_points.quickness += 1. / 10.;
+                        },
+                        _ => {},
+                    }
+                }
+            })
+
             .apply(&mut stats, &mut mods);
 
         (stats, mods)
@@ -1055,60 +1116,10 @@ impl CharacterModel for CairnSoloEarth {
     fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
         let mut dps = self.dps.clone();
 
-        let dual_count = 1.;
-        let rotation_dur = 4.5 * 3.;
+        let rotation_dur = Self::ROTATION_DUR;
+        let dual_interval = Self::DUAL_INTERVAL;
 
         let (rune, sigil1, sigil2, _, _) = *config;
-
-        if rune != rune::Centaur.into() {
-            dps.boon_points.swiftness -= 10. / 20.;
-            if dps.boon_points.swiftness < 0. {
-                dps.boon_points.swiftness = 0.;
-            }
-        }
-
-        match rune {
-            Rune::Fireworks(_) => {
-                dps.boon_points.might += 6. * 6. / 20.;
-                dps.boon_points.fury += 6. / 20.;
-                dps.boon_points.vigor += 6. / 20.;
-            },
-            Rune::Pack(_) => {
-                dps.boon_points.might += 5. * 8. / 20.;
-                dps.boon_points.fury += 8. / 20.;
-                dps.boon_points.swiftness += 8. / 20.;
-            },
-            Rune::Brawler(_) => {
-                dps.boon_points.might += 5. * 10. / 16.;
-            },
-            Rune::Centaur(_) => {
-                //dps.boon_points.swiftness += 10. / 16.;
-            },
-            Rune::Aristocracy(_) => {
-                dps.boon_points.might += 5. * 4. * dual_count / rotation_dur;
-            },
-            Rune::Tormenting(_) => {
-                dps.boon_points.regeneration += 0.5;
-            },
-            _ => {},
-        }
-
-        if sigil1 != sigil::Torment.into() && sigil2 != sigil::Torment.into() {
-            dps.condition_points.torment = 0.;
-        }
-
-        for &sigil in [sigil1, sigil2].iter() {
-            match sigil {
-                Sigil::Battle(_) => {
-                    dps.boon_points.might += 5. * 12. / 10.;
-                },
-                Sigil::Agility(_) => {
-                    dps.boon_points.swiftness += 5. / 10.;
-                    dps.boon_points.quickness += 1. / 10.;
-                },
-                _ => {},
-            }
-        }
 
         // Approximate heal per second from regen, glyph, and barrier
         let signet_heal = 3275. + 0.5 * stats.healing_power;
@@ -1125,13 +1136,13 @@ impl CharacterModel for CairnSoloEarth {
             + earth_heal / rotation_dur
             + stone_heal / 50.
             + rock_heal / rotation_dur
-            + dual_heal * dual_count / rotation_dur
+            + dual_heal / dual_interval
             ;
 
         let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
         //let aura_dps = 500.;
         let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 100.;
+        let hps_margin = 150.;
 
         //let min_hps = 0.;
         let min_hps = aura_dps + agony_dps + hps_margin;
@@ -1164,7 +1175,7 @@ fn main() {
     let ch = CairnSoloArcane::new();
     let ch = CairnSoloAir::new();
     //let ch = CairnSoloAirStaff::new();
-    //let ch = CairnSoloEarth::new();
+    let ch = CairnSoloEarth::new();
 
 
     // Slot quality configuration.  The last `let slots = ...` takes precedence.
