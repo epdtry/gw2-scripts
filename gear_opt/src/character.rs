@@ -5,6 +5,10 @@ use crate::stats::{Stats, Modifiers, PerCondition, Boon, PerBoon};
 pub trait CharacterModel {
     type Config: Vary + Clone + Default + fmt::Debug;
 
+    /// Check whether a configuration is valid.  If this returns `false`, the optimizer will not
+    /// try evaluating the config.
+    fn is_config_valid(&self, config: &Self::Config) -> bool { true }
+
     /// Calculate stats and modifiers for a set of `gear` and `config`.  This captures the fixed
     /// parts of the build, such as trait choices.
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers);

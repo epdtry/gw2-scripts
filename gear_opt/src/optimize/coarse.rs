@@ -57,14 +57,15 @@ pub fn optimize_coarse<C: CharacterModel>(
     let mut best_cfg = <C::Config>::default();
     let mut best_m = 999999999.;
 
+    let cfg0 = <C::Config>::default();
+    assert!(ch.is_config_valid(&cfg0));
+
     for i in 0 .. NUM_PREFIXES {
         for j in 0 .. NUM_PREFIXES {
             let mut pw0 = [0.; NUM_PREFIXES];
             pw0[i] += max_weight * 2. / 3.;
             pw0[j] += max_weight * 1. / 3.;
             eprintln!("start: 2/3 {}, 1/3 {}", PREFIXES[i].name, PREFIXES[j].name);
-
-            let cfg0 = <C::Config>::default();
 
             let (pw, cfg) = optimize_coarse_one(ch, max_weight, &pw0, &cfg0);
             let gear = calc_gear_stats(&pw);
@@ -130,6 +131,9 @@ fn optimize_coarse_one<C: CharacterModel>(
             for value in 0 .. cfg.num_field_values(field) {
                 let mut new_cfg = cfg.clone();
                 new_cfg.set_field(field, value);
+                if !ch.is_config_valid(&new_cfg) {
+                    continue;
+                }
                 let new_m = evaluate_config(ch, &gear, &new_cfg);
                 if new_m < best_m {
                     best_desc = format!("using config {:?}", new_cfg);
