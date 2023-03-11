@@ -165,11 +165,19 @@ impl DpsModel {
     }
 
     /// Calculate the expected uptime of the given boon.  The result is a fraction indicating the
+    /// average number of stacks to expect.  This may exceed the max stacks possible for the boon,
+    /// which is useful for establishing a margin for error in the build.
+    pub fn calc_boon_uptime_raw(&self, stats: &Stats, mods: &Modifiers, boon: Boon) -> f32 {
+        let points = self.boon_points[boon] + mods.boon_points[boon];
+        let stacks = points * stats.boon_duration(mods, boon) / 100.;
+        stacks
+    }
+
+    /// Calculate the expected uptime of the given boon.  The result is a fraction indicating the
     /// average number of stacks to expect.  The result is capped at the maximum stack count for
     /// the boon in question.
     pub fn calc_boon_uptime(&self, stats: &Stats, mods: &Modifiers, boon: Boon) -> f32 {
-        let points = self.boon_points[boon] + mods.boon_points[boon];
-        let stacks = points * stats.boon_duration(mods, boon) / 100.;
+        let stacks = self.calc_boon_uptime_raw(stats, mods, boon);
         if stacks > boon.max_stacks() {
             boon.max_stacks()
         } else {

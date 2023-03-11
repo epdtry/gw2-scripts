@@ -196,10 +196,27 @@ impl CairnSoloArcane {
         });
         ch
     }
+
+    const ROTATION_DUR: f32 = 4.5 * 8.;
+    /// The rotation uses 6 dual skills per rotation.
+    const DUAL_INTERVAL: f32 = Self::ROTATION_DUR / 6.;
 }
 
 impl CharacterModel for CairnSoloArcane {
-    type Config = (KnownRune, KnownSigil, sigil::Battle, KnownFood, KnownUtility);
+    type Config = (Rune, Sigil, Sigil, KnownFood, KnownUtility);
+
+    fn is_config_valid(&self, config: &Self::Config) -> bool {
+        let (rune, sigil1, sigil2, _, _) = *config;
+
+
+        if sigil1 == sigil2 && sigil1 != sigil::NoSigil.into() {
+            return false;
+        }
+
+        cairn_solo_rune_valid(rune) &&
+        cairn_solo_sigil_valid(sigil1) &&
+        cairn_solo_sigil_valid(sigil2)
+    }
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
         let mut stats = &BASE_STATS + gear;
@@ -213,15 +230,6 @@ impl CharacterModel for CairnSoloArcane {
             .chain(sigil2)
             .chain(food)
             .chain(utility)
-
-            .chain(boon::Might(12.))
-            .chain(boon::Fury(0.1))
-
-            // Infusions
-            .chain_add_permanent(|_s, _m| {
-                //s.condition_damage += 16. * 5.;
-                //s.precision += 2. * 5.;
-            })
 
             // Trait: Empowering Flame (4/8 fire uptime)
             .chain_add_temporary(|s, _m| {
@@ -277,6 +285,21 @@ impl CharacterModel for CairnSoloArcane {
                 m.condition_damage += strength * 20.;
             })
 
+            .chain_add_permanent(|s, m| {
+                // Healing skill has a 20s cooldown.
+                let healing_interval = 20.;
+                let dual_interval = Self::DUAL_INTERVAL;
+                cairn_solo_rune_effect(s, m, rune, healing_interval, dual_interval);
+            })
+            .chain_add_permanent(|s, m| {
+                for &sigil in [sigil1, sigil2].iter() {
+                    cairn_solo_sigil_effect(s, m, sigil);
+                }
+            })
+
+            .chain(boon::Might(self.dps.boon_points.might))
+            .chain(boon::Fury(self.dps.boon_points.fury))
+
             .apply(&mut stats, &mut mods);
 
         (stats, mods)
@@ -305,6 +328,113 @@ impl CharacterModel for CairnSoloArcane {
         // Optimize for DPS or for sustain.
         -dps
         //-stats.healing_power
+    }
+}
+
+
+fn cairn_solo_rune_valid(rune: Rune) -> bool {
+    match rune {
+        Rune::Fireworks(_) => true,
+        Rune::Pack(_) => true,
+        Rune::Brawler(_) => true,
+        Rune::Centaur(_) => true,
+        Rune::Aristocracy(_) => true,
+        s => s.is_known(),
+    }
+}
+
+fn cairn_solo_rune_effect(
+    s: &mut Stats,
+    m: &mut Modifiers,
+    rune: Rune,
+    healing_interval: f32,
+    dual_interval: f32,
+) {
+    // Healing skill has a 16s cooldown, after applying the reduction from the air
+    // glyph trait.
+    let healing_interval = 16.;
+
+    match rune {
+        Rune::Fireworks(_) => {
+            // Procs once per 20 seconds while in combat.
+            m.boon_points.might += 6. * 6. / 20.;
+            m.boon_points.fury += 6. / 20.;
+            m.boon_points.vigor += 6. / 20.;
+        },
+        Rune::Pack(_) => {
+            // Procs once per 30 seconds while in combat.
+            m.boon_points.might += 5. * 8. / 30.;
+            m.boon_points.fury += 8. / 30.;
+            m.boon_points.swiftness += 8. / 30.;
+        },
+        Rune::Brawler(_) => {
+            // Procs on every healing skill.  Our healing skill has a 16s cooldown,
+            // after applying the reduction from the air glyph trait.
+            m.boon_points.might += 5. * 10. / 16.;
+        },
+        Rune::Centaur(_) => {
+            // Procs on every healing skill.
+            m.boon_points.swiftness += 10. / 16.;
+        },
+        Rune::Aristocracy(_) => {
+            // Procs when applying weakness.
+            m.boon_points.might += 5. * 4. / dual_interval;
+        },
+        _ => {},
+    }
+}
+
+fn cairn_solo_sigil_valid(sigil: Sigil) -> bool {
+    match sigil {
+        Sigil::Blight(_) => true,
+        Sigil::Earth(_) => true,
+        Sigil::Torment(_) => true,
+        Sigil::Strength(_) => true,
+        Sigil::Agility(_) => true,
+        Sigil::Battle(_) => true,
+        Sigil::Doom(_) => true,
+        s => s.is_known(),
+    }
+}
+
+fn cairn_solo_sigil_effect(
+    s: &mut Stats,
+    m: &mut Modifiers,
+    sigil: Sigil,
+) {
+    match sigil {
+        Sigil::Blight(_) => {
+            // Procs on crit; ICD: 8 seconds.
+            m.condition_points.poison += 2. * 4. / 8.5;
+        },
+        Sigil::Earth(_) => {
+            // Procs on crit; ICD: 2 seconds.
+            m.condition_points.bleed += 6. / 2.5;
+        },
+        Sigil::Torment(_) => {
+            // Procs on crit; ICD: 5 seconds.
+            m.condition_points.torment += 2. * 5. / 5.5;
+        },
+        Sigil::Strength(_) => {
+            // Procs on crit; ICD: 1 second.
+            m.boon_points.might += 10. / 2.;
+        },
+
+        Sigil::Agility(_) => {
+            // Procs on weapon/attunement swap; ICD: 9 seconds.
+            m.boon_points.swiftness += 5. / 10.;
+            m.boon_points.quickness += 1. / 10.;
+        },
+        Sigil::Battle(_) => {
+            // Procs on weapon/attunement swap; ICD: 9 seconds.
+            m.boon_points.might += 5. * 12. / 10.;
+        },
+        Sigil::Doom(_) => {
+            // Procs on weapon/attunement swap; ICD: 9 seconds.
+            m.condition_points.poison += 3. * 8. / 10.;
+        },
+
+        _ => {},
     }
 }
 
@@ -423,6 +553,10 @@ impl CairnSoloAir {
 
         ch
     }
+
+    const ROTATION_DUR: f32 = 4.5 * 3.;
+    /// The rotation uses one dual skill per rotation.
+    const DUAL_INTERVAL: f32 = Self::ROTATION_DUR / 1.;
 }
 
 impl CharacterModel for CairnSoloAir {
@@ -431,37 +565,14 @@ impl CharacterModel for CairnSoloAir {
     fn is_config_valid(&self, config: &Self::Config) -> bool {
         let (rune, sigil1, sigil2, _, _) = *config;
 
-        match rune {
-            Rune::Fireworks(_) => {},
-            Rune::Pack(_) => {},
-            Rune::Brawler(_) => {},
-            Rune::Centaur(_) => {},
-            Rune::Aristocracy(_) => {},
-            //Rune::Tormenting(_) => { return false; },
-            s => {
-                if !s.is_known() {
-                    return false;
-                }
-            },
-        }
 
         if sigil1 == sigil2 && sigil1 != sigil::NoSigil.into() {
             return false;
         }
 
-        for &sigil in [sigil1, sigil2].iter() {
-            match sigil {
-                Sigil::Torment(_) => {},
-                Sigil::Battle(_) => {},
-                s => {
-                    if !s.is_known() {
-                        return false;
-                    }
-                },
-            }
-        }
-
-        true
+        cairn_solo_rune_valid(rune) &&
+        cairn_solo_sigil_valid(sigil1) &&
+        cairn_solo_sigil_valid(sigil2)
     }
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
@@ -476,20 +587,6 @@ impl CharacterModel for CairnSoloAir {
             .chain(sigil2)
             .chain(food)
             .chain(utility)
-
-            //.chain(rune::Tormenting)
-            .chain(sigil::Torment)
-            //.chain(food::RedLentilSaobosa)
-            //.chain(utility::ToxicCrystal)
-
-            .chain(boon::Might(4.1))
-            .chain(boon::Fury(0.60))
-
-            // Infusions
-            .chain_add_permanent(|_s, _m| {
-                //s.condition_damage += 16. * 5.;
-                //s.precision += 2. * 5.;
-            })
 
             // Trait: Empowering Flame (4/8 fire uptime)
             .chain_add_temporary(|s, _m| {
@@ -550,6 +647,22 @@ impl CharacterModel for CairnSoloAir {
                 m.condition_damage += strength * 20.;
             })
 
+            .chain_add_permanent(|s, m| {
+                // Healing skill has a 16s cooldown, after applying the reduction from the air
+                // glyph trait.
+                let healing_interval = 16.;
+                let dual_interval = Self::DUAL_INTERVAL;
+                cairn_solo_rune_effect(s, m, rune, healing_interval, dual_interval);
+            })
+            .chain_add_permanent(|s, m| {
+                for &sigil in [sigil1, sigil2].iter() {
+                    cairn_solo_sigil_effect(s, m, sigil);
+                }
+            })
+
+            .chain(boon::Might(self.dps.boon_points.might))
+            .chain(boon::Fury(self.dps.boon_points.fury))
+
             .apply(&mut stats, &mut mods);
 
         (stats, mods)
@@ -558,48 +671,10 @@ impl CharacterModel for CairnSoloAir {
     fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
         let mut dps = self.dps.clone();
 
-        let rotation_dur = 4.5 * 3.;
+        let rotation_dur = Self::ROTATION_DUR;
+        let dual_interval = Self::DUAL_INTERVAL;
 
         let (rune, sigil1, sigil2, _, _) = *config;
-
-        if rune != rune::Tormenting.into() {
-            // Assume 3 seconds of regen per 6 seconds (5s ICD + 1s to get a crit)
-            dps.boon_points.regeneration -= 0.5;
-            if dps.boon_points.regeneration < 0. {
-                dps.boon_points.regeneration = 0.;
-            }
-        }
-
-        match rune {
-            Rune::Fireworks(_) => {
-                dps.boon_points.might += 6. * 6. / 20.;
-                dps.boon_points.fury += 6. / 20.;
-                dps.boon_points.vigor += 6. / 20.;
-            },
-            Rune::Pack(_) => {
-                dps.boon_points.might += 5. * 8. / 20.;
-                dps.boon_points.fury += 8. / 20.;
-                dps.boon_points.swiftness += 8. / 20.;
-            },
-            Rune::Brawler(_) => {
-                dps.boon_points.might += 5. * 10. / 16.;
-            },
-            Rune::Centaur(_) => {
-                dps.boon_points.swiftness += 10. / 16.;
-            },
-            Rune::Aristocracy(_) => {
-                dps.boon_points.might += 5. * 4. * 6. / rotation_dur;
-            },
-            _ => {},
-        }
-
-        if sigil1 != sigil::Torment.into() && sigil2 != sigil::Torment.into() {
-            dps.condition_points.torment = 0.;
-        }
-
-        if sigil1 == sigil::Battle.into() || sigil2 == sigil::Battle.into() {
-            dps.boon_points.might += 5. * 12. / 10.;
-        }
 
         // Approximate heal per second from regen, glyph, and barrier
         let glyph_heal = 6494. + 1.2 * stats.healing_power;
@@ -613,208 +688,7 @@ impl CharacterModel for CairnSoloAir {
             + glyph_heal / 16.
             + stone_heal / 50.
             + rock_heal * 1. / rotation_dur
-            + dual_heal * 1. / rotation_dur
-            ;
-
-        let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
-        //let aura_dps = 500.;
-        let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 100.;
-
-        //let min_hps = 0.;
-        let min_hps = aura_dps + agony_dps + hps_margin;
-        if hps < min_hps {
-            return 30000. + min_hps - hps;
-        }
-
-        let min_swiftness = 1.0;
-        let swiftness = dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
-        if swiftness < min_swiftness {
-            return 20000. + (min_swiftness - swiftness) * 100.;
-        }
-
-        // Require a certain amount of DPS.
-        let min_dps = 0.;
-        let dps = dps.calc_dps(stats, mods);
-        if dps < min_dps {
-            return 10000. + min_dps - dps;
-        }
-
-        // Optimize for DPS or for sustain.
-        -dps
-        //-(hps - agony_dps - aura_dps)
-    }
-}
-
-
-struct CairnSoloAirStaff {
-    dps: DpsModel,
-}
-
-impl CairnSoloAirStaff {
-    pub fn new() -> CairnSoloAirStaff {
-        let mut ch = CairnSoloAirStaff {
-            dps: DpsModel::zero(),
-        };
-
-        let gear_viper_seraph = Stats {
-            power: 824.,
-            precision: 793.,
-            condition_damage: 1173.,
-            expertise: 444.,
-            healing_power: 189.,
-            concentration: 189.,
-            .. Stats::default()
-        };
-
-        let config_torment = (
-            rune::Tormenting.into(),
-            sigil::Bursting.into(),
-            sigil::Torment,
-            food::RedLentilSaobosa.as_known(),
-            utility::ToxicFocusingCrystal.into(),
-        );
-
-        // 2023-03-09, staff with double water
-        ch.dps = DpsModel::new(&ch, Baseline {
-            gear: gear_viper_seraph,
-            config: config_torment,
-            dps: 5489.,
-            condition_percent: PerCondition {
-                burn: 50.9,
-                bleed: 11.6,
-                torment: 11.5,
-                .. 0.0.into()
-            },
-            boon_uptime: PerBoon {
-                might: 243.,
-                fury: 57.,
-                regeneration: 0.,
-                vigor: 0.,
-                swiftness: 120.,
-                .. 0.0.into()
-            },
-        });
-
-        ch
-    }
-}
-
-impl CharacterModel for CairnSoloAirStaff {
-    type Config = (KnownRune, KnownSigil, sigil::Torment, KnownFood, KnownUtility);
-
-    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
-        let mut stats = &BASE_STATS + gear;
-        let mut mods = Modifiers::default();
-
-        let (rune, sigil1, sigil2, food, utility) = *config;
-
-        NoEffect
-            .chain(rune)
-            .chain(sigil1)
-            .chain(sigil2)
-            .chain(food)
-            .chain(utility)
-
-            //.chain(rune::Tormenting)
-            .chain(sigil::Torment)
-            //.chain(food::RedLentilSaobosa)
-            //.chain(utility::ToxicCrystal)
-
-            .chain(boon::Might(2.5))
-            .chain(boon::Fury(0.6))
-
-            // Trait: Empowering Flame (4/8 fire uptime)
-            .chain_add_temporary(|s, _m| {
-                let strength = 4. / 8.;
-                s.condition_damage += strength * 150.;
-            })
-            // Trait: Burning Precision
-            .chain_add_permanent(|_s, m| {
-                m.condition_duration.burn += 20.;
-            })
-            // Trait: Burning Rage
-            .chain_add_permanent(|s, _m| {
-                s.condition_damage += 180.;
-            })
-            // Trait: Pyromancer's Training (100% uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 1.;
-                m.strike_damage += strength * 10.;
-            })
-            // Trait: Persisting Flames (9 stacks)
-            .chain_add_temporary(|_s, m| {
-                let strength = 9.;
-                m.strike_damage += strength * 1.;
-            })
-            // Trait: Zephyr's Speed
-            .chain_add_permanent(|_s, m| {
-                m.crit_chance += 5.;
-            })
-            // Trait: Aeromancer's Training
-            .chain_add_permanent(|s, _m| {
-                s.ferocity += 150.;
-                // Also adds +150 ferocity while attuned to air.
-            })
-            // Trait: Superior Elements (100% uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 1.;
-                m.crit_chance += strength * 15.;
-            })
-            // Trait: Weaver's Prowess (100% uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 1.;
-                m.condition_damage += strength * 10.;
-                m.condition_duration += strength * 20.;
-            })
-            // Trait: Elemental Polyphony
-            // Rotation: F/F, E/F, A/E, F/A, F/F, E/F, W/E, F/W
-            // When either the mainhand or offhand attunement is fire, gain 120 power (etc.)
-            .chain_add_temporary(|s, _m| {
-                s.power += 6. / 8. * 120.;
-                s.healing_power += 2. / 8. * 120.;
-                s.ferocity += 2. / 8. * 120.;
-                s.vitality += 4. / 8. * 120.;
-            })
-
-            // Woven Fire (1/3 uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 1./3.;
-                m.condition_damage += strength * 20.;
-            })
-            // Woven Air (1/4 uptime)
-            .chain_add_temporary(|_s, m| {
-                let strength = 1./4.;
-                m.strike_damage += strength * 10.;
-            })
-
-            .apply(&mut stats, &mut mods);
-
-        (stats, mods)
-    }
-
-    fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
-        let mut dps = self.dps.clone();
-
-        // Approximate heal per second from regen, glyph, and barrier
-        let regen_factor = stats.regen_heal(mods)
-            * stats.boon_duration(mods, Boon::Regeneration) / 100.;
-        let glyph_heal = 6494. + 1.2 * stats.healing_power;
-        let stone_heal = (1069. + 0.15 * stats.healing_power) * 5.;
-        let dual_heal = 523. + 0.2875 * stats.healing_power;
-        let torment_hps = if config.0 == rune::Tormenting.into() {
-            0.5 * regen_factor
-        } else { 0. };
-        let geyser_heal = 2760. + 2.0 * stats.healing_power;
-        let rain_heal = 3. * 4. * regen_factor;
-        let rotation_dur = 4. * 9.;
-        let hps = 0.
-            + torment_hps
-            + glyph_heal / 16.
-            + stone_heal / 50.
-            + dual_heal * 6. / rotation_dur
-            + geyser_heal / rotation_dur
-            + rain_heal / rotation_dur
+            + dual_heal / dual_interval
             ;
 
         let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
@@ -932,6 +806,7 @@ impl CairnSoloEarth {
         });
 
         eprintln!("{:#?}", ch.dps);
+        ch.dps.boon_points.swiftness = 0.;
 
         ch
     }
@@ -947,38 +822,14 @@ impl CharacterModel for CairnSoloEarth {
     fn is_config_valid(&self, config: &Self::Config) -> bool {
         let (rune, sigil1, sigil2, _, _) = *config;
 
-        match rune {
-            Rune::Fireworks(_) => {},
-            Rune::Pack(_) => {},
-            Rune::Brawler(_) => {},
-            Rune::Centaur(_) => {},
-            Rune::Aristocracy(_) => {},
-            //Rune::Tormenting(_) => { return false; },
-            s => {
-                if !s.is_known() {
-                    return false;
-                }
-            },
-        }
 
         if sigil1 == sigil2 && sigil1 != sigil::NoSigil.into() {
             return false;
         }
 
-        for &sigil in [sigil1, sigil2].iter() {
-            match sigil {
-                Sigil::Torment(_) => {},
-                Sigil::Battle(_) => {},
-                Sigil::Agility(_) => {},
-                s => {
-                    if !s.is_known() {
-                        return false;
-                    }
-                },
-            }
-        }
-
-        true
+        cairn_solo_rune_valid(rune) &&
+        cairn_solo_sigil_valid(sigil1) &&
+        cairn_solo_sigil_valid(sigil2)
     }
 
     fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
@@ -993,9 +844,6 @@ impl CharacterModel for CairnSoloEarth {
             .chain(sigil2)
             .chain(food)
             .chain(utility)
-
-            .chain(boon::Might(4.1))
-            .chain(boon::Fury(0.))
 
             // Trait: Empowering Flame (4/8 fire uptime)
             .chain_add_temporary(|s, _m| {
@@ -1052,61 +900,20 @@ impl CharacterModel for CairnSoloEarth {
             })
 
             .chain_add_permanent(|s, m| {
-                // Healing skill has a 16s cooldown, after applying the reduction from the air
-                // glyph trait.
-                let healing_interval = 16.;
+                // Healing skill has a 20s cooldown, after applying the reduction from the earth
+                // signet trait.
+                let healing_interval = 20.;
                 let dual_interval = Self::DUAL_INTERVAL;
-
-                match rune {
-                    Rune::Fireworks(_) => {
-                        // Procs once per 20 seconds while in combat.
-                        m.boon_points.might += 6. * 6. / 20.;
-                        m.boon_points.fury += 6. / 20.;
-                        m.boon_points.vigor += 6. / 20.;
-                    },
-                    Rune::Pack(_) => {
-                        // Procs once per 30 seconds while in combat.
-                        m.boon_points.might += 5. * 8. / 30.;
-                        m.boon_points.fury += 8. / 30.;
-                        m.boon_points.swiftness += 8. / 30.;
-                    },
-                    Rune::Brawler(_) => {
-                        // Procs on every healing skill.  Our healing skill has a 16s cooldown,
-                        // after applying the reduction from the air glyph trait.
-                        m.boon_points.might += 5. * 10. / 16.;
-                    },
-                    Rune::Centaur(_) => {
-                        // Procs on every healing skill.
-                        m.boon_points.swiftness += 10. / 16.;
-                    },
-                    Rune::Aristocracy(_) => {
-                        // Procs when applying weakness.
-                        m.boon_points.might += 5. * 4. / dual_interval;
-                    },
-                    _ => {},
-                }
+                cairn_solo_rune_effect(s, m, rune, healing_interval, dual_interval);
             })
-
             .chain_add_permanent(|s, m| {
                 for &sigil in [sigil1, sigil2].iter() {
-                    match sigil {
-                        Sigil::Torment(_) => {
-                            // Procs on crit; ICD: 5 seconds.
-                            m.condition_points.torment += 2. * 5. / 5.5;
-                        },
-                        Sigil::Battle(_) => {
-                            // Procs on weapon/attunement swap; ICD: 9 seconds.
-                            m.boon_points.might += 5. * 12. / 10.;
-                        },
-                        Sigil::Agility(_) => {
-                            // Procs on weapon/attunement swap; ICD: 9 seconds.
-                            m.boon_points.swiftness += 5. / 10.;
-                            m.boon_points.quickness += 1. / 10.;
-                        },
-                        _ => {},
-                    }
+                    cairn_solo_sigil_effect(s, m, sigil);
                 }
             })
+
+            .chain(boon::Might(self.dps.boon_points.might))
+            .chain(boon::Fury(self.dps.boon_points.fury))
 
             .apply(&mut stats, &mut mods);
 
@@ -1150,8 +957,8 @@ impl CharacterModel for CairnSoloEarth {
             return 30000. + min_hps - hps;
         }
 
-        let min_swiftness = 1.0;
-        let swiftness = dps.calc_boon_uptime(stats, mods, Boon::Swiftness);
+        let min_swiftness = 1.05;
+        let swiftness = dps.calc_boon_uptime_raw(stats, mods, Boon::Swiftness);
         if swiftness < min_swiftness {
             return 20000. + (min_swiftness - swiftness) * 100.;
         }
@@ -1171,9 +978,9 @@ impl CharacterModel for CairnSoloEarth {
 
 
 fn main() {
-    let ch = CondiVirt::new();
+    //let ch = CondiVirt::new();
     let ch = CairnSoloArcane::new();
-    let ch = CairnSoloAir::new();
+    //let ch = CairnSoloAir::new();
     //let ch = CairnSoloAirStaff::new();
     let ch = CairnSoloEarth::new();
 
