@@ -682,42 +682,42 @@ impl CairnSoloEarth {
         // 2023-03-12
         let baseline = Baseline {
             gear: Stats {
-                power: 701.,
-                precision: 534.,
-                toughness: 499.,
-                vitality: 341.,
-                ferocity: 341.,
-                healing_power: 560.,
-                condition_damage: 859.,
-                concentration: 341.,
-                expertise: 534.,
+                power: 860.,
+                precision: 612.,
+                toughness: 365.,
+                vitality: 331.,
+                ferocity: 331.,
+                healing_power: 378.,
+                condition_damage: 894.,
+                concentration: 331.,
+                expertise: 612.,
             },
             config: (
                 rune::Pack.into(),
                 sigil::Agility.into(),
-                sigil::Battle.into(),
+                sigil::Strength.into(),
                 food::FireMeatChili.into(),
                 utility::ToxicFocusingCrystal.into(),
             ),
-            dps: 8141.,
+            dps: 8686.,
             condition_percent: PerCondition {
-                burn: 68.4,
-                bleed: 10.3,
+                burn: 67.7,
+                bleed: 9.8,
                 .. 0.0.into()
             },
             boon_uptime: PerBoon {
-                might: 1216.,
+                might: 1414.,
                 fury: 38.,
-                swiftness: 107.,
-                vigor: 40.,
-                regeneration: 44.,
+                swiftness: 110.,
+                vigor: 37.,
+                regeneration: 46.,
                 .. 0.0.into()
             },
         };
 
         ch.base_combat = CombatSecond {
-            strike: CombatEvent::new(1., 0.),
-            flanking: 0.25,
+            strike: CombatEvent::new(1273. / 559., 0.),
+            flanking: 0.23,
             cast: 1.2,
 
             .. CombatSecond::default()
@@ -725,7 +725,24 @@ impl CairnSoloEarth {
         ch.base_combat = baseline.update_base_combat(&ch, &ch.base_combat);
 
         eprintln!("{:#?}", ch.base_combat);
-        ch.base_combat.boon.swiftness = CombatEvent::new(0., 0.);
+        //ch.base_combat.boon.swiftness = CombatEvent::new(0., 0.);
+
+        let (stats, mods, combat) = ch.calc_stats(&baseline.gear, &baseline.config);
+        eprintln!("dps = {}", combat.calc_dps(&stats, &mods));
+        eprintln!("hps = {}", combat.calc_heal_per_second(&stats, &mods));
+        eprintln!("might = {}", combat.calc_boon_uptime_raw(&stats, &mods, Boon::Might));
+        eprintln!("swiftness = {}", combat.calc_boon_uptime_raw(&stats, &mods, Boon::Swiftness));
+
+        let aura_dps = 3100000. / stats.armor(&mods, ArmorWeight::Light) / 3. *
+            stats.incoming_strike_damage_multiplier(&mods);
+        //let aura_dps = 500.;
+        let agony_dps = stats.max_health(&mods, HealthTier::Low) * 0.10 / 3.;
+        let hps_margin = 150.;
+        eprintln!("strike multiplier = {}", stats.incoming_strike_damage_multiplier(&mods));
+        eprintln!("aura dps = {}", aura_dps);
+        eprintln!("agony dps = {}", agony_dps);
+        eprintln!("hps margin = {}", hps_margin);
+        eprintln!("required hps = {}", aura_dps + agony_dps + hps_margin);
 
         ch
     }
@@ -1016,7 +1033,7 @@ impl CharacterModel for CairnSoloEarth {
             stats.incoming_strike_damage_multiplier(mods);
         //let aura_dps = 500.;
         let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 150.;
+        let hps_margin = 0.;
 
         //let min_hps = 0.;
         let min_hps = aura_dps + agony_dps + hps_margin;

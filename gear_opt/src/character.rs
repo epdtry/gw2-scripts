@@ -315,7 +315,9 @@ impl CombatSecond {
             let factor = stats.condition_factor(mods, condi);
             points * factor
         }).sum::<f32>();
-        strike_dps + condition_dps
+        let vuln_factor =
+            1. + self.calc_condition_uptime(stats, mods, Condition::Vulnerable) / 100.;
+        (strike_dps + condition_dps) * vuln_factor
     }
 
     pub fn calc_heal_per_second(&self, stats: &Stats, mods: &Modifiers) -> f32 {
