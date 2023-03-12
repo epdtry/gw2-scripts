@@ -723,6 +723,10 @@ def do_runes_sigils(kind):
 # Some food item descriptions are missing from the API.
 EXTRA_DESCRIPTIONS = {
         'Red-Lentil Saobosa': '+100 Expertise; +70 Condition Damage; +1% All Experience Gained',
+        'Bowl of Fruit Salad with Mint Garnish':
+            '+10% Outgoing Healing; +100 Healing Power; +70 Concentration; '
+            '+10% Karma; +5% All Experience Gained; +20% Magic Find; '
+            '+20% Gold Find; +10% WXP Gained',
         }
 
 def do_food_utility(kind):

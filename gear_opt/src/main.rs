@@ -978,12 +978,52 @@ impl CharacterModel for CairnSoloEarth {
 }
 
 
+struct MechTank;
+
+impl CharacterModel for MechTank {
+    type Config = (
+        rune::Monk,
+        sigil::Paralyzation,
+        sigil::Transference,
+        food::FruitSaladWithMintGarnish,
+        utility::BountifulMaintenanceOil,
+    );
+
+    fn calc_stats(&self, gear: &Stats, config: &Self::Config) -> (Stats, Modifiers) {
+        let mut stats = &BASE_STATS + gear;
+        let mut mods = Modifiers::default();
+
+        (stats, mods)
+    }
+
+    fn evaluate(&self, config: &Self::Config, stats: &Stats, mods: &Modifiers) -> f32 {
+        let min_healing_power = 961. * 0.9;
+        let min_concentration = 961. * 0.9;
+
+        if stats.healing_power < min_healing_power {
+            return 20000. + (min_healing_power - stats.healing_power);
+        }
+
+        if stats.concentration < min_concentration {
+            return 20000. + (min_concentration - stats.concentration);
+        }
+
+        let armor = stats.armor(mods, ArmorWeight::Medium);
+        let base_armor = ArmorWeight::Medium.base_armor() + BASE_STATS.toughness;
+        let hp = stats.max_health(mods, HealthTier::Mid);
+        let effective_hp = hp * armor / base_armor;
+        return -effective_hp;
+    }
+}
+
+
 fn main() {
     //let ch = CondiVirt::new();
     let ch = CairnSoloArcane::new();
     let ch = CairnSoloAir::new();
     //let ch = CairnSoloAirStaff::new();
-    //let ch = CairnSoloEarth::new();
+    let ch = CairnSoloEarth::new();
+    let ch = MechTank;
 
 
     // Slot quality configuration.  The last `let slots = ...` takes precedence.
@@ -1026,8 +1066,18 @@ fn main() {
 
     // Run the optimizer and report results
     //let (pw, cfg) = coarse::optimize_coarse(&ch, &slots);
-    let (pw, cfg) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(1000));
+    let (pw, cfg) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(300));
     //let (pw, cfg) = coarse::optimize_coarse_randomized(&ch, &slots);
+
+    fn print_coarse_prefix_weights(pw: &coarse::PrefixWeights) {
+        let mut lines = pw.iter().zip(PREFIXES.iter()).filter_map(|(&w, prefix)| {
+            if w > 0.0 { Some((w, prefix.name)) } else { None }
+        }).collect::<Vec<_>>();
+        lines.sort_by_key(|&(w, _)| optimize::AssertTotal(-w));
+        for (w, name) in lines {
+            println!("{} = {}", name, w);
+        }
+    }
 
     const OPTIMIZE_FINE: bool = true;
     let gear = if OPTIMIZE_FINE {
@@ -1036,11 +1086,13 @@ fn main() {
         let (slot_prefixes, infusions) = fine::optimize_fine(
             &ch, &cfg, &slots, &prefix_idxs, Some(&pw));
 
-        eprintln!("\nfinal build:");
+        println!("\nfinal build:");
+        print_coarse_prefix_weights(&pw);
+        println!();
 
         let mut gear = Stats::default();
         for (&(slot, quality), &prefix_idx) in slots.iter().zip(slot_prefixes.iter()) {
-            eprintln!("{:?} = {}", slot, PREFIXES[prefix_idx].name);
+            println!("{:?} = {}", slot, PREFIXES[prefix_idx].name);
             gear += GEAR_SLOTS[slot].calc_stats(&PREFIXES[prefix_idx], quality)
                 .map(|_, x| x.round());
         }
@@ -1048,34 +1100,29 @@ fn main() {
             if infusions[stat] == 0 {
                 continue;
             }
-            eprintln!("infusion: {:?} = {}", stat, infusions[stat]);
+            println!("infusion: {:?} = {}", stat, infusions[stat]);
             gear[stat] += 5. * infusions[stat] as f32;
         }
 
         gear
     } else {
-        eprintln!("\nfinal build:");
-        let mut lines = pw.iter().zip(PREFIXES.iter()).filter_map(|(&w, prefix)| {
-            if w > 0.0 { Some((w, prefix.name)) } else { None }
-        }).collect::<Vec<_>>();
-        lines.sort_by_key(|&(w, _)| optimize::AssertTotal(-w));
-        for (w, name) in lines {
-            eprintln!("{} = {}", name, w);
-        }
-
+        println!("\nfinal build:");
+        print_coarse_prefix_weights(&pw);
         calc_gear_stats(&pw)
     };
 
+    /*
     let (rune, sigil1, sigil2, food, utility) = cfg;
-    eprintln!("rune = {}", rune.display_name());
-    eprintln!("sigil1 = {}", sigil1.display_name());
-    eprintln!("sigil2 = {}", sigil2.display_name());
-    eprintln!("food = {}", food.display_name());
-    eprintln!("utility = {}", utility.display_name());
+    println!("rune = {}", rune.display_name());
+    println!("sigil1 = {}", sigil1.display_name());
+    println!("sigil2 = {}", sigil2.display_name());
+    println!("food = {}", food.display_name());
+    println!("utility = {}", utility.display_name());
+    */
 
-    eprintln!("\ngear stats = {:?}", gear.map(|_, x| x.round() as u32));
+    println!("\ngear stats = {:?}", gear.map(|_, x| x.round() as u32));
     let (stats, mods) = ch.calc_stats(&gear, &cfg);
-    eprintln!("total stats = {:?}", stats.map(|_, x| x.round() as u32));
+    println!("total stats = {:?}", stats.map(|_, x| x.round() as u32));
     let m = ch.evaluate(&cfg, &stats, &mods);
-    eprintln!("metric = {}", m);
+    println!("metric = {}", m);
 }
