@@ -695,7 +695,7 @@ impl CharacterModel for CairnSoloAir {
         let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
         //let aura_dps = 500.;
         let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 100.;
+        let hps_margin = 150.;
 
         //let min_hps = 0.;
         let min_hps = aura_dps + agony_dps + hps_margin;
@@ -1026,14 +1026,17 @@ fn main() {
 
     // Run the optimizer and report results
     //let (pw, cfg) = coarse::optimize_coarse(&ch, &slots);
-    let (pw, cfg) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(200));
+    let (pw, cfg) = coarse::optimize_coarse_basin_hopping(&ch, &slots, Some(1000));
     //let (pw, cfg) = coarse::optimize_coarse_randomized(&ch, &slots);
 
-    const OPTIMIZE_FINE: bool = false;
+    const OPTIMIZE_FINE: bool = true;
     let gear = if OPTIMIZE_FINE {
         let prefix_idxs = (0 .. NUM_PREFIXES).filter(|&i| pw[i] > 0.).collect::<Vec<_>>();
         eprintln!("running fine optimization with {} prefixes", prefix_idxs.len());
-        let (slot_prefixes, infusions) = fine::optimize_fine(&ch, &cfg, &slots, &prefix_idxs);
+        let (slot_prefixes, infusions) = fine::optimize_fine(
+            &ch, &cfg, &slots, &prefix_idxs, Some(&pw));
+
+        eprintln!("\nfinal build:");
 
         let mut gear = Stats::default();
         for (&(slot, quality), &prefix_idx) in slots.iter().zip(slot_prefixes.iter()) {
@@ -1051,11 +1054,28 @@ fn main() {
 
         gear
     } else {
+        eprintln!("\nfinal build:");
+        let mut lines = pw.iter().zip(PREFIXES.iter()).filter_map(|(&w, prefix)| {
+            if w > 0.0 { Some((w, prefix.name)) } else { None }
+        }).collect::<Vec<_>>();
+        lines.sort_by_key(|&(w, _)| optimize::AssertTotal(-w));
+        for (w, name) in lines {
+            eprintln!("{} = {}", name, w);
+        }
+
         calc_gear_stats(&pw)
     };
 
-    eprintln!("{:?}", gear.map(|_, x| x.round() as u32));
+    let (rune, sigil1, sigil2, food, utility) = cfg;
+    eprintln!("rune = {}", rune.display_name());
+    eprintln!("sigil1 = {}", sigil1.display_name());
+    eprintln!("sigil2 = {}", sigil2.display_name());
+    eprintln!("food = {}", food.display_name());
+    eprintln!("utility = {}", utility.display_name());
+
+    eprintln!("\ngear stats = {:?}", gear.map(|_, x| x.round() as u32));
     let (stats, mods) = ch.calc_stats(&gear, &cfg);
-    eprintln!("{:?}", stats.map(|_, x| x.round() as u32));
-    //eprintln!("{:#?}", mods);
+    eprintln!("total stats = {:?}", stats.map(|_, x| x.round() as u32));
+    let m = ch.evaluate(&cfg, &stats, &mods);
+    eprintln!("metric = {}", m);
 }

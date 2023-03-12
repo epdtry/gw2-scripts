@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
+use crate::{GEAR_SLOTS, PREFIXES, NUM_PREFIXES};
 use crate::character::CharacterModel;
+use crate::gear::{GearSlot, Quality};
 use crate::stats::Stats;
 
 pub mod coarse;
@@ -7,7 +9,7 @@ pub mod fine;
 
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Hash, Default)]
-struct AssertTotal<T>(pub T);
+pub struct AssertTotal<T>(pub T);
 
 impl<T: PartialEq> Eq for AssertTotal<T> {}
 
@@ -22,3 +24,16 @@ fn evaluate_config<C: CharacterModel>(ch: &C, gear: &Stats, cfg: &C::Config) -> 
     let (stats, mods) = ch.calc_stats(gear, cfg);
     ch.evaluate(cfg, &stats, &mods)
 }
+
+
+fn calc_max_weight(slots: &[(GearSlot, Quality)]) -> f32 {
+    // Use the power stat of full berserker's as a baseline.
+    let prefix = PREFIXES.iter().find(|p| p.name == "Berserker's").unwrap();
+
+    let mut acc = 0.;
+    for &(slot, quality) in slots {
+        acc += GEAR_SLOTS[slot].calc_stats(prefix, quality).power;
+    }
+    acc / prefix.formulas.power.factor
+}
+
