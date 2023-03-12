@@ -50,6 +50,11 @@ pub struct Modifiers {
     pub boon_duration: PerBoon<f32>,
     pub max_health: f32,
 
+    /// Percent reduction of incoming strike damage.
+    ///
+    /// TODO: figure out how reduction from different sources should stack
+    pub incoming_strike_damage_reduction: f32,
+
     /// Extra condition points per second provided by gear, as opposed to points that come from the
     /// skill rotation.  One point = one stack * one second.  For example, Superior Sigil of
     /// Torment has the effect "Inflict 2 stacks of torment for 5 seconds to enemies around your
@@ -72,6 +77,10 @@ enumerated_struct! {
             pub confuse, Confuse;
             pub poison, Poison;
             pub torment, Torment;
+            pub vulnerable, Vulnerable;
+            pub immobilize, Immobilize;
+            pub weakness, Weakness;
+            pub cripple, Cripple;
         }
         fn map<U>, FnMut(T) -> U;
     }
@@ -87,6 +96,21 @@ impl Condition {
             Condition::Poison => (33.5, 0.06),
             // Torment, while stationary, PvE
             Condition::Torment => (31.8, 0.09),
+            // Other conditions are non-damaging
+            _ => (0., 0.),
+        }
+    }
+
+    pub fn does_damage(self) -> bool {
+        let (x, y) = self.damage_params();
+        x != 0. || y != 0.
+    }
+
+    pub fn max_stacks(self) -> f32 {
+        match self {
+            Condition::Vulnerable => 25.,
+            _ if self.does_damage() => 1500.,
+            _ => 1.,
         }
     }
 }
@@ -94,10 +118,18 @@ impl Condition {
 impl<T> PerCondition<T> {
     pub fn sum(&self) -> T
     where for<'a> &'a T: Add<&'a T, Output = T> {
-        let acc = &self.bleed + &self.burn;
-        let acc = &acc + &self.confuse;
-        let acc = &acc + &self.poison;
-        let acc = &acc + &self.torment;
+        let PerCondition {
+            ref bleed, ref burn, ref confuse, ref poison, ref torment,
+            ref vulnerable, ref immobilize, ref weakness, ref cripple,
+        } = *self;
+        let acc = bleed + burn;
+        let acc = &acc + confuse;
+        let acc = &acc + poison;
+        let acc = &acc + torment;
+        let acc = &acc + vulnerable;
+        let acc = &acc + immobilize;
+        let acc = &acc + weakness;
+        let acc = &acc + cripple;
         acc
     }
 }
@@ -130,6 +162,7 @@ impl Boon {
     pub fn max_stacks(self) -> f32 {
         match self {
             Boon::Might => 25.,
+            Boon::Stability => 25.,
             _ => 1.,
         }
     }
@@ -220,5 +253,10 @@ impl Stats {
 
     pub fn armor(&self, mods: &Modifiers, weight: ArmorWeight) -> f32 {
         weight.base_armor() + self.toughness
+    }
+
+    pub fn incoming_strike_damage_multiplier(&self, mods: &Modifiers) -> f32 {
+        let reduction = cap(mods.incoming_strike_damage_reduction, 100.);
+        1. - reduction / 100.
     }
 }

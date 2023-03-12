@@ -21,8 +21,8 @@ impl<T: PartialEq + PartialOrd> Ord for AssertTotal<T> {
 
 
 fn evaluate_config<C: CharacterModel>(ch: &C, gear: &Stats, cfg: &C::Config) -> f32 {
-    let (stats, mods) = ch.calc_stats(gear, cfg);
-    ch.evaluate(cfg, &stats, &mods)
+    let (stats, mods, combat) = ch.calc_stats(gear, cfg);
+    ch.evaluate(cfg, &stats, &mods, &combat)
 }
 
 

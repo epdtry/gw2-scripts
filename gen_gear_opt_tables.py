@@ -234,11 +234,11 @@ def interpret_bonus(s):
             'burn': 'burn',
             'confusion': 'confuse',
             'torment': 'torment',
-            'weakness': None,
+            'weakness': 'weakness',
             'chill': None,
             'fear': None,
-            'cripple': None,
-            'vulnerability': None,
+            'cripple': 'cripple',
+            'vulnerability': 'vulnerable',
             # These are actually CC, not conditions
             'daze': None,
             'stun': None,
@@ -373,14 +373,23 @@ class Writer:
     def finish(self):
         return '\n'.join(self.lines)
 
+EFFECT_TRAIT_METHODS = {
+    'add_permanent': [('s', '&mut Stats'), ('m', '&mut Modifiers')],
+    'distribute': [('s', '&mut Stats'), ('m', '&mut Modifiers')],
+    'add_temporary':
+        [('s', '&mut Stats'), ('m', '&mut Modifiers'), ('c', '&CombatSecond')],
+}
+
 def mk_effect_impl(w, name, display_name, parts):
     w.emit('#[allow(unused_variables)]')
     w.emit('impl Effect for %s {' % name)
     for method, lines in parts.items():
         if len(lines) == 0:
             continue
+        args = EFFECT_TRAIT_METHODS[method]
+        arg_decl_str = ', '.join('%s: %s' % (arg, ty) for arg, ty in args)
         with w.indent():
-            w.emit('fn %s(&self, s: &mut Stats, m: &mut Modifiers) {' % method)
+            w.emit('fn %s(&self, %s) {' % (method, arg_decl_str))
             with w.indent():
                 for line in lines:
                     w.emit(line)
@@ -462,13 +471,16 @@ def print_dispatch_enum(name, items):
     # Effect impl
     w.emit('impl Effect for %s {' % name)
     with w.indent():
-        for method in ['add_permanent', 'distribute', 'add_temporary']:
-            w.emit('fn %s(&self, s: &mut Stats, m: &mut Modifiers) {' % method)
+        for method, args in EFFECT_TRAIT_METHODS.items():
+            arg_decl_str = ', '.join('%s: %s' % (arg, ty) for arg, ty in args)
+            arg_use_str = ', '.join(arg for arg, ty in args)
+            w.emit('fn %s(&self, %s) {' % (method, arg_decl_str))
             with w.indent():
                 w.emit('match *self {')
                 with w.indent():
                     for item in items:
-                        w.emit('%s::%s(x) => x.%s(s, m),' % (name, item, method))
+                        w.emit('%s::%s(x) => x.%s(%s),' % (
+                            name, item, method, arg_use_str))
                 w.emit('}')
             w.emit('}')
     w.emit('}')

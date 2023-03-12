@@ -33,9 +33,10 @@ fn report<C: CharacterModel>(ch: &C, pw: &PrefixWeights, cfg: &C::Config, m: f32
     eprintln!("config = {:?}", cfg);
     let gear = calc_gear_stats(&pw);
     eprintln!("gear stats = {:?}", gear.map(|_, x| x.round() as u32));
-    let (stats, mods) = ch.calc_stats(&gear, &cfg);
+    let (stats, mods, combat) = ch.calc_stats(&gear, &cfg);
     eprintln!("total stats = {:?}", stats.map(|_, x| x.round() as u32));
     eprintln!("modifiers = {:?}", mods);
+    eprintln!("combat behavior = {:?}", combat);
     eprintln!();
 }
 
