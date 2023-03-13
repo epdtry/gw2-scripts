@@ -44,7 +44,7 @@ def fetch_cached(url):
 def main():
     profession_name_strings = [
         'Elementalist',
-        # 'Engineer',
+        'Engineer',
         # 'Guardian',
         'Mesmer',
         'Necromancer',
@@ -58,6 +58,7 @@ def main():
 
     ssl._create_default_https_context = ssl._create_unverified_context
     all_urls = fetch_all_sc_build_urls()
+    print('There are ', len(all_urls), ' urls from snowcrows...')
     for url_to_get in all_urls:
         html_string = fetch_cached(url_to_get)
         soup = BeautifulSoup(html_string, 'html.parser')
@@ -71,6 +72,7 @@ def main():
             continue
 
         allspans = soup.findAll('div', {'data-armory-ids' : True})
+        found_first_helm = False
         for span in allspans:
             if (len(span.attrs['data-armory-ids'].split(',')) > 1):
                 continue
@@ -82,15 +84,27 @@ def main():
 
             if armory_item == None:
                 continue
+
+
             if armory_item['type'] == 'Weapon':
                 weapon_type = armory_item['details']['type']
                 if weapon_type == 'SmallBundle':
                     continue
+                # if weapon_type == 'Shield':
+                #     print(weapon_type, ' build: ', url_to_get)
                 weapons_count[weapon_type] = weapons_count.get(weapon_type, 0) + 1
             if armory_item['type'] == 'Armor' or armory_item['type'] == 'Trinket':
                 armory_type = armory_item['details']['type']
-                if armory_type != 'Ring':
-                    continue
+
+                # Uncomment below if you only want first build of a page
+                # if armory_type == 'Helm': 
+                #     if not found_first_helm:
+                #         found_first_helm = True
+                #     else:
+                #         break
+                
+                # if armory_type != 'Ring':
+                #     continue
                 stat_number_attrib_name = 'data-armory-' + str(armory_id) + '-stat'
                 stat_number = span.attrs.get(stat_number_attrib_name, '-1')
                 itemstats = gw2.itemstats.get(int(stat_number))
