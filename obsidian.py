@@ -61,7 +61,6 @@ def main():
     report([(5, 'Lump of Mistonium', 'item'), (96, 'Coin', 'currency')])
     report([(5, 'Branded Mass', 'item'), (96, 'Coin', 'currency')])
     report([(5, 'Mistborn Mote', 'item'), (96, 'Coin', 'currency')])
-    report([(5, 'Difluorite Crystal', 'item'), (96, 'Coin', 'currency')])
 
     # 75 eternal ice -> 10 mistborn mote -> 200 VM -> 2 obsidian
     report([(75, 'Eternal Ice Shard', 'item'), (2688, 'Karma', 'currency')],
