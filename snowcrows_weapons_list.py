@@ -45,13 +45,13 @@ def main():
     profession_name_strings = [
         'Elementalist',
         'Engineer',
-        # 'Guardian',
+        'Guardian',
         'Mesmer',
         'Necromancer',
-        # 'Ranger',
-        # 'Revenant',
-        # 'Thief',
-        # 'Warrior',
+        'Ranger',
+        'Revenant',
+        'Thief',
+        'Warrior',
         ]
     weapons_count = {}
     armor_stats_count = {}
