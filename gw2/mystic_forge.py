@@ -328,6 +328,41 @@ def _get():
         (75, 'Obsidian Shard'),
     ))
 
+    # Legendary crafting - raid armor
+
+    add(1, 'Gift of Prosperity', (
+        (1, 'Gift of Craftsmanship'),
+        (15, 'Mystic Clover'),
+        (1, 'Gift of Condensed Might'),
+        (1, 'Gift of Condensed Magic'),
+    ))
+
+    add(1, 'Gift of Prowess', (
+        (25, 'Legendary Insight'),
+        (1, 'Eldritch Scroll'),
+        (50, 'Obsidian Shard'),
+        (1, 'Cube of Stabilized Dark Energy'),
+    ))
+
+    add(1, 'Gift of Dedication', (
+        (5, 'Auric Ingot'),
+        (5, 'Reclaimed Metal Plate'),
+        (5, 'Chak Egg'),
+        (1, 'Gift of the Pact'),
+    ))
+
+    add(1, 'Gift of the Pact', (
+        (250, 'Airship Part'),
+        (250, 'Lump of Aurillium'),
+        # Bag of Ley-Line Crystals, which we currently use as a stand-in due to
+        # lack of an actual Ley Line Crystal item
+        (250, 70072),
+    ))
+
+    add(1, 'Gift of Craftsmanship', (
+        (50, '1 Provisioner Token'),
+    ))
+
 
     # Bought from vendors
     add(1, 'Chunk of Ancient Ambergris', ((10, 'Flawless Fish Fillet'),))
