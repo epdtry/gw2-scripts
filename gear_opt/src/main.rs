@@ -343,6 +343,7 @@ fn cairn_solo_rune_valid(rune: Rune) -> bool {
         Rune::Centaur(_) => true,
         Rune::Aristocracy(_) => true,
         Rune::Tormenting(_) => true,
+        Rune::Forgeman(_) => true,
         s => s.is_known(),
     }
 }
@@ -455,17 +456,17 @@ fn cairn_solo_sigil_effect(
 
 
 struct CairnSoloAir {
-    dps: DpsModel,
+    base_combat: CombatSecond,
 }
 
 impl CairnSoloAir {
     pub fn new() -> CairnSoloAir {
         let mut ch = CairnSoloAir {
-            dps: DpsModel::zero(),
+            base_combat: CombatSecond::default(),
         };
 
         // 2023-03-11
-        ch.dps = DpsModel::new(&ch, Baseline {
+        let baseline = Baseline {
             gear: Stats {
                 power: 606.,
                 precision: 452.,
@@ -479,25 +480,36 @@ impl CairnSoloAir {
                 rune::Baelfire.into(),
                 sigil::Battle.into(),
                 sigil::Torment.into(),
-                food::PricklyPearTapiocaPudding.into(),
+                food::RedLentilSaobosa.as_known(),
                 utility::ToxicFocusingCrystal.into(),
             ),
-            dps: 8027.,
+            dps: 10586.,
             condition_percent: PerCondition {
-                burn: 66.5,
-                bleed: 9.1,
-                torment: 7.0,
+                burn: 66.8,
+                bleed: 8.3,
+                torment: 6.1,
                 .. 0.0.into()
             },
             boon_uptime: PerBoon {
-                might: 958.,
-                fury: 73.,
-                regeneration: 66.,
-                vigor: 25.,
-                swiftness: 101.,
+                might: 950.,
+                fury: 91.,
+                swiftness: 112.,
+                vigor: 36.,
+                regeneration: 55.,
                 .. 0.0.into()
             },
-        });
+        };
+
+        ch.base_combat = CombatSecond {
+            strike: CombatEvent::new(1006. / 378., 0.),
+            flanking: 0.23,
+            cast: 1.2,
+
+            .. CombatSecond::default()
+        };
+        ch.base_combat = baseline.update_base_combat(&ch, &ch.base_combat);
+
+        eprintln!("{:#?}", ch.base_combat);
 
         ch
     }
@@ -533,14 +545,22 @@ impl CharacterModel for CairnSoloAir {
             .chain(food)
             .chain(utility)
 
-            // Trait: Empowering Flame (4/8 fire uptime)
+            // Trait: Empowering Flame (2/3 fire uptime)
             .chain_add_temporary(|s, _m, _c| {
-                let strength = 4. / 8.;
+                let strength = 2. / 3.;
                 s.condition_damage += strength * 150.;
             })
             // Trait: Burning Precision
             .chain_add_permanent(|_s, m| {
                 m.condition_duration.burn += 20.;
+            })
+            .chain_combat_procs(|evt, c| {
+                let freq = effect::proc_frequency(5., evt.crit / 3.);
+                c.condition.burn += CombatEvent::single(3.) * freq;
+            })
+            // Trait: Sunspot
+            .chain_combat_procs(|evt, c| {
+                c.aura += CombatEvent::single(3.) * 2. / Self::ROTATION_DUR;
             })
             // Trait: Burning Rage
             .chain_add_permanent(|s, _m| {
@@ -556,19 +576,40 @@ impl CharacterModel for CairnSoloAir {
                 let strength = 9.;
                 m.strike_damage += strength * 1.;
             })
+
             // Trait: Zephyr's Speed
             .chain_add_permanent(|_s, m| {
                 m.crit_chance += 5.;
             })
+            // Trait: Zephyr's Boon
+            .chain_combat_procs(|evt, c| {
+                let freq = evt.aura.count;
+                c.boon.fury += CombatEvent::single(5.) * freq;
+                c.boon.swiftness += CombatEvent::single(5.) * freq;
+            })
+            // Trait: Inscription - handled in the rotation below
             // Trait: Aeromancer's Training
             .chain_add_permanent(|s, _m| {
                 s.ferocity += 150.;
                 // Also adds +150 ferocity while attuned to air.
             })
+            // Trait: Bolt to the Heart - ignored, since it's hard to model when we only have
+            // baselines from the first half of the fight.
+
             // Trait: Superior Elements (100% uptime)
-            .chain_add_temporary(|_s, m, _c| {
-                let strength = 1.;
+            .chain_add_temporary(|s, m, c| {
+                let strength = c.calc_condition_uptime(s, m, Condition::Weakness);
                 m.crit_chance += strength * 15.;
+            })
+            .chain_combat_procs(|evt, c| {
+                let freq = effect::proc_frequency(4., evt.cast_weaver_dual);
+                c.condition.weakness += CombatEvent::single(5.) * freq;
+            })
+            // Trait: Elemental Refreshment
+            .chain_combat_procs(|evt, c| {
+                let freq = evt.cast_weaver_dual;
+                c.heal_flat += CombatEvent::single(523.) * freq;
+                c.heal += CombatEvent::single(0.2875) * freq;
             })
             // Trait: Weaver's Prowess (100% uptime)
             .chain_add_temporary(|_s, m, _c| {
@@ -585,6 +626,11 @@ impl CharacterModel for CairnSoloAir {
                 s.ferocity += 2. / 8. * 120.;
                 s.vitality += 4. / 8. * 120.;
             })
+            // Trait: Woven Stride
+            .chain_combat_procs(|evt, c| {
+                let freq = effect::proc_frequency(3., evt.boon.swiftness.count);
+                c.boon.regeneration += CombatEvent::single(3.) * freq;
+            })
 
             // Woven Fire (1/3 uptime)
             .chain_add_temporary(|_s, m, _c| {
@@ -592,23 +638,154 @@ impl CharacterModel for CairnSoloAir {
                 m.condition_damage += strength * 20.;
             })
 
-            .chain_add_permanent(|s, m| {
-                // Healing skill has a 16s cooldown, after applying the reduction from the air
-                // glyph trait.
-                let healing_interval = 16.;
-                let dual_interval = Self::DUAL_INTERVAL;
-                cairn_solo_rune_effect(s, m, rune, healing_interval, dual_interval);
-            })
-            .chain_add_permanent(|s, m| {
-                for &sigil in [sigil1, sigil2].iter() {
-                    cairn_solo_sigil_effect(s, m, sigil);
+            // Rune and sigil procs
+            .chain_combat_procs(|evt, c| {
+                match rune {
+                    Rune::Fireworks(_) => {
+                        let freq = 1. / 20.;
+                        c.boon.might += CombatEvent::single(6. * 6.) * freq;
+                        c.boon.fury += CombatEvent::single(6.) * freq;
+                        c.boon.vigor += CombatEvent::single(6.) * freq;
+                    },
+                    Rune::Pack(_) => {
+                        let freq = 1. / 30.;
+                        c.boon.might += CombatEvent::single(5. * 8.) * freq;
+                        c.boon.fury += CombatEvent::single(8.) * freq;
+                        c.boon.swiftness += CombatEvent::single(8.) * freq;
+                    },
+                    Rune::Brawler(_) => {
+                        let freq = effect::proc_frequency(10., evt.cast_healing);
+                        c.boon.might += CombatEvent::single(5. * 10.) * freq;
+                    },
+                    Rune::Centaur(_) => {
+                        let freq = effect::proc_frequency(10., evt.cast_healing);
+                        c.boon.swiftness += CombatEvent::single(10.) * freq;
+                    },
+                    Rune::Aristocracy(_) => {
+                        let freq = effect::proc_frequency(1., evt.condition.weakness.count);
+                        c.boon.might += CombatEvent::single(5. * 4.) * freq;
+                    },
+                    Rune::Tormenting(_) => {
+                        let freq = effect::proc_frequency(5., evt.condition.torment.count);
+                        c.boon.regeneration += CombatEvent::single(3.) * freq;
+                    },
+                    Rune::Forgeman(_) => {
+                        // Procs when struck while below 75% health; ICD: 20 seconds.
+                        let freq = 1. / 25.;
+                        c.aura += CombatEvent::single(4.) * freq;
+                    },
+                    _ => {},
                 }
             })
 
-            .chain(boon::OldMight(self.dps.boon_points.might))
-            .chain(boon::OldFury(self.dps.boon_points.fury))
+            .chain_combat_procs(|evt, c| {
+                for &sigil in [sigil1, sigil2].iter() {
+                    match sigil {
+                        Sigil::Blight(_) => {
+                            let freq = effect::proc_frequency(8., evt.crit);
+                            c.condition.poison += CombatEvent::single(2. * 4.) * freq;
+                        },
+                        Sigil::Blood(_) => {
+                            let freq = effect::proc_frequency(5., evt.crit);
+                            c.strike_flat += CombatEvent::single(451.) * freq;
+                            //c.strike += CombatEvent::single(0.75) * freq;
+                            c.heal_flat += CombatEvent::single(453.) * freq;
+                            c.heal += CombatEvent::single(0.1) * freq;
+                        },
+                        Sigil::Earth(_) => {
+                            let freq = effect::proc_frequency(2., evt.crit);
+                            c.condition.bleed += CombatEvent::single(6.) * freq;
+                        },
+                        Sigil::Strength(_) => {
+                            let freq = effect::proc_frequency(1., evt.crit);
+                            c.boon.might += CombatEvent::single(10.) * freq;
+                        },
+                        Sigil::Torment(_) => {
+                            let freq = effect::proc_frequency(5., evt.crit);
+                            c.condition.bleed += CombatEvent::single(2. * 5.) * freq;
+                        },
 
-            .apply(&BASE_STATS + gear, Modifiers::default(), CombatSecond::default())
+                        Sigil::Agility(_) => {
+                            let freq = effect::proc_frequency(9., evt.weapon_swap);
+                            c.boon.swiftness += CombatEvent::single(5.) * freq;
+                            c.boon.quickness += CombatEvent::single(1.) * freq;
+                        },
+                        Sigil::Battle(_) => {
+                            let freq = effect::proc_frequency(9., evt.weapon_swap);
+                            c.boon.might += CombatEvent::single(5. * 12.) * freq;
+                        },
+                        Sigil::Doom(_) => {
+                            let freq = effect::proc_frequency(9., evt.weapon_swap);
+                            c.condition.poison += CombatEvent::single(3. * 8.) * freq;
+                        },
+                        Sigil::Leeching(_) => {
+                            let freq = effect::proc_frequency(9., evt.weapon_swap);
+                            c.strike_flat += CombatEvent::single(975.) * freq;
+                            c.heal_flat += CombatEvent::single(975.) * freq;
+                        },
+                        Sigil::Renewal(_) => {
+                            let freq = effect::proc_frequency(9., evt.weapon_swap);
+                            c.heal_flat += CombatEvent::single(345.) * freq;
+                            c.heal += CombatEvent::single(0.4) * freq;
+                        },
+
+                        Sigil::Frailty(_) => {
+                            let freq = effect::proc_frequency(2., evt.flanking);
+                            c.condition.vulnerable += CombatEvent::single(2. * 8.) * freq;
+                        },
+                        Sigil::Incapacitation(_) => {
+                            let freq = effect::proc_frequency(5., evt.flanking);
+                            c.condition.cripple += CombatEvent::single(2.) * freq;
+                        },
+
+                        _ => {},
+                    }
+                }
+            })
+
+            // Important rotation skills
+            .chain_combat_procs(|evt, c| {
+                // Weapon/attunement swap
+                c.weapon_swap += 1. / 4.5;
+
+                // Fire Shield (fire 5)
+                c.aura += CombatEvent::single(4.) / 20.;
+
+                // Phoenix (fire 3)
+                c.boon.vigor += CombatEvent::single(5.) / Self::ROTATION_DUR;
+
+                // Rock Barrier (earth 2)
+                c.heal_flat += CombatEvent::single(1735.) / Self::ROTATION_DUR;
+                c.heal += CombatEvent::single(0.4) / Self::ROTATION_DUR;
+                c.boon.resistance += CombatEvent::single(4.) / Self::ROTATION_DUR;
+
+                // Dual attacks
+                c.cast_weaver_dual += 1. / Self::ROTATION_DUR;
+
+                // Glyph of Elemental Harmony (healing skill)
+                // Cooldown is 16s due to inscription trait.
+                let freq = 1. / 16.;
+                c.cast_healing += freq;
+                c.heal_flat += CombatEvent::single(6494.) * freq;
+                c.heal += CombatEvent::single(1.2) * freq;
+                // Assume we usually use the heal in fire attunement
+                c.boon.might += CombatEvent::single(3. * 20.) * freq;
+                // Additional might from the Inscription trait
+                c.boon.might += CombatEvent::single(10.) * freq;
+                // Assume we use the heal in air attunement 1/4 of the time
+                //c.boon.swiftness += CombatEvent::single(10.) * freq * 0.25;
+                //c.boon.swiftness += CombatEvent::single(10.) * freq * 0.25;
+
+                // Stone Resonance
+                c.heal_flat += CombatEvent::single(1069.) * 5. / 50.;
+                c.heal += CombatEvent::single(0.15) * 5. / 50.;
+                c.boon.stability += CombatEvent::single(5.) / 50.;
+            })
+
+            .chain(boon::Might)
+            .chain(boon::Fury)
+
+            .apply(&BASE_STATS + gear, Modifiers::default(), self.base_combat)
     }
 
     fn evaluate(
@@ -616,32 +793,19 @@ impl CharacterModel for CairnSoloAir {
         _config: &Self::Config,
         stats: &Stats,
         mods: &Modifiers,
-        _combat: &CombatSecond,
+        combat: &CombatSecond,
     ) -> f32 {
-        let mut dps = self.dps.clone();
-
         let rotation_dur = Self::ROTATION_DUR;
         let dual_interval = Self::DUAL_INTERVAL;
 
         // Approximate heal per second from regen, glyph, and barrier
-        let glyph_heal = 6494. + 1.2 * stats.healing_power;
-        let stone_heal = (1069. + 0.15 * stats.healing_power) * 5.;
-        let rock_heal = 1753. + 0.4 * stats.healing_power;
-        let water_heal = 1832. + 1.0 * stats.healing_power;
-        let dual_heal = 523. + 0.2875 * stats.healing_power;
-        let regen_heal =
-            dps.calc_boon_uptime(stats, mods, Boon::Regeneration) * stats.regen_heal(mods);
-        let hps = regen_heal
-            + glyph_heal / 16.
-            + stone_heal / 50.
-            + rock_heal * 1. / rotation_dur
-            + dual_heal / dual_interval
-            ;
+        let hps = combat.calc_heal_per_second(stats, mods);
 
-        let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3.;
+        let aura_dps = 3100000. / stats.armor(mods, ArmorWeight::Light) / 3. *
+            stats.incoming_strike_damage_multiplier(mods);
         //let aura_dps = 500.;
         let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 200.;
+        let hps_margin = 50.;
 
         //let min_hps = 0.;
         let min_hps = aura_dps + agony_dps + hps_margin;
@@ -649,15 +813,15 @@ impl CharacterModel for CairnSoloAir {
             return 30000. + min_hps - hps;
         }
 
-        let min_swiftness = 1.00;
-        let swiftness = dps.calc_boon_uptime_raw(stats, mods, Boon::Swiftness);
+        let min_swiftness = 1.05;
+        let swiftness = combat.calc_boon_uptime_raw(stats, mods, Boon::Swiftness);
         if swiftness < min_swiftness {
             return 20000. + (min_swiftness - swiftness) * 100.;
         }
 
         // Require a certain amount of DPS.
         let min_dps = 0.;
-        let dps = dps.calc_dps(stats, mods);
+        let dps = combat.calc_dps(stats, mods);
         if dps < min_dps {
             return 10000. + min_dps - dps;
         }
@@ -699,25 +863,25 @@ impl CairnSoloEarth {
                 food::FireMeatChili.into(),
                 utility::ToxicFocusingCrystal.into(),
             ),
-            dps: 8686.,
+            dps: 10094.,
             condition_percent: PerCondition {
-                burn: 67.7,
+                burn: 68.4,
                 bleed: 9.8,
                 .. 0.0.into()
             },
             boon_uptime: PerBoon {
-                might: 1414.,
-                fury: 38.,
-                swiftness: 110.,
-                vigor: 37.,
-                regeneration: 46.,
+                might: 1309.,
+                fury: 40.,
+                swiftness: 113.,
+                vigor: 50.,
+                regeneration: 47.,
                 .. 0.0.into()
             },
         };
 
         ch.base_combat = CombatSecond {
-            strike: CombatEvent::new(1273. / 559., 0.),
-            flanking: 0.23,
+            strike: CombatEvent::new(1093. / 398., 0.),
+            flanking: 0.223,
             cast: 1.2,
 
             .. CombatSecond::default()
@@ -725,24 +889,6 @@ impl CairnSoloEarth {
         ch.base_combat = baseline.update_base_combat(&ch, &ch.base_combat);
 
         eprintln!("{:#?}", ch.base_combat);
-        //ch.base_combat.boon.swiftness = CombatEvent::new(0., 0.);
-
-        let (stats, mods, combat) = ch.calc_stats(&baseline.gear, &baseline.config);
-        eprintln!("dps = {}", combat.calc_dps(&stats, &mods));
-        eprintln!("hps = {}", combat.calc_heal_per_second(&stats, &mods));
-        eprintln!("might = {}", combat.calc_boon_uptime_raw(&stats, &mods, Boon::Might));
-        eprintln!("swiftness = {}", combat.calc_boon_uptime_raw(&stats, &mods, Boon::Swiftness));
-
-        let aura_dps = 3100000. / stats.armor(&mods, ArmorWeight::Light) / 3. *
-            stats.incoming_strike_damage_multiplier(&mods);
-        //let aura_dps = 500.;
-        let agony_dps = stats.max_health(&mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 150.;
-        eprintln!("strike multiplier = {}", stats.incoming_strike_damage_multiplier(&mods));
-        eprintln!("aura dps = {}", aura_dps);
-        eprintln!("agony dps = {}", agony_dps);
-        eprintln!("hps margin = {}", hps_margin);
-        eprintln!("required hps = {}", aura_dps + agony_dps + hps_margin);
 
         ch
     }
@@ -793,7 +939,7 @@ impl CharacterModel for CairnSoloEarth {
             })
             // Trait: Sunspot
             .chain_combat_procs(|evt, c| {
-                c.aura += CombatEvent::single(1.) / Self::ROTATION_DUR;
+                c.aura += CombatEvent::single(3.) * 2. / Self::ROTATION_DUR;
             })
             // Trait: Burning Rage
             .chain_add_permanent(|s, _m| {
@@ -869,6 +1015,10 @@ impl CharacterModel for CairnSoloEarth {
                 let strength = 1./3.;
                 m.condition_damage += strength * 20.;
             })
+            // Signet of Fire (passive)
+            .chain_add_temporary(|s, _m, _c| {
+                s.precision += 180.;
+            })
 
             // Rune and sigil procs
             .chain_combat_procs(|evt, c| {
@@ -900,6 +1050,11 @@ impl CharacterModel for CairnSoloEarth {
                     Rune::Tormenting(_) => {
                         let freq = effect::proc_frequency(5., evt.condition.torment.count);
                         c.boon.regeneration += CombatEvent::single(3.) * freq;
+                    },
+                    Rune::Forgeman(_) => {
+                        // Procs when struck while below 75% health; ICD: 20 seconds.
+                        let freq = 1. / 25.;
+                        c.aura += CombatEvent::single(4.) * freq;
                     },
                     _ => {},
                 }
@@ -1033,13 +1188,20 @@ impl CharacterModel for CairnSoloEarth {
             stats.incoming_strike_damage_multiplier(mods);
         //let aura_dps = 500.;
         let agony_dps = stats.max_health(mods, HealthTier::Low) * 0.10 / 3.;
-        let hps_margin = 0.;
+        let hps_margin = 100.;
 
         //let min_hps = 0.;
         let min_hps = aura_dps + agony_dps + hps_margin;
         if hps < min_hps {
             return 30000. + min_hps - hps;
         }
+
+        /*
+        let min_healing_power = 500.;
+        if stats.healing_power < min_healing_power {
+            return 30000. + min_healing_power - stats.healing_power;
+        }
+        */
 
         let min_swiftness = 1.05;
         let swiftness = combat.calc_boon_uptime_raw(stats, mods, Boon::Swiftness);
@@ -1108,7 +1270,7 @@ fn main() {
     let ch = CairnSoloArcane::new();
     let ch = CairnSoloAir::new();
     //let ch = CairnSoloAirStaff::new();
-    let ch = CairnSoloEarth::new();
+    //let ch = CairnSoloEarth::new();
     //let ch = MechTank;
 
 
@@ -1172,6 +1334,15 @@ fn main() {
         let (slot_prefixes, infusions) = fine::optimize_fine(
             &ch, &cfg, &slots, &prefix_idxs, Some(&pw));
 
+        /*
+        let prefix_idxs = (0 .. NUM_PREFIXES).filter(|&i| match PREFIXES[i].name {
+            "Viper's" | "Celestial" | "Sinister" | "Seraph" | "Apothecary's" => true,
+            _ => false,
+        }).collect::<Vec<_>>();
+        let (slot_prefixes, infusions) = fine::optimize_fine(
+            &ch, &cfg, &slots, &prefix_idxs, None);
+        */
+
         println!("\nfinal build:");
         print_coarse_prefix_weights(&pw);
         println!();
@@ -1209,7 +1380,7 @@ fn main() {
     println!("total stats = {:?}", stats.map(|_, x| x.round() as u32));
     let m = ch.evaluate(&cfg, &stats, &mods, &combat);
     println!("metric = {}", m);
-    eprintln!("combat = {:#?}", combat);
+    //eprintln!("combat = {:#?}", combat);
     eprintln!("dps = {}", combat.calc_dps(&stats, &mods));
     eprintln!("hps = {}", combat.calc_heal_per_second(&stats, &mods));
     eprintln!("might = {}", combat.calc_boon_uptime_raw(&stats, &mods, Boon::Might));

@@ -96,6 +96,15 @@ impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I, 9 J);
 impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I, 9 J, 10 K);
 impl_vary_for_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H, 8 I, 9 J, 10 K, 11 L);
 
+impl Vary for bool {
+    fn num_fields(&self) -> usize { 1 }
+    fn num_field_values(&self, field: usize) -> u16 { 2 }
+    fn get_field(&self, field: usize) -> u16 { *self as u16 }
+    fn set_field(&mut self, field: usize, value: u16) {
+        *self = value != 0;
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub struct Baseline<C> {
@@ -301,9 +310,17 @@ pub struct CombatSecond {
     /// Number of critical hits.  This is updated automatically, so it doesn't need to be set on
     /// initialization.
     pub crit: f32,
+
+    pub named_heals: [(&'static str, f32, f32); 8],
+    pub next_named_heal: usize,
 }
 
 impl CombatSecond {
+    pub fn push_named_heal(&mut self, name: &'static str, flat: f32, scaling: f32) {
+        self.named_heals[self.next_named_heal] = (name, flat, scaling);
+        self.next_named_heal += 1;
+    }
+
     pub fn update_crit(&mut self, crit_chance: f32) {
         self.crit = self.strike.count * crit_chance / 100.;
     }
