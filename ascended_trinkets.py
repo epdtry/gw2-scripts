@@ -26,10 +26,12 @@ def main():
         else:
             raise ValueError('bad input kind %r' % (kind,))
 
+    COLUMN_WIDTH = 11
+
     def report_part(count, cost):
         if cost is None:
-            return ' ' * 10
-        return '%3d x %-4d' % (count // cost, cost)
+            return ' ' * COLUMN_WIDTH
+        return '%4.1f x %-4d' % ((10 * count) // cost / 10, cost)
 
     def report(input_name, input_kind,
             amulet=None, ring=None, accessory=None, back=None, desc=None,
@@ -47,10 +49,10 @@ def main():
         print('  '.join(parts))
 
     print('  '.join((
-        '%-10s' % 'Amulet',
-        '%-10s' % 'Ring',
-        '%-10s' % 'Accessory',
-        '%-10s' % 'Back',
+        '%-{}s'.format(COLUMN_WIDTH) % 'Amulet',
+        '%-{}s'.format(COLUMN_WIDTH) % 'Ring',
+        '%-{}s'.format(COLUMN_WIDTH) % 'Accessory',
+        '%-{}s'.format(COLUMN_WIDTH) % 'Back',
         )))
     report('Laurel', 'currency', amulet=30, ring=35, accessory=40)
     report('Laurel', 'currency', amulet=20, ring=25, accessory=40, desc='WvW')
