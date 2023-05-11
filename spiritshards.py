@@ -28,6 +28,13 @@ LEGENDARY_COST_MAP = {
     "Aurene's Wisdom": BLOODSTONE_SHARD_COST + 38 * MYSTIC_CLOVER_COST
         # Part of the precursor
         + ELDRITCH_SCROLL_COST,
+    # Envoy armor
+    'Perfected Envoy Cowl': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
+    'Perfected Envoy Mantle': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
+    'Perfected Envoy Vestments': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
+    'Perfected Envoy Gloves': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
+    'Perfected Envoy Pants': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
+    'Perfected Envoy Shoes': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
     # Other
     'Legendary Rune': 20 * MYSTIC_CLOVER_COST,
     'Legendary Sigil': 30 * MYSTIC_CLOVER_COST,
