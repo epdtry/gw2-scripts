@@ -317,10 +317,6 @@ def _get():
 
     # Legendary crafting - runes and sigils
 
-    #add(1, 'Gift of Craftsmanship', (
-    #    (50, 'Provisioner Token'),
-    #))
-
     add(1, 'Gift of Sigils', (
         (75, 'Mystic Mote'),
         (30, 'Mystic Clover'),
@@ -361,6 +357,33 @@ def _get():
 
     add(1, 'Gift of Craftsmanship', (
         (50, '1 Provisioner Token'),
+    ))
+
+    # Legendary crafting - Aurora
+    add(1, 'Gift of Sentience', (
+        (1, 'Gift of the Mists'),
+        (100, 'Icy Runestone'),
+        (1, 'Gift of Valor'),
+        (1, 'Gift of Energy'),
+    ))
+
+    add(1, 'Gift of Draconic Mastery', (
+        (1, 'Gift of Bloodstone Magic'),
+        (1, 'Gift of Dragon Magic'),
+        (1, 'Bloodstone Shard'),
+        (1, 'Crystalline Ingot'),
+    ))
+
+    add(1, 'Gift of Bloodstone Magic', (
+        (250, 'Blood Ruby'),
+        (250, 'Jade Shard'),
+        (250, 'Orrian Pearl'),
+    ))
+
+    add(1, 'Gift of Dragon Magic', (
+        (250, 'Petrified Wood'),
+        (250, 'Fresh Winterberry'),
+        (250, 'Fire Orchid Blossom'),
     ))
 
 
