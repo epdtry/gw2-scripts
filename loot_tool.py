@@ -12,6 +12,8 @@ import gw2.items
 import gw2.recipes
 import gw2.trading_post
 
+from bookkeeper import format_price
+
 from loot_tool_models import *
 
 GW2_SCRIPTS_DIR = os.getcwd()
@@ -430,6 +432,8 @@ def cmd_text_to_diff(text_path, diff_path):
     diff_file = open(diff_path, 'w') if diff_path is not None else sys.stdout
     json.dump(diff, diff_file, default=vars)
 
+ITEM_FRACTAL_ENCRYPTION = gw2.items.search_name('Fractal Encryption')
+ITEM_STABILIZING_MATRIX = gw2.items.search_name('Stabilizing Matrix')
 ITEM_CRACKED_FRACTAL_ENCRYPTION = gw2.items.search_name('Cracked Fractal Encryption')
 ITEM_FRACTAL_ENCRYPTION_KEY = gw2.items.search_name('Fractal Encryption Key')
 ITEM_PLUS1_AGONY_INFUSION = gw2.items.search_name('+1 Agony Infusion')
@@ -498,6 +502,18 @@ def cmd_fractal_encryption(args):
             loot_table = merge_loot_tables(loot_table,
                     loot_table_from_data_diff(diff))
 
+    all_item_ids = (
+            [ITEM_FRACTAL_ENCRYPTION, ITEM_STABILIZING_MATRIX] +
+            list(TIER_5_MATERIAL_ITEMS) +
+            [ITEM_PLUS1_AGONY_INFUSION] +
+            [ITEM_MINI_PROFESSOR_MEW]
+            )
+    item_prices = gw2.trading_post.get_prices_multi(all_item_ids)
+    buy_prices = {ip['id']: ip['buys']['unit_price']
+            for ip in item_prices if ip['buys'] is not None}
+    sell_prices = {ip['id']: ip['sells']['unit_price']
+            for ip in item_prices if ip['sells'] is not None}
+
     gold_sum = 0
     relics_sum = 0
     ascended_mats_sum = 0
@@ -539,20 +555,41 @@ def cmd_fractal_encryption(args):
             relics_sum += drop.quantity
 
     entries = [
-            ('Cracked Fractal Encryption', -loot_table.source_item_quantity),
-            ('Silver', gold_sum / 100),
-            ('Fractal Relic', relics_sum),
-            ('Ascended Material', ascended_mats_sum),
-            ('Tier 5 Material', tier_5_mats_sum),
-            ('Fractal Encryption Key', keys_sum),
-            ('+1 Agony Infusion', infusion_sum),
-            ('Mini Professor Mew', mini_sum),
-            ('Ascended Armor Recipe', armor_recipes_sum),
-            ('Ascended Weapon Recipe', weapon_recipes_sum),
+            ('Cracked Fractal Encryption', -loot_table.source_item_quantity,
+                buy_prices[ITEM_FRACTAL_ENCRYPTION] + buy_prices[ITEM_STABILIZING_MATRIX]),
+            ('Silver', gold_sum / 100, 100),
+            ('Fractal Relic', relics_sum, None),
+            ('Ascended Material', ascended_mats_sum,
+                # [fast] lists the value of a Fluctuating Mass at 5s96c
+                596 / 50),
+            ('Tier 5 Material', tier_5_mats_sum,
+                # Average of all tier 5 sell prices
+                sum(sell_prices[item_id] * 0.85 for item_id in TIER_5_MATERIAL_ITEMS)
+                    / len(TIER_5_MATERIAL_ITEMS)),
+            ('Fractal Encryption Key', keys_sum,
+                buy_prices[ITEM_STABILIZING_MATRIX]),
+            ('+1 Agony Infusion', infusion_sum,
+                sell_prices[ITEM_PLUS1_AGONY_INFUSION] * 0.85),
+            ('Mini Professor Mew', mini_sum,
+                sell_prices[ITEM_MINI_PROFESSOR_MEW] * 0.85),
+            ('Ascended Armor Recipe', armor_recipes_sum, None),
+            ('Ascended Weapon Recipe', weapon_recipes_sum, None),
             ]
-    for name, count in entries:
-        print('%8.3f  %10d  %s' % (count / loot_table.source_item_quantity,
-            count, name))
+
+    total_price = 0
+
+    for name, count, unit_price in entries:
+        count_per_box = count / loot_table.source_item_quantity
+        if unit_price is None:
+            price_str = ''
+        else:
+            price_per_box = count_per_box * unit_price
+            price_str = format_price(price_per_box)
+            total_price += price_per_box
+        print('%10d  %8.3f  %10s  %s' % (count, count_per_box, price_str, name))
+
+
+    print('%10s  %8s  %10s  %s' % ('', '', format_price(total_price), 'Total'))
 
 
 
