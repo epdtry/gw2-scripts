@@ -28,6 +28,8 @@ import gw2.recipes
 import gw2.trading_post
 import gw2.character
 
+import bltc.historical_data
+
 
 try:
     import policy
@@ -757,7 +759,7 @@ def policy_forbid_buy():
 
     forbid.remove(gw2.items.search_name('Pile of Lucent Crystal'))
     forbid.add(gw2.items.search_name('Lucent Mote'))
-    forbid.add(gw2.items.search_name('Mithril Ore'))
+    #forbid.add(gw2.items.search_name('Mithril Ore'))
     #forbid.remove(gw2.items.search_name('Vial of Linseed Oil'))
 
     # T6 mats
@@ -851,6 +853,10 @@ def policy_auto_refine():
             gw2.items.search_name('Spirit Shard'),
             gw2.items.search_name('Imperial Favor'),
             )
+
+@policy_func
+def policy_enhance_craft_profit():
+    return False
 
 def default_policy_research_note_strategies(include_disabled=False):
     def group(notes, names, **kwargs):
@@ -947,8 +953,8 @@ def calculate_status():
     sold = gw2.trading_post.total_sold()
     sell_orders, selling_items = gw2.trading_post.pending_sells()
     buy_orders, buying_items = gw2.trading_post.pending_buys()
-    delivery = gw2.api.fetch('/v2/commerce/delivery')
-    wallet_raw = gw2.api.fetch('/v2/account/wallet')
+    delivery = gw2.api.fetch_with_retries('/v2/commerce/delivery')
+    wallet_raw = gw2.api.fetch_with_retries('/v2/account/wallet')
     wallet = {x['id']: x['value'] for x in wallet_raw}
 
     gold = wallet[CURRENCY_COIN]
@@ -1013,7 +1019,6 @@ def calculate_status():
             policy_forbid_craft(),
             policy_can_craft_recipe,
             )
-
 
     # Process items until all stockpile requirements are satisfied.
     buy_items = defaultdict(int)
@@ -1283,6 +1288,8 @@ def cmd_status():
                     count = None
                 unit_price = sell_prices.get(item_id)
                 craft_cost = optimal_cost(item_id)
+                # print('unit_price', item_id, unit_price)
+                # print('craft_cost', item_id, craft_cost)
                 if unit_price is not None and craft_cost is not None:
                     roi = unit_price * 0.85 / craft_cost - 1
                 else:
@@ -1349,6 +1356,7 @@ def cmd_status():
             (CountColumn(), ItemNameColumn(),
                 DualCountColumn('sell', 'craft_sell', 'Sell'),
                 RecentColumn(), AltCountColumn('listed', 'Listed'),
+                UnitPriceColumn(),
                 PercentColumn()),
             [r for r in rows_sell_list
                 if ((r.get('count') or 0) != 0 and
@@ -1860,6 +1868,8 @@ def cmd_profit(name):
     buy_price = buy_prices[item_id]
     sell_price = sell_prices[item_id]
     cost = optimal_cost(item_id)
+    # print('unit_price', item_id, sell_price)
+    # print('craft_cost', item_id, cost)
     print('%s (%d)' % (gw2.items.name(item_id), item_id))
     print('Cost:        %s' % format_price(cost))
     print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
@@ -1870,8 +1880,30 @@ def cmd_profit(name):
     print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
 
 def cmd_jade_bot_core_profits():
-    for tier_level in range(1,11):
-     cmd_profit('Jade Bot Core: Tier ' + str(tier_level))
+    jade_bot_cores_names = ['Jade Bot Core: Tier ' + str(tier_level) for tier_level in reversed(range(1,11))]
+    jade_bot_core_item_ids = [parse_item_id(name) for name in jade_bot_cores_names]
+    related_items = gather_related_items(jade_bot_core_item_ids)
+    buy_prices, sell_prices = get_prices(related_items)
+
+    for item_id in jade_bot_core_item_ids:
+        set_strategy_params(
+                buy_prices,
+                policy_forbid_buy().union((item_id,)),
+                policy_forbid_craft(),
+                policy_can_craft_recipe,
+                )
+
+        buy_price = buy_prices[item_id]
+        sell_price = sell_prices[item_id]
+        cost = optimal_cost(item_id)
+        print('%s (%d)' % (gw2.items.name(item_id), item_id))
+        print('Cost:        %s' % format_price(cost))
+        print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
+        print('Buy price:   %s' % format_price(buy_price))
+        print('Sell price:  %s' % format_price(sell_price))
+        profit = sell_price * 0.85 - cost
+        profit_pct = 100 * profit / cost
+        print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
 
 # One line per category.  In each category, you can only sell one item per day.
 # TODO: switch to string search terms once gw2.items handles name collisions
@@ -2105,14 +2137,20 @@ def cmd_gen_profit_sql():
 def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
     if row_filter is None:
         def row_filter(x):
-            if x['sell_price'] >= x['buy_price'] * 1.5:
+            # if x['sell_price'] >= x['buy_price'] * 5.5:
+            #     return False
+            # if x['demand'] < 75:
+            #     return False
+            if x['roi'] < 0.02 or x['roi'] > 2:
                 return False
-            if x['demand'] < 100: # or x['demand'] < x['supply']: - this isn't a good filter for gw2. see: Peice of Dragon Jade or Sup Rune of the Elementalist
+            if x['craft_cost'] < 5000:
                 return False
-            if x['roi'] < 0.08 or x['roi'] > 2:
-                return False
-            if x['craft_cost'] < 2000:
-                return False
+            # if x['profit'] < 2000:
+            #     return False
+            
+            if policy_enhance_craft_profit():
+                if x['count_volume'] < 110:
+                    return False
 
             item = x['item']
             if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
@@ -2134,6 +2172,9 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
     buy_prices, sell_prices = get_prices(related_items)
     forbid_buy = policy_forbid_buy()
     forbid_craft = policy_forbid_craft()
+    historical_data = None
+    if policy_enhance_craft_profit():
+        historical_data = bltc.historical_data.get_items_processed_historical_data(output_item_ids)
 
     rows = []
     for item_id in output_item_ids:
@@ -2154,6 +2195,12 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
             continue
 
         prices = gw2.trading_post.get_prices(item_id)
+        
+        item_historical_data = historical_data.get(item_id, None)
+        if item_historical_data is None:
+            sold_daily_data = 0
+        else:
+            sold_daily_data = item_historical_data.get('sold_daily', 0)
 
         row = {
             'item_id': item_id,
@@ -2166,17 +2213,23 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
             'sell_price': sell_prices.get(item_id, 0),
             'buy_price': buy_prices.get(item_id, 0),
             }
+        
+        if policy_enhance_craft_profit():
+            row['count_volume'] = sold_daily_data
+
         if row_filter(row):
             rows.append(row)
 
     if sort:
         rows.sort(key=lambda row: row.get('roi', 0), reverse=True)
 
+    print('Result count: %d' % len(rows))
     render_table(title,
             (ItemNameColumn(),
                 PercentColumn(),
                 UnitPriceColumn('craft_cost', 'Craft Cost'),
                 UnitPriceColumn('profit', 'Unit Profit'),
+                AltCountColumn('volume', 'Volume Sold'),
                 ),
             rows,
             render_title=True,
@@ -2420,7 +2473,7 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
 
     for strat in valid_strategies(ITEM_RESEARCH_NOTE):
         forbid_buy.update(strat.related_items())
-    #forbid_buy.remove(gw2.items.search_name('Mithril Ore'))
+    forbid_buy.remove(gw2.items.search_name('Mithril Ore'))
 
     orig_buy_prices = buy_prices.copy()
     orig_sell_prices = sell_prices.copy()
