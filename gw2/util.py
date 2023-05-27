@@ -8,9 +8,9 @@ class DataStorage:
         dct = {}
         if os.path.exists(index_path):
             with open(index_path, 'r') as f:
-                for line in f:
+                for i, line in enumerate(f):
                     k, v = json.loads(line)
-                    assert k not in dct
+                    assert k not in dct, 'duplicate key %r on line %d' % (k, i + 1)
                     dct[k] = v
         self.index = dct
 
@@ -40,6 +40,8 @@ class DataStorage:
         return self.index.keys()
 
     def iter(self):
-        self.data_file.seek(0)
-        for line in self.data_file:
-            yield json.loads(line)
+        for pos in self.index.values():
+            if pos is None:
+                continue
+            self.data_file.seek(pos)
+            yield json.loads(self.data_file.readline())
