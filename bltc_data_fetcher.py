@@ -2,6 +2,7 @@
 import os
 import concurrent.futures
 import time
+import sys
 
 import bltc.api
 import gw2.api
@@ -12,22 +13,59 @@ from gw2.util import DataStorage
 from gw2.constants import STORAGE_DIR
 
 HISTORICAL_DATA_DIR = os.path.join(STORAGE_DIR, 'historical_data')
-INDEX_FILE = os.path.join(HISTORICAL_DATA_DIR, 'index_new.json')
-DATA_FILE = os.path.join(HISTORICAL_DATA_DIR, 'data_new.json')
+HISTORICAL_DATA_BACKUP_DIR = os.path.join(HISTORICAL_DATA_DIR, 'backup')
+NEW_INDEX_FILE = os.path.join(HISTORICAL_DATA_DIR, 'index_new.json')
+NEW_DATA_FILE = os.path.join(HISTORICAL_DATA_DIR, 'data_new.json')
+RAW_INDEX_FILE = os.path.join(HISTORICAL_DATA_DIR, 'index.json')
+RAW_DATA_FILE = os.path.join(HISTORICAL_DATA_DIR, 'data.json')
+PROCESSED_INDEX_FILE = os.path.join(HISTORICAL_DATA_DIR, 'processed_index.json')
+PROCESSED_DATA_FILE = os.path.join(HISTORICAL_DATA_DIR, 'processed_data.json')
+
+# a function that gets the date the file was created
+def get_file_date(file_path):
+    return os.path.getmtime(file_path)
+
+def ensure_backup_dir():
+    os.makedirs(HISTORICAL_DATA_BACKUP_DIR, exist_ok=True)
+
+def backup_file(file_path):
+    # ensure the backup directory exists
+    ensure_backup_dir()
+    # if the file exists, rename it to a backup name that includes the date in the backup directory
+    if os.path.exists(file_path):
+        os.rename(file_path, os.path.join(HISTORICAL_DATA_BACKUP_DIR, os.path.basename(file_path) + '-' + str(get_file_date(file_path)) + '.json.bak'))
+
+def cmd_backup_files():
+    backup_file(RAW_INDEX_FILE)
+    backup_file(RAW_DATA_FILE)
+    backup_file(PROCESSED_INDEX_FILE)
+    backup_file(PROCESSED_DATA_FILE)
+
+# a function that updates the new index file to the raw index file
+def update_raw_index_file():
+    # if the new index file exists, rename it to the raw index file
+    if os.path.exists(NEW_INDEX_FILE):
+        os.rename(NEW_INDEX_FILE, RAW_INDEX_FILE)
+
+# a function that updates the new data file to the raw data file
+def update_raw_data_file():
+    # if the new data file exists, rename it to the raw data file
+    if os.path.exists(NEW_DATA_FILE):
+        os.rename(NEW_DATA_FILE, RAW_DATA_FILE)
 
 # function to clear the cache
 def clear_raw_data_cache():
-    if os.path.exists(INDEX_FILE):
-        os.remove(INDEX_FILE)
-    if os.path.exists(DATA_FILE):
-        os.remove(DATA_FILE)
+    if os.path.exists(NEW_INDEX_FILE):
+        os.remove(NEW_INDEX_FILE)
+    if os.path.exists(NEW_DATA_FILE):
+        os.remove(NEW_DATA_FILE)
 
 # function to get the data
 _HDATA = None
 def _get_data():
     global _HDATA
     os.makedirs(HISTORICAL_DATA_DIR, exist_ok=True)
-    _HDATA = DataStorage(INDEX_FILE, DATA_FILE)  
+    _HDATA = DataStorage(NEW_INDEX_FILE, NEW_DATA_FILE)  
     return _HDATA
 
 def craftable_items():
@@ -52,7 +90,7 @@ def fetch_item_data(item_id):
         # fail silently
         return item_id, None
 
-def main():
+def cmd_download_new_data():
     # clear the cache
     clear_raw_data_cache()
 
@@ -79,6 +117,42 @@ def main():
     # stop the timer
     finish = time.perf_counter()
     print(f'Finished in {round(finish-start, 2)} second(s)')
+
+def cmd_print_help():
+    help_string = '''
+    Command - Defition
+    help - prints this documentation
+    download - downloads the new data
+    backup - backs up the raw data to the backup folder
+    update - renames the new data to the raw data
+    '''
+    print(help_string)
+    return
+
+def main():
+    ''' A tool with several commands to help with data collection of loot. 
+    '''
+    with open('api_key.txt') as f:
+        gw2.api.API_KEY = f.read().strip()
+    gw2.api.CACHE_DIR = 'cache'
+
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+    if cmd == 'help':
+        assert len(args) == 0
+        cmd_print_help()
+    elif cmd == 'download':
+        assert len(args) == 0
+        cmd_download_new_data()
+    elif cmd == 'backup':
+        assert len(args) == 0
+        cmd_backup_files()
+    elif cmd == 'update':
+        assert len(args) == 0
+        update_raw_index_file()
+        update_raw_data_file()
+    else:
+        raise ValueError('unknown command %r' % cmd)
 
 if __name__ == '__main__':
     main()

@@ -45,13 +45,13 @@ def main():
     profession_name_strings = [
         'Elementalist',
         'Engineer',
-        'Guardian',
+        # 'Guardian',
         'Mesmer',
         'Necromancer',
-        'Ranger',
+        # 'Ranger',
         'Revenant',
-        'Thief',
-        'Warrior',
+        # 'Thief',
+        # 'Warrior',
         ]
     weapons_count = {}
     armor_stats_count = {}
@@ -119,7 +119,7 @@ def main():
 
 def fetch_all_sc_build_urls():
     print('fetching all sc builds')
-    all_builds_query_url = 'https://snowcrows.com/en/builds?profession=any&category=recommended'
+    all_builds_query_url = 'https://snowcrows.com/builds?profession=any&category=recommended'
     r = requests.get(all_builds_query_url)
     r.raise_for_status()
     html_string = r.text
@@ -128,7 +128,7 @@ def fetch_all_sc_build_urls():
     all_build_urls = []
     for a in soup.findAll('a', href=True):
         href_link = a['href']
-        if(href_link.startswith('/en/builds/')):
+        if(href_link.startswith('/builds/')):
             all_build_urls.append('https://snowcrows.com' + href_link)
 
     print('done fetching all sc builds')

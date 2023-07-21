@@ -21,6 +21,24 @@ def _fetch_req(path):
     r.raise_for_status()
     return r
 
+def inner_fetch(path, cache=False):
+    if cache and CACHE_DIR is not None:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        cache_key = path.replace('/', '__')
+        cache_path = os.path.join(CACHE_DIR, cache_key)
+        if os.path.exists(cache_path):
+            with open(cache_path) as f:
+                return json.load(f)
+
+    j = _fetch_req(path).json()
+
+    if cache and CACHE_DIR is not None:
+        with open(cache_path, 'w') as f:
+            json.dump(j, f)
+
+    return j
+
+
 def fetch(path, cache=False):
     if cache and CACHE_DIR is not None:
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -42,7 +60,7 @@ def fetch_with_retries(path, retry_count=3, seconds_between_retries=2, cache=Fal
     retries=0
     while retries < retry_count:
         try:
-            response = fetch(path, cache)
+            response = inner_fetch(path, cache)
             break
         except requests.HTTPError as e:
             retries += 1

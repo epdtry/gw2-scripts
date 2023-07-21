@@ -8,3 +8,4 @@ __pycache__/
 /policy.py
 /virtuoso_gear_calc
 target/
+/temp_image/
