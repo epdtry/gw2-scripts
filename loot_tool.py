@@ -266,9 +266,10 @@ def cmd_take_diff(snapshot1_file, snapshot2_file):
     print('Data written to: ', diff_file)
     return
 
-def cmd_gen_loot_tables() -> List[LootTable]:
-    diffs_paths = os.path.join(GW2_DIFF_DATA_DIR, 'diff-*.json')
-    diff_files = glob.glob(diffs_paths)
+def cmd_gen_loot_tables(diff_files: List[str]) -> List[LootTable]:
+    if len(diff_files) == 0:
+        diffs_paths = os.path.join(GW2_DIFF_DATA_DIR, 'diff-*.json')
+        diff_files = glob.glob(diffs_paths)
 
     loot_tables = []
     for diff_file in diff_files:
@@ -353,8 +354,8 @@ def merge_loot_tables(loot_table_a: LootTable, loot_table_b: LootTable) -> LootT
     combined_loot_table = LootTable(earliest_timestamp, source_item_id, source_item_quantity, combined_item_list, combined_currency_list)
     return combined_loot_table
 
-def cmd_gen_worth_tables():
-    loot_tables = cmd_gen_loot_tables()
+def cmd_gen_worth_tables(paths):
+    loot_tables = cmd_gen_loot_tables(paths)
     combined_table_dict = defaultdict(LootTable)
 
     for loot_table in loot_tables:
@@ -618,11 +619,9 @@ def main():
         snapshot1_file, snapshot2_file = args
         cmd_take_diff(snapshot1_file, snapshot2_file)
     elif cmd == 'gen_loot_tables':
-        assert len(args) == 0
-        cmd_gen_loot_tables()
+        cmd_gen_loot_tables(args)
     elif cmd == 'gen_worth_tables':
-        assert len(args) == 0
-        cmd_gen_worth_tables()
+        cmd_gen_worth_tables(args)
     elif cmd == 'diff_to_text':
         assert len(args) <= 2
         cmd_diff_to_text(
