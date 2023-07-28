@@ -266,7 +266,7 @@ def cmd_take_diff(snapshot1_file, snapshot2_file):
     print('Data written to: ', diff_file)
     return
 
-def cmd_gen_loot_tables(diff_files: List[str]) -> List[LootTable]:
+def gen_loot_tables(diff_files: List[str]) -> List[LootTable]:
     if len(diff_files) == 0:
         diffs_paths = os.path.join(GW2_DIFF_DATA_DIR, 'diff-*.json')
         diff_files = glob.glob(diffs_paths)
@@ -279,11 +279,22 @@ def cmd_gen_loot_tables(diff_files: List[str]) -> List[LootTable]:
         
     return loot_tables
 
-def print_worth_table(loot_table: LootTable):
+def print_loot_table(loot_table: LootTable, worth: bool = False):
     source_item = gw2.items.get(loot_table.source_item_id)
-    print('Worth Table For: ', source_item['name'], '-----------')
+    print('%s Table For: %s -----------' % ('Worth' if worth else 'Loot', source_item['name']))
     print('Data from: ', loot_table.source_item_quantity, ' opens')
-    source_price = gw2.trading_post.get_prices(source_item['id'])['buys']['unit_price'] + 1
+    if worth:
+        all_item_ids = [loot_table.source_item_id] + list(
+                drop.id for drop in loot_table.item_drop_info_list)
+        prices_list = gw2.trading_post.get_prices_multi(all_item_ids)
+        prices = {x['id']: x for x in prices_list
+                if x is not None}
+    else:
+        prices = {}
+    if source_item['id'] in prices:
+        source_price = prices[source_item['id']]['buys']['unit_price'] + 1
+    else:
+        source_price = 0
 
     total_worth = 0
     print()
@@ -303,23 +314,30 @@ def print_worth_table(loot_table: LootTable):
         dropped_item = gw2.items.get(item.id)
         dropped_item_drop_rate = item.drop_rate
         dropped_item_unit_price = 0
-        try:
-            dropped_item_unit_price = gw2.trading_post.get_prices(dropped_item['id'])['buys']['unit_price']
-        except:
-            pass
+        if dropped_item['id'] in prices:
+            dropped_item_unit_price = prices[dropped_item['id']]['buys']['unit_price']
+        else:
+            dropped_item_unit_price = 0
         dropped_item_net_price = dropped_item_unit_price * dropped_item_drop_rate
         total_worth += dropped_item_net_price
-        print("{:<30} {:<11} {:<9.3f} {:<15.3f} {:<15.3f}".format(
-            dropped_item['name'],
-            item.quantity,
-            dropped_item_drop_rate,
-            dropped_item_unit_price,
-            dropped_item_net_price))
+        if worth:
+            print("{:<30} {:<11} {:<9.3f} {:<15.3f} {:<15.3f}".format(
+                dropped_item['name'],
+                item.quantity,
+                dropped_item_drop_rate,
+                dropped_item_unit_price,
+                dropped_item_net_price))
+        else:
+            print("{:<30} {:<11} {:<9.3f}".format(
+                dropped_item['name'],
+                item.quantity,
+                dropped_item_drop_rate))
 
-    print()
-    print('Cost Per Bag: ', source_price)
-    print('Total value: ', total_worth)
-    print('Buy then instant sell ROI: ', ((total_worth / source_price) - 1) * 100, '%')
+    if worth:
+        print()
+        print('Cost Per Bag: ', source_price)
+        print('Total value: ', total_worth)
+        print('Buy then instant sell ROI: ', ((total_worth / source_price) - 1) * 100, '%')
     return
 
 def merge_drop_info_lists(drop_info_list_a, drop_info_list_b, source_item_quanity) -> List[DropInfo]:
@@ -354,8 +372,8 @@ def merge_loot_tables(loot_table_a: LootTable, loot_table_b: LootTable) -> LootT
     combined_loot_table = LootTable(earliest_timestamp, source_item_id, source_item_quantity, combined_item_list, combined_currency_list)
     return combined_loot_table
 
-def cmd_gen_worth_tables(paths):
-    loot_tables = cmd_gen_loot_tables(paths)
+def cmd_gen_loot_tables(paths, worth = False):
+    loot_tables = gen_loot_tables(paths)
     combined_table_dict = defaultdict(LootTable)
 
     for loot_table in loot_tables:
@@ -366,10 +384,13 @@ def cmd_gen_worth_tables(paths):
             combined_table_dict[loot_table.source_item_id] = merged_loot_table
     
     for loot_table in combined_table_dict:
-        print_worth_table(combined_table_dict[loot_table])
+        print_loot_table(combined_table_dict[loot_table], worth = worth)
         print('\n\n\n')
     
     return
+
+def cmd_gen_worth_tables(paths):
+    cmd_gen_loot_tables(paths, worth = True)
 
 def cmd_diff_to_text(diff_path, text_path):
     diff_file = open(diff_path, 'r') if diff_path is not None else sys.stdin
