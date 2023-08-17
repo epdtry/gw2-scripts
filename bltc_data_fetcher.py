@@ -3,6 +3,7 @@ import os
 import concurrent.futures
 import time
 import sys
+from datetime import datetime, timedelta
 
 import bltc.api
 import gw2.api
@@ -129,6 +130,47 @@ def cmd_print_help():
     print(help_string)
     return
 
+# function to get the raw data
+_RAWDATA = None
+def _get_raw_data():
+    global _RAWDATA
+    os.makedirs(HISTORICAL_DATA_DIR, exist_ok=True)
+    _RAWDATA = DataStorage(RAW_INDEX_FILE, RAW_DATA_FILE)  
+    return _RAWDATA
+
+def get_raw_item_data(item_id):
+    raw_data = _get_raw_data()
+    if raw_data.contains(item_id):
+        return raw_data.get(item_id)
+    return None
+
+def test():
+    item_id = 97487
+    raw_item_data = get_raw_item_data(item_id)
+    first_raw_data_date = raw_item_data[0][0]
+    last_raw_data_date = raw_item_data[-1][0]
+    converted_first_date = datetime.fromtimestamp(first_raw_data_date)
+    converted_last_date = datetime.fromtimestamp(last_raw_data_date)
+    print(f'Item {item_id} has {len(raw_item_data)} data points from {converted_first_date} to {converted_last_date}')
+
+    latest_date = datetime.fromtimestamp(raw_item_data[-1][0])
+    yesterday = latest_date - timedelta(days=1)
+    two_days_ago = latest_date - timedelta(days=2)
+    three_days_ago = latest_date - timedelta(days=3)
+    sold_one_day_ago = 0
+    sold_two_days_ago = 0
+    sold_three_days_ago = 0
+
+    for dp in raw_item_data:
+        date = datetime.fromtimestamp(dp[0])
+        if date > yesterday:
+            sold_one_day_ago += dp[5]
+        if date > two_days_ago and date <= yesterday:
+            sold_two_days_ago += dp[5]
+        if date > three_days_ago and date <= two_days_ago:
+            sold_three_days_ago += dp[5]
+    print(f'Item {item_id} sold {sold_one_day_ago} yesterday, {sold_two_days_ago} two days ago, and {sold_three_days_ago} three days ago')
+
 def main():
     ''' A tool with several commands to help with data collection of loot. 
     '''
@@ -151,6 +193,9 @@ def main():
         assert len(args) == 0
         update_raw_index_file()
         update_raw_data_file()
+    elif cmd == 'test':
+        assert len(args) == 0
+        test()
     else:
         raise ValueError('unknown command %r' % cmd)
 
