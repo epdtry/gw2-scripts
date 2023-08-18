@@ -425,6 +425,47 @@ def _get():
         (250, 'Fire Orchid Blossom'),
     ))
 
+    # Amalgamated Gemstone
+    opts = [
+            'Crest of the Assassin',
+            'Crest of the Magi',
+            'Crest of the Rabid',
+            'Crest of the Shaman',
+            'Crest of the Soldier',
+            'Agate Orb',
+            'Azurite Orb',
+            'Beryl Orb',
+            'Black Diamond',
+            'Chrysocola Orb',
+            'Coral Orb',
+            'Ebony Orb',
+            'Emerald Orb',
+            'Flax Blossom',
+            'Freshwater Pearl',
+            'Maguuma Burl',
+            'Maguuma Lily',
+            'Moonstone Orb',
+            'Opal Orb',
+            'Ruby Orb',
+            'Sapphire Orb',
+            'Copper Doubloon',
+            'Silver Doubloon',
+            'Gold Doubloon',
+            'Platinum Doubloon',
+            ]
+    for opt in opts:
+        # You can actually use any combination of inputs here, such as 3 crests
+        # + 3 orbs + 3 doubloons.  We include only the cases where all three
+        # inputs are the same, since the cheapest recipe is the one that uses
+        # the cheapest input in all three slots.
+        add(1, 'Amalgamated Gemstone', (
+            (1, 'Pile of Crystalline Dust'),
+            (3, opt),
+            (3, opt),
+            (3, opt),
+        ))
+
+
 
     # Bought from vendors
     add(1, 'Chunk of Ancient Ambergris', ((10, 'Flawless Fish Fillet'),))
