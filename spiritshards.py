@@ -13,6 +13,11 @@ ELDRITCH_SCROLL_COST = 50
 BLOODSTONE_SHARD_COST = 200
 VISION_CRYSTAL_COST = 20
 
+# Eldritch Scroll is part of the precursor
+GEN3_LEGENDARY_COST = BLOODSTONE_SHARD_COST + \
+    38 * MYSTIC_CLOVER_COST + \
+    + ELDRITCH_SCROLL_COST
+
 LEGENDARY_COST_MAP = {
     # Gen 1
     'Incinerator': BLOODSTONE_SHARD_COST + 77 * MYSTIC_CLOVER_COST,
@@ -25,9 +30,22 @@ LEGENDARY_COST_MAP = {
         # Vision crystal for the ascended precursor
         + VISION_CRYSTAL_COST,
     # Gen 3
-    "Aurene's Wisdom": BLOODSTONE_SHARD_COST + 38 * MYSTIC_CLOVER_COST
-        # Part of the precursor
-        + ELDRITCH_SCROLL_COST,
+    "Aurene's Rending": GEN3_LEGENDARY_COST,
+    "Aurene's Claw": GEN3_LEGENDARY_COST,
+    "Aurene's Tail": GEN3_LEGENDARY_COST,
+    "Aurene's Argument": GEN3_LEGENDARY_COST,
+    "Aurene's Wisdom": GEN3_LEGENDARY_COST,
+    "Aurene's Fang": GEN3_LEGENDARY_COST,
+    "Aurene's Gaze": GEN3_LEGENDARY_COST,
+    "Aurene's Scale": GEN3_LEGENDARY_COST,
+    "Aurene's Breath": GEN3_LEGENDARY_COST,
+    "Aurene's Voice": GEN3_LEGENDARY_COST,
+    "Aurene's Bite": GEN3_LEGENDARY_COST,
+    "Aurene's Weight": GEN3_LEGENDARY_COST,
+    "Aurene's Flight": GEN3_LEGENDARY_COST,
+    "Aurene's Persuasion": GEN3_LEGENDARY_COST,
+    "Aurene's Wing": GEN3_LEGENDARY_COST,
+    "Aurene's Insight": GEN3_LEGENDARY_COST,
     # Envoy armor
     'Perfected Envoy Cowl': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
     'Perfected Envoy Mantle': 15 * MYSTIC_CLOVER_COST + ELDRITCH_SCROLL_COST,
