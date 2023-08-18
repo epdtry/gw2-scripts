@@ -42,7 +42,8 @@ def main():
             s = s[:n]
         return s
 
-    N = 10
+    #N = 10
+    N = None
 
     print('\nTop items bought:')
     for item_id, count in top_n(buy_item_counts.items(), N):
