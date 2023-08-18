@@ -17,8 +17,15 @@ def _fetch_req(path):
         headers['Authorization'] = 'Bearer ' + API_KEY
     url = API_BASE + path
     print('fetch ' + url, file=sys.stderr)
-    r = requests.get(url, headers=headers)
-    r.raise_for_status()
+    #r = requests.get(url, headers=headers)
+    for i in range(20):
+        try:
+            r = requests.get(url, headers=headers)
+            r.raise_for_status()
+            break
+        except requests.HTTPError as e:
+            print('Error fetching path: %s (retry: %d)' % (e, i))
+            time.sleep(i + 1)
     return r
 
 def fetch(path, cache=False):
@@ -39,19 +46,7 @@ def fetch(path, cache=False):
     return j
 
 def fetch_with_retries(path, retry_count=3, seconds_between_retries=2, cache=False):
-    retries=0
-    while retries < retry_count:
-        try:
-            response = fetch(path, cache)
-            break
-        except requests.HTTPError as e:
-            retries += 1
-            time.sleep(seconds_between_retries)
-            print('Error fetching path. Retry: ', retries)
-    if retries >= retry_count:
-        raise Exception('FetchWithRetryFailure')
-
-    return response
+    return fetch(path, cache=cache)
 
 def fetch_paginated(path):
     '''Fetch all pages of a paginated resource.  This is a generator that
