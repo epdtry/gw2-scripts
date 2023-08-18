@@ -736,6 +736,8 @@ def policy_forbid_buy():
                 forbid.add(item['id'])
             if item['name'].startswith('Exquisite'):
                 forbid.add(item['id'])
+            if item['name'].startswith('Intricate') and item['name'].endswith('Jewel'):
+                forbid.add(item['id'])
             if 'Inscription' in item['name'] or 'Insignia' in item['name']:
                 forbid.add(item['id'])
 
