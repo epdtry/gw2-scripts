@@ -279,6 +279,7 @@ CURRENCY_AIRSHIP_PART = 19
 CURRENCY_LEY_LINE_CRYSTAL = 20
 CURRENCY_LUMP_OF_AURILLIUM = 22
 CURRENCY_PROVISIONER_TOKEN = 29
+CURRENCY_ELEGY_MOSAIC = 35
 ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
 ITEM_SPIRIT_SHARD = gw2.items.search_name('Spirit Shard')
 ITEM_IMPERIAL_FAVOR = gw2.items.search_name('Imperial Favor')
@@ -292,6 +293,8 @@ ITEM_LEY_LINE_CRYSTAL = 70072
 ITEM_LUMP_OF_AURILLIUM = gw2.items.search_name('Lump of Aurillium')
 # HACK: there is no "Provisioner Token" item
 ITEM_PROVISIONER_TOKEN = gw2.items.search_name('1 Provisioner Token')
+# HACK: there is no "Elegy Mosaic" item
+ITEM_ELEGY_MOSAIC = gw2.items.search_name('Corrupted Facet Elegy Mosaic')
 
 CURRENCY_ITEMS = [
         (CURRENCY_RESEARCH_NOTE, ITEM_RESEARCH_NOTE),
@@ -304,6 +307,7 @@ CURRENCY_ITEMS = [
         (CURRENCY_LEY_LINE_CRYSTAL, ITEM_LEY_LINE_CRYSTAL),
         (CURRENCY_LUMP_OF_AURILLIUM, ITEM_LUMP_OF_AURILLIUM),
         (CURRENCY_PROVISIONER_TOKEN, ITEM_PROVISIONER_TOKEN),
+        (CURRENCY_ELEGY_MOSAIC, ITEM_ELEGY_MOSAIC),
         ]
 
 
