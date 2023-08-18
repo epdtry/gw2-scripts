@@ -124,7 +124,7 @@ def cmd_print_help():
     Command - Defition
     help - prints this documentation
     download - downloads the new data
-    backup - backs up the raw data to the backup folder
+    backup - move the old raw and processed data to the backup folder
     update - renames the new data to the raw data
     '''
     print(help_string)
