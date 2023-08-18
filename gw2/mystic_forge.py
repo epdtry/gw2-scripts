@@ -57,9 +57,9 @@ def _get():
         (35, 'Fractal Relic'),
     ), refine_only=True)
 
-    add(3, 'Spirit Shard', (
-        (7, 'Pristine Fractal Relic'),
-    ), refine_only=True)
+    #add(3, 'Spirit Shard', (
+    #    (7, 'Pristine Fractal Relic'),
+    #), refine_only=True)
 
 
     # Imperial favor conversions
