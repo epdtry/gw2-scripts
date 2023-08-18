@@ -189,6 +189,36 @@ def _get():
         (250, 'Funerary Incense'),
     ))
 
+    add(1, 'Gift of the Desert', (
+        (1, 'Gift of the Oasis'),
+        (1, 'Gift of the Highlands'),
+        (1, 'Gift of the Riverlands'),
+        (1, 'Gift of the Desolation'),
+    ))
+
+    add(1, 'Gift of the Rider', (
+        (1, 'Spirit of the Raptor'),
+        (1, 'Spirit of the Springer'),
+        (1, 'Spirit of the Skimmer'),
+        (1, 'Spirit of the Jackal'),
+    ))
+
+    add(1, 'Spirit of the Raptor', (
+        (75, 'Corrupted Facet Elegy Mosaic'),
+    ))
+
+    add(1, 'Spirit of the Springer', (
+        (75, 'Corrupted Facet Elegy Mosaic'),
+    ))
+
+    add(1, 'Spirit of the Skimmer', (
+        (75, 'Corrupted Facet Elegy Mosaic'),
+    ))
+
+    add(1, 'Spirit of the Jackal', (
+        (75, 'Corrupted Facet Elegy Mosaic'),
+    ))
+
     add(1, 'Mystic Tribute', (
         (2, 'Gift of Condensed Might'),
         (2, 'Gift of Condensed Magic'),
@@ -203,6 +233,15 @@ def _get():
         (100, 'Mystic Runestone'),
         (100, 'Shard of the Dark Arts'),
         (1, 'Gift of Energy'),
+    ))
+
+    # Legendary crafting - gen2.5 The Shining Blade
+
+    add(1, 'Gift of the Blade', (
+        (1, 'Gift of the Mists'),
+        (100, 'Mystic Runestone'),
+        (100, 'Shard of the Crown'),
+        (1, 'Gift of Metal'),
     ))
 
     # Legendary crafting - gen3 weapon generic components
