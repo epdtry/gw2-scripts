@@ -5,7 +5,7 @@ import os
 import requests
 import time
 
-from gw2.api import fetch, fetch_paginated
+from gw2.api import fetch, fetch_paginated, fetch_with_retries
 from gw2.constants import STORAGE_DIR
 import gw2.build
 from gw2.util import DataStorage
@@ -40,7 +40,7 @@ def _get_data():
 def get_prices(item_id):
     data = _get_data()
     if not data.contains(item_id):
-        item = fetch('/v2/commerce/prices?id=%d' % item_id)
+        item = fetch_with_retries('/v2/commerce/prices?id=%d' % item_id)
         data.add(item_id, item)
         return item
     else:
@@ -54,8 +54,11 @@ def get_prices_multi(item_ids):
     for item_id in item_ids:
         if data.contains(item_id):
             dct[item_id] = data.get(item_id)
-        else:
-            query_ids.append(item_id)
+            continue
+        item = gw2.items.get(item_id)
+        if any(f in ('AccountBound', 'SoulbindOnAcquire') for f in item['flags']):
+            continue
+        query_ids.append(item_id)
     query_ids = sorted(set(query_ids))
     
     N = 100
@@ -63,7 +66,7 @@ def get_prices_multi(item_ids):
         chunk = query_ids[i : i + N]
         items = []
         try:
-            items = fetch('/v2/commerce/prices?ids=' + ','.join(str(x) for x in chunk))
+            items = fetch_with_retries('/v2/commerce/prices?ids=' + ','.join(str(x) for x in chunk))
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 pass
@@ -106,7 +109,7 @@ def _get_listings_data():
 def get_listings(item_id):
     data = _get_listings_data()
     if not data.contains(item_id):
-        item = fetch('/v2/commerce/listings?id=%d' % item_id)
+        item = fetch_with_retries('/v2/commerce/listings?id=%d' % item_id)
         data.add(item_id, item)
         return item
     else:
@@ -129,7 +132,7 @@ def get_listings_multi(item_ids):
         chunk = query_ids[i : i + N]
         items = []
         try:
-            items = fetch('/v2/commerce/listings?ids=' + ','.join(str(x) for x in chunk))
+            items = fetch_with_retries('/v2/commerce/listings?ids=' + ','.join(str(x) for x in chunk))
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 pass
