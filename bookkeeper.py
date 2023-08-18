@@ -2315,13 +2315,9 @@ def cmd_craft_profit_buy():
 def policy_get_research_note_roi_lines():
     return None
 
-def cmd_research_notes():
+def print_research_notes_table(all_strategies):
     '''Print a list of items that can be crafted for research notes and the
     cost per note for each one.'''
-    all_strategies = [s for s in
-            chain(valid_strategies(ITEM_RESEARCH_NOTE),
-                default_policy_research_note_strategies(include_disabled=True))
-            if isinstance(s, StrategyResearchNote)]
     all_strategies_items = [item_id for s in all_strategies for item_id in s.related_items()]
 
     related_items = gather_related_items(all_strategies_items)
@@ -2374,6 +2370,15 @@ def cmd_research_notes():
     
     for cost_per_note, name in sorted(set(xs)):
         print('%15s  %s' % (format_price_float(cost_per_note), name))
+
+def cmd_research_notes():
+    '''Print a list of items that can be crafted for research notes and the
+    cost per note for each one.'''
+    all_strategies = [s for s in
+            chain(valid_strategies(ITEM_RESEARCH_NOTE),
+                default_policy_research_note_strategies(include_disabled=True))
+            if isinstance(s, StrategyResearchNote)]
+    print_research_notes_table(all_strategies)
 
 def cmd_charr_commendations():
     '''Print a list of items that can be traded for Charr Comendations and the
@@ -2628,6 +2633,124 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
             render_total=False)
 
 
+def guess_item_research_notes(item_id):
+    item = gw2.items.get(item_id)
+    if item is None:
+        print('bad item id %s?' % item_id)
+        return None
+
+    bad_name = False
+    for part in ("Dragon's", 'Monastery', "Ritualist's", 'Shadow Serpent',
+            'Jade Tech'):
+        if part in item['name']:
+            bad_name = True
+    if bad_name:
+        return None
+
+    if item['type'] == 'Weapon':
+        if item['rarity'] in ('Legendary', 'Ascended'):
+            return None
+        if item['rarity'] == 'Exotic':
+            return 45
+        if item['level'] >= 40:
+            return 5
+        return None
+
+    if item['type'] == 'Armor':
+        if item['name'] == "Adventurer's Mantle":
+            return 5
+        if item['rarity'] in ('Legendary', 'Ascended'):
+            return None
+        if item['rarity'] == 'Exotic':
+            return 75
+        if item['level'] >= 40:
+            return 5
+        return None
+
+    if item['type'] == 'Trinket':
+        if item['rarity'] in ('Legendary', 'Ascended'):
+            return None
+        if item['rarity'] == 'Exotic':
+            return 75
+        if item['level'] >= 40:
+            return 5
+        return None
+
+    if item['type'] == 'UpgradeComponent' and item['details']['type'] == 'Rune':
+        if item['rarity'] == 'Exotic':
+            return 1
+        if item['rarity'] == 'Rare':
+            return None
+        if item['rarity'] == 'Masterwork':
+            return None
+        return None
+
+    if item['type'] == 'UpgradeComponent' and item['details']['type'] == 'Sigil':
+        if item['rarity'] == 'Exotic':
+            return 1
+        if item['rarity'] == 'Rare':
+            return 1
+        if item['rarity'] == 'Masterwork':
+            return 1
+        return None
+
+    # superior rune: 1 note
+    # minor sigil: 1 note
+    # major sigil: 1 note
+    # superior sigil: 1 note
+
+    return None
+
+    out = []
+    for r in gw2.recipes.iter_all():
+        if not any(d in r['disciplines'] for d in
+                ('Weaponsmith', 'Artificer', 'Huntsman',
+                    'Tailor', 'Leatherworker', 'Armorsmith')):
+            continue
+        item = gw2.items.get(r['output_item_id'])
+        if item is None:
+            continue
+        if item['type'] not in ('Weapon', 'Armor', 'Trinket'):
+            continue
+
+        bad_name = False
+        for part in ("Dragon's", 'Monastery', "Ritualist's", 'Shadow Serpent',
+                'Jade Tech'):
+            if part in item['name']:
+                bad_name = True
+        if bad_name:
+            continue
+
+        notes = None
+        if item['rarity'] in ('Legendary', 'Ascended'):
+            continue
+        elif item['rarity'] == 'Exotic':
+            if item['type'] == 'Weapon':
+                notes = 45
+            elif item['type'] in ('Armor', 'Trinket'):
+                notes = 75
+        else:
+            if item['level'] >= 40:
+                notes = 5
+        if item['name'] == "Adventurer's Mantle":
+            notes = 5
+        if notes is None:
+            continue
+        out.append((item['id'], notes))
+    return out
+
+def cmd_guess_research_notes():
+    all_strategies = []
+    for r in gw2.recipes.iter_all():
+        item_id = r['output_item_id']
+        notes = guess_item_research_notes(item_id)
+        if notes is None:
+            continue
+        all_strategies.append(StrategyResearchNote(
+            gw2.items.name(item_id), [(item_id, 1, notes)]))
+    print_research_notes_table(all_strategies)
+
+
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
@@ -2689,5 +2812,8 @@ def main():
     elif cmd == 'dispose':
         names = args
         cmd_dispose(names)
+    elif cmd == 'guess_research_notes':
+        assert len(args) == 0
+        cmd_guess_research_notes()
     else:
         raise ValueError('unknown command %r' % cmd)
