@@ -77,5 +77,21 @@ def main():
     report([(100, 'Jade Sliver', 'currency'),],
             output_count=2)
 
+    # 1 voucher -> 500 HoT currency + 21000 karma -> 20 obsidian
+    report([
+        (1, 'Tyrian Exchange Voucher', 'item'),
+        (21000, 'Karma', 'currency'),
+        ], output_count=20)
+    # 1 voucher -> 300 bandit crests + 5s76c -> 6 obsidian
+    #report([
+    #    (1, 'Tyrian Exchange Voucher', 'item'),
+    #    (576, 'Coin', 'currency'),
+    #    ], output_count=6)
+    # 1 voucher -> 1000 VM + 9s60c -> 10 obsidian
+    report([
+        (1, 'Tyrian Exchange Voucher', 'item'),
+        (960, 'Coin', 'currency'),
+        ], output_count=10)
+
 if __name__ == '__main__':
     main()
