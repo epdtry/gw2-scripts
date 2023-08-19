@@ -1,3 +1,4 @@
+import itertools
 import os
 import numpy as np
 import cv2
@@ -20,14 +21,25 @@ def asset(name, gray=False):
     _ASSETS[key] = img
     return img
 
+_FOUND = None
+def found(pos, size):
+    if _FOUND is not None:
+        if hasattr(size, 'shape'):
+            shape = size.shape
+            size = (shape[1], shape[0])
+        _FOUND.append((pos, size))
+
 def find_template(gray_img, template_name, threshold = 0.85):
-    res = cv2.matchTemplate(gray_img, asset(template_name, gray=True), cv2.TM_CCOEFF_NORMED)
+    template = asset(template_name, gray=True)
+    res = cv2.matchTemplate(gray_img, template, cv2.TM_CCOEFF_NORMED)
     ys, xs = np.where(res >= threshold)
     assert len(xs) == len(ys) and len(xs) <= 1, 'weird np.where result: %r, %r' % (xs, ys)
     if len(xs) == 0:
         return None
     elif len(xs) == 1:
-        return xs[0], ys[0]
+        pos = (xs[0], ys[0])
+        found(pos, template)
+        return pos
     else:
         assert False, 'unreachable'
 
@@ -40,7 +52,10 @@ def check_template(gray_img, pos, template_name, threshold = 0.85):
     sy, sx = template.shape
     region = gray_img[y : y + sy, x : x + sx]
     res = cv2.matchTemplate(region, template, cv2.TM_CCOEFF_NORMED)
-    return res[0][0] >= threshold
+    matches = res[0][0] >= threshold
+    if matches:
+        found(pos, (sx, sy))
+    return matches
 
 def detect_bltc_mode(gray, win_pos):
     win_x, win_y = win_pos
@@ -84,13 +99,37 @@ def detect_tp_tab(gray, win_pos):
         return 'transactions'
 
 
+_LAST_BLTC_POS = None
+def find_bltc(gray):
+    global _LAST_BLTC_POS
+    # Fast path: check if the window is in the same place it was previously
+    if _LAST_BLTC_POS is not None:
+        if check_template(gray, _LAST_BLTC_POS, 'bltc-header.png'):
+            return _LAST_BLTC_POS
+    bltc_pos = find_template(gray, 'bltc-header.png')
+    _LAST_BLTC_POS = bltc_pos
+    return bltc_pos
+
+FOUND_COLORS = [
+        (0, 0, 255),
+        (0, 128, 255),
+        (0, 255, 255),
+        (0, 255, 0),
+        (255, 128, 0),
+        (255, 0, 0),
+        (255, 0, 128),
+        (255, 0, 255),
+        ]
+
 def process(img):
+    global _FOUND
     h, w, depth = img.shape
+    _FOUND = []
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Check if trading post is open
-    bltc_pos = find_template(gray, 'bltc-header.png')
+    bltc_pos = find_bltc(gray)
 
     if bltc_pos is not None:
         mode = detect_bltc_mode(gray, bltc_pos)
@@ -101,11 +140,19 @@ def process(img):
             tab = None
         print(bltc_pos, mode, tab)
 
-
     thumb_w = 300
-    thumb_h = h * thumb_w // w
+    ratio = thumb_w / w
+    thumb_h = round(h * ratio)
     thumb = cv2.resize(gray, (thumb_w, thumb_h), cv2.INTER_LINEAR)
     thumb = cv2.cvtColor(thumb, cv2.COLOR_GRAY2BGR)
+
+    for ((x, y), (sx, sy)), color in zip(_FOUND, itertools.cycle(FOUND_COLORS)):
+        x0 = round(x * ratio)
+        y0 = round(y * ratio)
+        x1 = round((x + sx) * ratio)
+        y1 = round((y + sy) * ratio)
+        cv2.rectangle(thumb, (x0, y0), (x1, y1), color, 1)
+        pass
 
     return thumb
 
