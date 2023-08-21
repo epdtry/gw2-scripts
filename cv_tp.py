@@ -215,7 +215,7 @@ def find_first_price_with_template(gray, tab, price_pos, template_name):
     template = asset(template_name)
     x1 = 75 - (17 if tab == 'buy' else 0)
     x0 = x1 - template.shape[1]
-    y0 = 20
+    y0 = 30
     y1 = y0 + ROW_HEIGHT + template.shape[0] + 0
     px, py = price_pos
     region = gray[py + y0 : py + y1, px + x0 : px + x1]
@@ -394,7 +394,7 @@ class NameCache:
             index = np.argmax(res)
             strength = res[index, 0]
 
-        if strength < 0.95:
+        if strength < 0.99:
             if self.unknown_image is None:
                 self.unknown_image = text_image
             return None
@@ -438,12 +438,15 @@ def process(img):
     # Check if trading post is open
     bltc_pos = find_bltc(gray)
 
+    data = {}
     if bltc_pos is not None:
         mode = detect_bltc_mode(gray, bltc_pos)
+        data['mode'] = mode
 
         tab = None
         if mode == 'tp':
             tab = detect_tp_tab(gray, bltc_pos)
+        data['tab'] = tab
 
         price_header_pos = None
         if tab in ('buy', 'sell'):
@@ -451,7 +454,6 @@ def process(img):
 
         if price_header_pos is not None:
             first_price_pos = find_first_price(gray, tab, price_header_pos)
-            print(first_price_pos)
             if first_price_pos is not None:
                 prices = []
                 for row in range(10):
@@ -459,18 +461,16 @@ def process(img):
                     if not check_template(gray, coin_pos, 'coin-copper.png', threshold = 0.95):
                         continue
                     price = read_price(gray, coin_pos)
-                    prices.append(price)
 
                     (name_img, name_pos) = extract_name(gray, tab, coin_pos)
                     name_img = trim_name(name_img)
-                    text = NAME_CACHE.lookup(name_img)
-                    if text is not None:
+                    name = NAME_CACHE.lookup(name_img)
+                    if name is not None:
                         sx, sy = asset_size('coin-copper.png')
-                        show_text(vadd(name_pos, (0, sy)), text)
-                    print(text, price)
+                        show_text(vadd(name_pos, (0, sy)), name)
 
-
-        print(bltc_pos, mode, tab, price_header_pos)
+                        prices.append((name, price))
+                data['prices'] = prices
 
     thumb_w = 300
     ratio = thumb_w / w
@@ -506,7 +506,7 @@ def process(img):
             name = open(INPUT_PATH).read().strip()
             NAME_CACHE.insert(NAME_CACHE.unknown_image, name)
 
-    return thumb
+    return data, thumb
 
 def main():
     cap = cv2.VideoCapture(0)
@@ -517,6 +517,12 @@ def main():
     cv2.namedWindow('frame', flags=cv2.WINDOW_GUI_NORMAL)
     cv2.setWindowProperty('frame', cv2.WND_PROP_TOPMOST, 1)
 
+    out_dir = 'cv_tp_records'
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, time.strftime('out-%Y%m%d-%H%M%S.json'))
+    out_file = open(out_path, 'w')
+
+    prev_state = None
     while True:
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -525,7 +531,12 @@ def main():
             print("Can't receive frame (stream end?). Exiting ...")
             break
 
-        display = process(frame)
+        state, display = process(frame)
+        if state != prev_state:
+            s = json.dumps((time.time(), state))
+            print(s)
+            out_file.write(s + '\n')
+            prev_state = state
 
         cv2.imshow('frame', display)
         cv2.moveWindow('frame', 1920 - 300, 0)
