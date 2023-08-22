@@ -9,7 +9,7 @@ API_VERSION = '2022-03-09T02:00:00.000Z'
 API_KEY = None
 CACHE_DIR = None
 
-OFFLINE = bool(int(os.environ.get('GW2_API_OFFLINE', 0)))
+OFFLINE = bool(int(os.environ.get('GW2_API_OFFLINE') or 0))
 
 def _fetch_req(path):
     assert not OFFLINE
