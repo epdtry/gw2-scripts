@@ -2751,10 +2751,31 @@ def cmd_guess_research_notes():
     print_research_notes_table(all_strategies)
 
 
+def augment_with_cv_tp_data():
+    all_items = set()
+    prices = {}
+
+    if os.path.exists('augment_item_names.txt'):
+        with open('augment_item_names.txt') as f:
+            for line in f:
+                all_items.add(line.strip())
+    if os.path.exists('storage/cv_tp_prices/prices.json'):
+        with open('storage/cv_tp_prices/prices.json') as f:
+            prices = dict(json.load(f))
+            all_items.update(prices.keys())
+
+    gw2.items.augment(all_items)
+    gw2.trading_post.augment(prices)
+
+
+
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
     gw2.api.CACHE_DIR = 'cache'
+
+    if int(os.environ.get('GW2_USE_CV_TP_DATA') or 0):
+        augment_with_cv_tp_data()
 
     cmd = sys.argv[1]
     args = sys.argv[2:]
@@ -2815,5 +2836,19 @@ def main():
     elif cmd == 'guess_research_notes':
         assert len(args) == 0
         cmd_guess_research_notes()
+    elif cmd == 'test_augment':
+        gw2.items.augment(['Foo', 'Bar', 'Baz'])
+        print(gw2.items.get(300000))
+        print(gw2.items.get(300001))
+        print(gw2.items.search_name('Foo'))
+        print(gw2.items.search_name('Bar'))
+        gw2.trading_post.augment({
+            'Foo': {'buy': 123},
+            'Bar': {'buy': 456},
+            'Baz': {'buy': 789},
+            'Jade Bot Core: Tier 10': {'sell': 999999},
+        })
+        name, = args
+        cmd_profit(name)
     else:
         raise ValueError('unknown command %r' % cmd)

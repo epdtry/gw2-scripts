@@ -21,6 +21,8 @@ class DataStorage:
         self.augment_dct = None
 
     def contains(self, k):
+        if self.augment_dct is not None and k in self.augment_dct:
+            return True
         return k in self.index
 
     @functools.lru_cache(256)

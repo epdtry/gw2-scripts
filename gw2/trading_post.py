@@ -243,3 +243,39 @@ def pending_buys():
 
 def pending_sells():
     return _fetch_current('sells')
+
+
+def augment(dct):
+    prices = {}
+    listings = {}
+    for name, entry in dct.items():
+        item_id = gw2.items.search_name(name, allow_multiple = False)
+
+        prices_entry = {
+                'id': item_id,
+                'buys': { 'quantity': 0, 'unit_price': 0 },
+                'sells': { 'quantity': 0, 'unit_price': 0 },
+                }
+        if 'buy' in entry:
+            prices_entry['buys'] = { 'quantity': 1, 'unit_price': entry['buy'] }
+        if 'sell' in entry:
+            prices_entry['sells'] = { 'quantity': 1, 'unit_price': entry['sell'] }
+        prices[item_id] = prices_entry
+
+        listings_entry = {
+                'id': item_id,
+                'buys': [],
+                'sells': [],
+                }
+        if 'buy' in entry:
+            listings_entry['buys'].append(
+                    { 'listings': 1, 'quantity': 1, 'unit_price': entry['buy'] })
+        if 'sell' in entry:
+            listings_entry['sells'].append(
+                    { 'listings': 1, 'quantity': 1, 'unit_price': entry['sell'] })
+        listings[item_id] = listings_entry
+
+    _get_data().augment(prices)
+    _get_listings_data().augment(listings)
+
+
