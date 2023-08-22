@@ -2,6 +2,7 @@ import os
 import requests
 import time
 
+import gw2.api
 from gw2.constants import STORAGE_DIR
 
 STORAGE_PATH = os.path.join(STORAGE_DIR, 'build.txt')
@@ -20,6 +21,9 @@ def current():
             refresh = mtime < time.time() - 86400
         except OSError:
             refresh = True
+
+        if gw2.api.OFFLINE:
+            refresh = False
 
         if refresh:
             # As of 2022-02-24, the /v2/build API endpoint is stuck at 115267.  A

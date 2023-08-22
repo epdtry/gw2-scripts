@@ -5,6 +5,7 @@ import os
 import requests
 import time
 
+import gw2.api
 from gw2.api import fetch, fetch_paginated, fetch_with_retries
 from gw2.constants import STORAGE_DIR
 import gw2.build
@@ -24,6 +25,9 @@ def _get_data():
         refresh = mtime < time.time() - (60 * 30)
     except OSError:
         refresh = True
+
+    if gw2.api.OFFLINE:
+        refresh = False
 
     if refresh:
         if os.path.exists(INDEX_FILE):
@@ -93,6 +97,9 @@ def _get_listings_data():
         refresh = mtime < time.time() - (60 * 30)
     except OSError:
         refresh = True
+
+    if gw2.api.OFFLINE:
+        refresh = False
 
     if refresh:
         if os.path.exists(LISTINGS_INDEX_FILE):
