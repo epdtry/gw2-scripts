@@ -106,6 +106,18 @@ def format_price_delta(price):
     else:
         return '0'
 
+def format_age(age_sec):
+    days = age_sec // 86400
+    hours = age_sec // 3600 % 24
+    mins = age_sec // 60 % 60
+    if days == 0:
+        if hours == 0:
+            return '%dm' % mins
+        else:
+            return '%dh%02dm' % (hours, mins)
+    else:
+        return '%dd%02dh' % (days, hours)
+
 def parse_timestamp(s):
     dt = datetime.datetime.fromisoformat(s)
     return dt.timestamp()
@@ -1513,12 +1525,7 @@ class AgeColumn:
         age_sec = row.get('age_sec')
         if age_sec is None:
             return ''
-        days = age_sec // 86400
-        hours = age_sec // 3600 % 24
-        if days == 0:
-            return '%dh' % hours
-        else:
-            return '%dd%02dh' % (days, hours)
+        return format_age(age_sec)
 
     def render_total(self):
         return ''
@@ -1870,6 +1877,31 @@ def cmd_profit(name):
             policy_forbid_craft(),
             policy_can_craft_recipe,
             )
+
+    if CV_TP_PRICES is not None:
+        # Report the age of the price data used for this profit calculation.
+        now = time.time()
+        for related_item_id in sorted(related_items, key = gw2.items.name):
+            name = gw2.items.name(related_item_id)
+
+            cv_tp_entry = CV_TP_PRICES.get(name)
+            if related_item_id == item_id:
+                price = sell_prices.get(related_item_id)
+                price_time = cv_tp_entry.get('sell_time') if cv_tp_entry is not None else None
+            else:
+                price = buy_prices.get(related_item_id)
+                price_time = cv_tp_entry.get('buy_time') if cv_tp_entry is not None else None
+
+            if price is None:
+                continue
+
+            age = now - price_time if price_time is not None else None
+
+            price_str = format_price(price) if price is not None else ''
+            age_str = format_age(age) if age is not None else 'old'
+
+            print('%12s  %6s  %s' % (price_str, age_str, name))
+        print()
 
     buy_price = buy_prices[item_id]
     sell_price = sell_prices[item_id]
@@ -2751,7 +2783,11 @@ def cmd_guess_research_notes():
     print_research_notes_table(all_strategies)
 
 
+CV_TP_PRICES = None
+
 def augment_with_cv_tp_data():
+    global CV_TP_PRICES
+
     all_items = set()
     prices = {}
 
@@ -2762,7 +2798,15 @@ def augment_with_cv_tp_data():
     if os.path.exists('storage/cv_tp_prices/prices.json'):
         with open('storage/cv_tp_prices/prices.json') as f:
             prices = dict(json.load(f))
+            for v in prices.values():
+                if 'buy' in v and 'sell' not in v:
+                    v['sell'] = v['buy']
+                    v['sell_time'] = v['buy_time']
+                if 'sell' in v and 'buy' not in v:
+                    v['buy'] = v['sell']
+                    v['buy_time'] = v['sell_time']
             all_items.update(prices.keys())
+            CV_TP_PRICES = prices
 
     gw2.items.augment(all_items)
     gw2.trading_post.augment(prices)
