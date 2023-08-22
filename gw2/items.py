@@ -142,3 +142,52 @@ def search_name(name, rarity=None, level=None, with_flags=None, without_flags=No
     else:
         raise ValueError('ambiguous lookup for %r, %r: %r' %
                 (name, rarity, candidates))
+
+
+AUGMENT_IDS_FILE = os.path.join(ITEMS_DIR, 'augment_ids.json')
+# We assign ids starting at a high number, on the assumption that these won't
+# collide with any real items.
+AUGMENT_ID_BASE = 300000
+
+def augment(names):
+    if os.path.exists(AUGMENT_IDS_FILE):
+        with open(AUGMENT_IDS_FILE) as f:
+            augment_ids = json.load(f)
+    else:
+        augment_ids = {}
+    assigned_ids = False
+
+    aug_items = {}
+
+    by_name = _by_name()
+    by_name_multi = _by_name_multi()
+
+    with open(AUGMENT_IDS_FILE, 'a') as f:
+        for name in names:
+            if name in by_name:
+                continue
+
+            aug_id = augment_ids.get(name)
+            if aug_id is None:
+                aug_id = len(augment_ids) + AUGMENT_ID_BASE
+                augment_ids[name] = aug_id
+                assigned_ids = True
+
+            by_name[name] = aug_id
+            by_name_multi[name] = [aug_id]
+            aug_items[aug_id] = {
+                    'id': aug_id,
+                    'name': name,
+                    'type': 'Fake',
+                    'rarity': 'Basic',
+                    'level': 0,
+                    'vendor_value': 0,
+                    'flags': [],
+                    }
+
+    _get_data().augment(aug_items)
+
+
+    if assigned_ids:
+        with open(AUGMENT_IDS_FILE, 'w') as f:
+            json.dump(augment_ids, f)

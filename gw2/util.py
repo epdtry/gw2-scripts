@@ -1,4 +1,5 @@
 import functools
+import itertools
 import json
 import os
 
@@ -17,11 +18,17 @@ class DataStorage:
         self.index_file = open(index_path, 'a')
         self.data_file = open(data_path, 'a+')
 
+        self.augment_dct = None
+
     def contains(self, k):
         return k in self.index
 
     @functools.lru_cache(256)
     def get(self, k):
+        if self.augment_dct is not None:
+            v = self.augment_dct.get(k)
+            if v is not None:
+                return v
         pos = self.index.get(k)
         if pos is None:
             return None
@@ -37,6 +44,8 @@ class DataStorage:
         self.index_file.write(json.dumps((k, pos)) + '\n')
 
     def keys(self):
+        if self.augment_dct is not None:
+            return itertools.chain(self.index.keys(), self.augment_dct.keys)
         return self.index.keys()
 
     def iter(self):
@@ -45,3 +54,13 @@ class DataStorage:
                 continue
             self.data_file.seek(pos)
             yield json.loads(self.data_file.readline())
+
+        if self.augment_dct is not None:
+            yield from self.augment_dct.values()
+
+    def augment(self, dct):
+        if self.augment_dct is None:
+            self.augment_dct = dct
+        else:
+            self.augment_dct.update(dct)
+
