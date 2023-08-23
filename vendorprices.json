@@ -7,7 +7,18 @@
     "npcs": [
       {
         "name": "Jake The Fake Vendor",
-        "position": "Snowslide Ravine, Dredgehaunt Cliffs [N]"
+        "position": "Copper-Fed Salvage-o-Matic"
+      }
+    ]
+  },
+  "67027": {
+    "type": "gold",
+    "quantity": 1,
+    "cost": 60,
+    "npcs": [
+      {
+        "name": "Jake The Fake Vendor",
+        "position": "Silver-Fed Salvage-o-Matic"
       }
     ]
   },
