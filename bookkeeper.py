@@ -2026,11 +2026,11 @@ def cmd_provisioner():
         desc = '%s (%d)' % (gw2.items.name(item_id), item_id)
         print('%10d  %-50.50s  %12s  %-20s' % (count, desc, format_price(cost), cat_name))
 
-def cmd_obtain(name):
+def cmd_obtain(names):
     '''Print out the optimal strategy for obtaining the named item.'''
-    item_id = parse_item_id(name)
+    item_ids = [parse_item_id(name) for name in names]
 
-    related_items = gather_related_items([item_id])
+    related_items = gather_related_items(item_ids)
     buy_prices, sell_prices = get_prices(related_items)
 
     set_strategy_params(
@@ -2041,7 +2041,8 @@ def cmd_obtain(name):
             )
 
     inventory = defaultdict(int)
-    inventory[item_id] = -1
+    for item_id in item_ids:
+        inventory[item_id] -= 1
 
     # Process items until all stockpile requirements are satisfied.
     buy_items = defaultdict(int)
@@ -2058,7 +2059,7 @@ def cmd_obtain(name):
 
     # First pass: run until all inventory quantities are non-negative.  This
     # amounts to successfully crafting all the goal items.
-    pending_items.add(item_id)
+    pending_items.update(item_ids)
     while len(pending_items) > 0:
         item_id = pending_items.pop()
         shortage = -inventory.get(item_id, 0)
@@ -2848,8 +2849,8 @@ def main():
         assert len(args) == 0
         cmd_provisioner()
     elif cmd == 'obtain':
-        name, = args
-        cmd_obtain(name)
+        names = args
+        cmd_obtain(names)
     elif cmd == 'gen_profit_sql':
         assert len(args) == 0
         cmd_gen_profit_sql()
