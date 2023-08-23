@@ -2033,9 +2033,11 @@ def cmd_obtain(names):
     related_items = gather_related_items(item_ids)
     buy_prices, sell_prices = get_prices(related_items)
 
+    forbid_buy = set(policy_forbid_buy())
+    forbid_buy.update(item_ids)
     set_strategy_params(
             buy_prices,
-            policy_forbid_buy(),
+            forbid_buy,
             policy_forbid_craft(),
             policy_can_craft_recipe,
             )
