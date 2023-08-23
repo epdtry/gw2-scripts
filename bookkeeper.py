@@ -1864,20 +1864,7 @@ def cmd_goals_list():
     for name, count, item_id in sorted(entries):
         print('%6d  %s  - %d' % (count, name, item_id))
 
-def cmd_profit(name):
-    '''Show the profit to be made by crafting the named item.'''
-    item_id = parse_item_id(name)
-
-    related_items = gather_related_items([item_id])
-    buy_prices, sell_prices = get_prices(related_items)
-
-    set_strategy_params(
-            buy_prices,
-            policy_forbid_buy().union((item_id,)),
-            policy_forbid_craft(),
-            policy_can_craft_recipe,
-            )
-
+def print_cv_tp_prices(related_items, output_items, buy_prices, sell_prices):
     if CV_TP_PRICES is not None:
         # Report the age of the price data used for this profit calculation.
         now = time.time()
@@ -1885,7 +1872,7 @@ def cmd_profit(name):
             name = gw2.items.name(related_item_id)
 
             cv_tp_entry = CV_TP_PRICES.get(name)
-            if related_item_id == item_id:
+            if related_item_id in output_items:
                 price = sell_prices.get(related_item_id)
                 price_time = cv_tp_entry.get('sell_time') if cv_tp_entry is not None else None
             else:
@@ -1902,6 +1889,22 @@ def cmd_profit(name):
 
             print('%12s  %6s  %s' % (price_str, age_str, name))
         print()
+
+def cmd_profit(name):
+    '''Show the profit to be made by crafting the named item.'''
+    item_id = parse_item_id(name)
+
+    related_items = gather_related_items([item_id])
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy().union((item_id,)),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    print_cv_tp_prices(related_items, {item_id}, buy_prices, sell_prices)
 
     buy_price = buy_prices[item_id]
     sell_price = sell_prices[item_id]
@@ -2073,6 +2076,8 @@ def cmd_obtain(names):
         assert inventory.get(item_id, 0) >= 0, \
                 'strategy %r failed to produce %d %s' % (
                         strategy, shortage, gw2.items.name(item_id))
+
+    print_cv_tp_prices(related_items, set(item_ids), buy_prices, sell_prices)
 
     if len(buy_items) > 0:
         print('\nBuy:')
