@@ -1410,7 +1410,7 @@ def cmd_status():
             (
                 DualCountColumn('batch', 'goal', 'Sell'),
                 ItemNameColumn(),
-                DualCountColumn('sell', 'craft_sell', 'Sell'),
+                DualCountColumn('sell', 'craft_sell', 'Have'),
                 RecentColumn(), AltCountColumn('listed', 'Listed'),
                 UnitPriceColumn(),
                 PercentColumn()),
