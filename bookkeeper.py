@@ -1183,7 +1183,7 @@ def policy_sell_filter(r):
     return True
 
 @policy_func
-def policy_sell_batch_size(item_id):
+def policy_sell_batch_size(r):
     return None
 
 def cmd_status():
@@ -1395,7 +1395,7 @@ def cmd_status():
         if r['count'] is None:
             continue
 
-        max_count = policy_sell_batch_size(r['item_id'])
+        max_count = policy_sell_batch_size(r)
         if max_count is not None:
             if max_count == 0:
                 continue
