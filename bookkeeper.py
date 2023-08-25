@@ -1396,12 +1396,14 @@ def cmd_status():
         if r['count'] is None:
             continue
 
+        r = r.copy()
         max_count = policy_sell_batch_size(r)
         if max_count is not None:
             if max_count == 0:
                 continue
-            r = r.copy()
             r['count_batch'] = min(r['count_goal'], max_count)
+        else:
+            r['count_batch'] = r['count_goal']
         rows_sell_filtered_list.append(r)
 
     render_table('Sell',
