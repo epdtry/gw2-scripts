@@ -1163,13 +1163,28 @@ def calculate_status():
             'craft_goal_items': craft_goal_items,
             'craft_stockpile_items': craft_stockpile_items,
             'craft_items': craft_items,
+            # Amount of each item that can be crafted with materials on hand.
             'craft_counts': craft_counts,
+            # Amount that can be crafted if this is the only item we craft.
             'craft_only_counts': craft_only_counts,
             'buy_items': buy_items,
             'obtain_items': obtain_items,
             'used_items': used_items,
             'sell_goal_items': sell_goal_items,
             }
+
+
+@policy_func
+def policy_sell_filter(r):
+    if r['recent_age_sec'] is not None and r['recent_age_sec'] < 86400:
+        return False
+    if r['roi'] is not None and r['roi'] < 0:
+        return False
+    return True
+
+@policy_func
+def policy_sell_batch_size(item_id):
+    return None
 
 def cmd_status():
     '''Print a report listing the following:
@@ -1315,6 +1330,7 @@ def cmd_status():
                 sell_rows[item_id] = {
                         'item_id': item_id,
                         'count': count,
+                        'count_goal': count,
                         'count_wait': None,
                         'count_craft': None,
                         'count_craft_only': None,
@@ -1322,8 +1338,10 @@ def cmd_status():
                         'count_wait_craft': None,
                         'count_craft_sell': None,
                         'count_listed': None,
+                        'count_batch': None,
                         'unit_price': unit_price,
-                        'age_sec': None,
+                        'recent_age_sec': None,
+                        'recent_count': None,
                         'roi': roi,
                         }
             return sell_rows[item_id]
@@ -1366,20 +1384,34 @@ def cmd_status():
                 AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
                 AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed'),
                 PercentColumn()),
-            [r for r in rows_sell_list if (r.get('count_wait_craft') or 0) != 0],
+            rows_sell_list,
             render_title=True,
             render_total=False)
 
+    rows_sell_filtered_list = []
+    for r in rows_sell_list:
+        if not policy_sell_filter(r):
+            continue
+        if r['count'] is None:
+            continue
+
+        max_count = policy_sell_batch_size(r['item_id'])
+        if max_count is not None:
+            if max_count == 0:
+                continue
+            r = r.copy()
+            r['count_batch'] = min(r['count_goal'], max_count)
+        rows_sell_filtered_list.append(r)
+
     render_table('Sell',
-            (CountColumn(), ItemNameColumn(),
+            (
+                DualCountColumn('batch', 'goal', 'Sell'),
+                ItemNameColumn(),
                 DualCountColumn('sell', 'craft_sell', 'Sell'),
                 RecentColumn(), AltCountColumn('listed', 'Listed'),
                 UnitPriceColumn(),
                 PercentColumn()),
-            [r for r in rows_sell_list
-                if ((r.get('count') or 0) != 0 and
-                        (r.get('count_craft_sell') or 0) != 0) or
-                    (r.get('count_listed') or 0) != 0],
+            rows_sell_filtered_list,
             render_title=True,
             render_total=False)
 
