@@ -1383,6 +1383,7 @@ def cmd_status():
             (CountColumn(), ItemNameColumn(),
                 AltCountColumn('wait', 'Wait'), AltCountColumn('craft', 'Craft'),
                 AltCountColumn('sell', 'Sell'), AltCountColumn('listed', 'Listed'),
+                RecentColumn(),
                 PercentColumn()),
             rows_sell_list,
             render_title=True,
