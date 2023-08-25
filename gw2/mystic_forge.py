@@ -487,46 +487,6 @@ def _get():
     add(21, gw2.items.search_name('Essence of Luck', rarity = 'Fine'),
             ((2, 'Glob of Ectoplasm'), (2, "Silver-Fed Salvage-o-Matic")))
 
-    add(1, 'Baz', ((1, 'Foo'), (1, 'Bar')))
-
-    def add_relic(name, charm, other):
-        add(1, 'Relic of %s' % name, (
-            (48, 'Pile of Lucent Crystal'),
-            other,
-            (3, 'Charm of %s' % charm),
-            (15, 'Glob of Ectoplasm'),
-            ))
-    add_relic('Antitoxin', 'Skill', (50, 'Pristine Toxic Spore Sample'))
-    add_relic('Durability', 'Potence', (15, 'Crest of the Soldier'))
-    add_relic('Fireworks', 'Skill',
-            (5, gw2.items.search_name('Essence of Luck', rarity = 'Exotic')))
-    add_relic('Mercy', 'Brilliance', (15, 'Moonstone Orb'))
-    add_relic('Speed', 'Brilliance', (3, 'Charged Lodestone'))
-    add_relic('the Adventurer', 'Skill', (3, 'Platinum Doubloon'))
-    add_relic('the Aristocracy', 'Brilliance', (3, 'Bottle of Elonian Wine'))
-    add_relic('the Daredevil', 'Skill', (30, 'Leaf Fossil'))
-    add_relic('the Defender', 'Potence', (3, 'Sheet of Charged Ambrite'))
-    add_relic('the Flock', 'Skill', (3, 'Freshwater Pearl'))
-    add_relic('the Firebrand', 'Potence', (30, 'Eye of Kormir'))
-    add_relic('the Herald', 'Potence', (30, 'Leaf Fossil'))
-    add_relic('the Mirage', 'Brilliance', (30, 'Pulsing Brandspark'))
-    add_relic('the Necromancer', 'Brilliance', (15, 'Powerful Venom Sac'))
-    add_relic('the Monk', 'Brilliance', (15, 'Crest of the Magi'))
-    add_relic('the Pack', 'Skill', (3, 'Charged Fossil'))
-    add_relic('the Scourge', 'Brilliance', (30, 'Congealed Putrescence'))
-    add_relic('the Thief', 'Skill', (5, 'Cured Hardened Leather Square'))
-    add_relic('the Warrior', 'Potence', (15, 'Armored Scale'))
-    add_relic('the Weaver', 'Brilliance', (30, 'Eye of Kormir'))
-    add_relic('the Zephyrite', 'Brilliance', (3, 'Charged Quartz Crystal'))
-
-    add(1, 'Common Kryptis Motivation', (
-        (5, 'Pile of Incandescent Dust'),
-        (5, 'Large Bone'),
-        (5, 'Glob of Ectoplasm'),
-        (5, 'Research Note'),
-    ))
-
-
     _RECIPES = recipes
     return recipes
 
