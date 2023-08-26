@@ -70,8 +70,10 @@ def get_processed_data(item_id):
     if raw_item_data_points is None:
         return None
     
-    yesterday = datetime.now() - timedelta(days=1)
-    week_ago = datetime.now() - timedelta(days=7)
+    latest_date = datetime.fromtimestamp(raw_item_data_points[-1][0])
+    
+    yesterday = latest_date - timedelta(days=1)
+    week_ago = latest_date - timedelta(days=7)
     sold_daily = 0
     sold_weekly = 0
     bought_daily = 0
