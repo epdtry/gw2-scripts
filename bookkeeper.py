@@ -1329,16 +1329,57 @@ def cmd_status():
                     roi = None
                 sell_rows[item_id] = {
                         'item_id': item_id,
-                        'count': count,
+
+                        # How many more we intend to sell in total.  This
+                        # includes current sell listings that haven't sold yet.
                         'count_goal': count,
+                        # Duplicate of `count_goal`, for columns that work with
+                        # the key `count`.
+                        'count': count,
+
+                        # Counts for the four workflow stages: wait for
+                        # materials, craft, sell, listed for sale.  These four
+                        # fields should always sum to `count_goal`.
+
+                        # Out of `count_goal`, how many are awaiting materials?
                         'count_wait': None,
+                        # Out of `count_goal`, how many could we craft using
+                        # materials already on hand?  This counts materials
+                        # expended by previous crafting, assuming that we
+                        # crafted as many as possible of each previous item.
                         'count_craft': None,
-                        'count_craft_only': None,
+                        # Out of `count_goal`, how many do we have on hand to
+                        # sell?
                         'count_sell': None,
-                        'count_wait_craft': None,
-                        'count_craft_sell': None,
+                        # Out of `count_goal`, how many are currently listed to
+                        # sell on the trading post?
                         'count_listed': None,
+                        # These four fields should always sum to `count_goal`.
+
+                        # Like `count_craft`, but ignoring materials expended
+                        # by previous crafting.  If we were to craft as many as
+                        # possible of this item and nothing else, this is how
+                        # many we could make (limited by `count_goal`).
+                        'count_craft_only': None,
+
+                        # `count_wait + count_craft`
+                        'count_wait_craft': None,
+                        # `count_craft_only + count_sell`.  If we put all
+                        # resources on hand toward producing this item, this is
+                        # how many we could produce (including ones we already
+                        # have).
+                        'count_craft_sell': None,
+
+                        # Batch size, or how many to sell in the immediate next
+                        # trading post listing.  By default, this is equal to
+                        # `count_goal`, but it can be adjusted for certain
+                        # items by `policy_sell_batch_size`.
                         'count_batch': None,
+                        # `min(count_batch, count_craft_sell)`.  This is how
+                        # many we could sell right now with materials on hand,
+                        # limited by the batch size.
+                        'count_batch_sell': None,
+
                         'unit_price': unit_price,
                         'recent_age_sec': None,
                         'recent_count': None,
@@ -1404,6 +1445,8 @@ def cmd_status():
             r['count_batch'] = min(r['count_goal'], max_count)
         else:
             r['count_batch'] = r['count_goal']
+        if r['count_craft_sell'] is not None:
+            r['count_batch_sell'] = min(r['count_batch'], r['count_craft_sell'])
         rows_sell_filtered_list.append(r)
 
     render_table('Sell',
@@ -1412,11 +1455,11 @@ def cmd_status():
                 ItemNameColumn(),
                 DualCountColumn('sell', 'craft_sell', 'Have'),
                 RecentColumn(), AltCountColumn('listed', 'Listed'),
-                UnitPriceColumn(),
+                UnitPriceColumn(total_count_key='count_batch_sell'),
                 PercentColumn()),
             rows_sell_filtered_list,
             render_title=True,
-            render_total=False)
+            render_total=True)
 
     def row_sell_order(transaction):
         if transaction['quantity'] == 0:
@@ -1629,10 +1672,13 @@ class ItemNameColumn:
         return 'Total'
 
 class UnitPriceColumn:
-    def __init__(self, key='unit_price', title='Unit Price', show_buried=False):
+    def __init__(self, key='unit_price', title='Unit Price',
+            show_buried=False, total_count_key=None):
         self.key = key
         self.title_ = title
         self.show_buried = show_buried
+        self.total_count_key = total_count_key
+        self.total = 0
 
     def format(self):
         if self.show_buried:
@@ -1648,6 +1694,9 @@ class UnitPriceColumn:
         if unit_price is None:
             return ''
         unit_price_str = format_price(unit_price)
+
+        if self.total_count_key is not None:
+            self.total += (row.get(self.total_count_key) or 0) * unit_price
 
         buried_str = ''
         if self.show_buried:
@@ -1666,7 +1715,9 @@ class UnitPriceColumn:
         return unit_price_str + buried_str
 
     def render_total(self):
-        return ''
+        if self.total_count_key is None:
+            return ''
+        return format_price(self.total)
 
 class TotalPriceColumn:
     def __init__(self, mult=1):
