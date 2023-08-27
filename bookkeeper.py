@@ -37,6 +37,20 @@ except:
     policy = None
 
 
+def policy_func(f):
+    '''If the user has provided a `policy.py` containing a function of the same
+    name as `f`, replace `f` with that function (passing in the default `f` as
+    the first argument to the override).  Otherwise, return `f` unchanged.'''
+    override = getattr(policy, f.__name__, None) if policy is not None else None
+    if override is not None:
+        @functools.wraps(f)
+        def g(*args, **kwargs):
+            return override(f, *args, **kwargs)
+        return g
+    else:
+        return f
+
+
 def _load_dict(path):
     if os.path.exists(path):
         with open(path) as f:
@@ -147,6 +161,10 @@ def item_vendor_price(item):
         return 0
     return item.get('vendor_value', 0)
 
+@policy_func
+def policy_adjust_prices(buy_prices, sell_prices):
+    pass
+
 def get_prices(item_ids):
     buy_prices = {}
     sell_prices = {}
@@ -174,6 +192,7 @@ def get_prices(item_ids):
             sell_prices[x['id']] = price
 
     add_vendor_prices(buy_prices)
+    policy_adjust_prices(buy_prices, sell_prices)
     return buy_prices, sell_prices
 
 
@@ -217,6 +236,7 @@ def get_prices_and_listings(item_ids):
         sell_prices[x['id']] = sell_price
 
     add_vendor_prices(buy_prices)
+    policy_adjust_prices(buy_prices, sell_prices)
     return buy_prices, sell_prices, buy_listings, sell_listings
 
 def get_inventory():
@@ -699,19 +719,6 @@ def count_craftable(targets, inventory, buy_on_demand):
         inventory[target_item_id] -= min(inventory[target_item_id], target_goal)
 
     return craft_counts
-
-def policy_func(f):
-    '''If the user has provided a `policy.py` containing a function of the same
-    name as `f`, replace `f` with that function (passing in the default `f` as
-    the first argument to the override).  Otherwise, return `f` unchanged.'''
-    override = getattr(policy, f.__name__, None) if policy is not None else None
-    if override is not None:
-        @functools.wraps(f)
-        def g(*args, **kwargs):
-            return override(f, *args, **kwargs)
-        return g
-    else:
-        return f
 
 @policy_func
 def policy_can_craft_recipe(r):
