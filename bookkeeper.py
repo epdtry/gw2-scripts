@@ -2617,7 +2617,6 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
 
     for strat in valid_strategies(ITEM_RESEARCH_NOTE):
         forbid_buy.update(strat.related_items())
-    forbid_buy.remove(gw2.items.search_name('Mithril Ore'))
 
     orig_buy_prices = buy_prices.copy()
     orig_sell_prices = sell_prices.copy()
