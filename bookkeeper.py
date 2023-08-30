@@ -883,6 +883,34 @@ def policy_auto_refine():
 def policy_enhance_craft_profit():
     return False
 
+@policy_func
+def policy_row_filter(craft_item_row):
+    # if craft_item_row['sell_price'] >= craft_item_row['buy_price'] * 5.5:
+    #     return False
+    # if craft_item_row['demand'] < 75:
+    #     return False
+    if craft_item_row['roi'] < 0.02 or craft_item_row['roi'] > 2:
+        return False
+    if craft_item_row['craft_cost'] < 5000:
+        return False
+    # if craft_item_row['profit'] < 2000:
+    #     return False
+    
+    # if policy_enhance_craft_profit():
+    #     if craft_item_row['count_volume'] < 110:
+    #         return False
+
+    item = craft_item_row['item']
+    if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
+        return False
+    if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
+        return False
+    if item['type'] in ('Weapon', 'Armor'):
+        if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
+            return False
+
+    return True
+
 def default_policy_research_note_strategies(include_disabled=False):
     def group(notes, names, **kwargs):
         return [(gw2.items.search_name(name, **kwargs), 1, notes) for name in names]
@@ -2276,31 +2304,7 @@ def cmd_gen_profit_sql():
 def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
     if row_filter is None:
         def row_filter(x):
-            # if x['sell_price'] >= x['buy_price'] * 5.5:
-            #     return False
-            # if x['demand'] < 75:
-            #     return False
-            if x['roi'] < 0.02 or x['roi'] > 2:
-                return False
-            if x['craft_cost'] < 5000:
-                return False
-            # if x['profit'] < 2000:
-            #     return False
-            
-            if policy_enhance_craft_profit():
-                if x['count_volume'] < 110:
-                    return False
-
-            item = x['item']
-            if item['level'] != 80 and item['type'] in ('Weapon', 'Armor', 'Consumable'):
-                return False
-            if item['level'] < 60 and item['type'] in ('UpgradeComponent',):
-                return False
-            if item['type'] in ('Weapon', 'Armor'):
-                if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
-                    return False
-
-            return True
+            return policy_row_filter(x)
 
     if item_ids is None:
         output_item_ids = set(craftable_items())
@@ -2355,6 +2359,7 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
         
         if policy_enhance_craft_profit():
             row['count_volume'] = sold_daily_data
+            row['daily_profit'] = sold_daily_data * profit
 
         if row_filter(row):
             rows.append(row)
@@ -2369,6 +2374,7 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
                 UnitPriceColumn('craft_cost', 'Craft Cost'),
                 UnitPriceColumn('profit', 'Unit Profit'),
                 AltCountColumn('volume', 'Volume Sold'),
+                UnitPriceColumn('daily_profit', 'Daily Profit'),
                 ),
             rows,
             render_title=True,
