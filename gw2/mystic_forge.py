@@ -80,6 +80,12 @@ def _get():
         (1, "Writ of Dragon's End"),
     ), refine_only=True)
 
+    # SoTO specific recipes
+
+    add(5, 'Pouch of Stardust', (
+        (250, 'Pinch of Stardust'),
+    ), refine_only=True)
+
 
     # Legendary crafting - generic recipes
 

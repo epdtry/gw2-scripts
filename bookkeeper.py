@@ -2079,48 +2079,71 @@ def cmd_jade_bot_core_profits():
 # One line per category.  In each category, you can only sell one item per day.
 # TODO: switch to string search terms once gw2.items handles name collisions
 # TODO: fill in remaining options
+# ("Location Vendor Tab", {item_id: (items_handed_in, provisioner_tokens_obtained)})
 PROVISIONER_ITEMS = [
-    ("Lion's Arch", {19983: 1}),
-    ("Lion's Arch", {19721: 5}),
-    ("Lion's Arch", {24830: 1}),
+    ("Lion's Arch", {19983: (1, 1)}),
+    ("Lion's Arch", {19721: (5, 1)}),
+    ("Lion's Arch", {24830: (1, 1)}),
 
-    ('Black Citadel', {19925: 1}),
-    ('Black Citadel', {24366: 20}),
-    ('Black Citadel', {24741: 12}),
+    ('Black Citadel', {19925: (1, 1)}),
+    ('Black Citadel', {24366: (20, 1)}),
+    ('Black Citadel', {24741: (12, 1)}),
 
-    ("Divinity's Reach", {46742: 1}),
-    ("Divinity's Reach", {24678: 34}),
-    ("Divinity's Reach", {24732: 4}),
+    ("Divinity's Reach", {46742: (1, 1)}),
+    ("Divinity's Reach", {24678: (34, 1)}),
+    ("Divinity's Reach", {24732: (4, 1)}),
 
-    ('Hoelbrak', {46745: 1}),
-    ('Hoelbrak', {24651: 20}),
-    ('Hoelbrak', {24729: 14}),
+    ('Hoelbrak', {46745: (1, 1)}),
+    ('Hoelbrak', {24651: (20, 1)}),
+    ('Hoelbrak', {24729: (14, 1)}),
 
-    ('Rata Sum', {43772: 1}),
-    ('Rata Sum', {24330: 24}),
-    ('Rata Sum', {24726: 14}),
+    ('Rata Sum', {43772: (1, 1)}),
+    ('Rata Sum', {24330: (24, 1)}),
+    ('Rata Sum', {24726: (14, 1)}),
 
-    ('The Grove', {46744: 1}),
-    ('The Grove', {66650: 3}),
-    ('The Grove', {24735: 14}),
+    ('The Grove', {46744: (1, 1)}),
+    ('The Grove', {66650: (3, 1)}),
+    ('The Grove', {24735: (14, 1)}),
 
-    ('Verdant Brink', {74356: 1}),
-    ('Verdant Brink', {46281: 1, 46040: 1, 46186: 1, 45731: 1, 45765: 1, 45622: 1}),
-    ('Verdant Brink', {15465: 1, 13924: 1, 14469: 1, 11121: 1, 11876: 1, 10702: 1}),
-    ('Verdant Brink', {15394: 1, 13895: 1, 14517: 1, 11295: 1, 11798: 1, 10722: 1}),
-    ('Verdant Brink', {15508: 1, 13974: 1, 14596: 1, 11248: 1, 11835: 1, 10710: 1}),
-    ('Verdant Brink', {36779: 1, 36813: 1, 36750: 1, 36892: 1, 36891: 1, 36746: 1}),
+    ('Verdant Brink', {74356: (1, 1)}),
+    ('Verdant Brink', {46281: (1, 1), 46040: (1, 1), 46186: (1, 1), 45731: (1, 1), 45765: (1, 1), 45622: (1, 1)}),
+    ('Verdant Brink', {15465: (1, 1), 13924: (1, 1), 14469: (1, 1), 11121: (1, 1), 11876: (1, 1), 10702: (1, 1)}),
+    ('Verdant Brink', {15394: (1, 1), 13895: (1, 1), 14517: (1, 1), 11295: (1, 1), 11798: (1, 1), 10722: (1, 1)}),
+    ('Verdant Brink', {15508: (1, 1), 13974: (1, 1), 14596: (1, 1), 11248: (1, 1), 11835: (1, 1), 10710: (1, 1)}),
+    ('Verdant Brink', {36779: (1, 1), 36813: (1, 1), 36750: (1, 1), 36892: (1, 1), 36891: (1, 1), 36746: (1, 1)}),
 
-    ('Auric Basin', {73537: 1}),
-    ('Auric Basin', {38336: 1, 38415: 1, 38367: 1, 38228: 1, 38264: 1, 38179: 1}),
-    ('Auric Basin', {15352: 1, 13895: 1, 14566: 1, 11295: 1, 11798: 1, 10722: 1}),
-    ('Auric Basin', {15427: 1, 13928: 1, 14648: 1, 11167: 1, 11754: 1, 10699: 1}),
+    ('Auric Basin', {73537: (1, 1)}),
+    ('Auric Basin', {38336: (1, 1), 38415: (1, 1), 38367: (1, 1), 38228: (1, 1), 38264: (1, 1), 38179: (1, 1)}),
+    ('Auric Basin', {15352: (1, 1), 13895: (1, 1), 14566: (1, 1), 11295: (1, 1), 11798: (1, 1), 10722: (1, 1)}),
+    ('Auric Basin', {15427: (1, 1), 13928: (1, 1), 14648: (1, 1), 11167: (1, 1), 11754: (1, 1), 10699: (1, 1)}),
 
-    ('Tangled Depths', {72205: 1}),
-    ('Tangled Depths', {15391: 1, 13976: 1, 14563: 1, 11341: 1, 11921: 1, 10691: 1}),
-    ('Tangled Depths', {15423: 1, 13973: 1, 14428: 1, 11247: 1, 11834: 1, 10709: 1}),
-    ('Tangled Depths', {15512: 1, 13894: 1, 14516: 1, 11126: 1, 11881: 1, 10707: 1}),
-    ('Tangled Depths', {36779: 1, 36780: 1, 36812: 1, 36844: 1, 36842: 1, 36806: 1}),
+    ('Tangled Depths', {72205: (1, 1)}),
+    ('Tangled Depths', {15391: (1, 1), 13976: (1, 1), 14563: (1, 1), 11341: (1, 1), 11921: (1, 1), 10691: (1, 1)}),
+    ('Tangled Depths', {15423: (1, 1), 13973: (1, 1), 14428: (1, 1), 11247: (1, 1), 11834: (1, 1), 10709: (1, 1)}),
+    ('Tangled Depths', {15512: (1, 1), 13894: (1, 1), 14516: (1, 1), 11126: (1, 1), 11881: (1, 1), 10707: (1, 1)}),
+    ('Tangled Depths', {36779: (1, 1), 36780: (1, 1), 36812: (1, 1), 36844: (1, 1), 36842: (1, 1), 36806: (1, 1)}),
+
+    ('Skywatch Archipelago, Beacon of Ages', {100220: (1, 5), 100650: (1, 5), 100415: (1, 5),
+                                          gw2.items.search_name('Silk Scrap'): (500, 1), gw2.items.search_name('Thick Leather Section'): (250, 1), gw2.items.search_name('Orichalcum Ore'): (50, 1)}),
+    ('Skywatch Archipelago, Droknars', {100632: (1, 5), 100101: (1, 5), 100374: (1, 5),
+                                          19748: (500, 1), 19725: (50, 1), 19745: (100, 1)}),
+    ('Skywatch Archipelago, Kestrel', {100952: (1, 5), 100166: (1, 5), 100373: (1, 5),
+                                          19735: (250, 1), 19701: (50, 1), 19745: (100, 1)}),
+    ('Skywatch Archipelago, Rata Novus', {100874: (1, 5), 100844: (1, 5), 100881: (1, 5),
+                                          ITEM_RESEARCH_NOTE: (100, 1), 19725: (50, 1), 19732: (50, 1)}),
+    ('Skywatch Archipelago, Skyward Marches', {100315: (1, 5), 100691: (1, 5), 100895: (1, 5), 99959: (1, 5),
+                                          gw2.items.search_name('Elder Wood Log'): (250, 1), gw2.items.search_name('Ancient Wood Log'): (50, 1), gw2.items.search_name('Glob of Ectoplasm'): (5, 1)}),  
+
+    ('Amnytas, Bastion of the Balance', {100915: (1, 5), 100249: (1, 5), 100443: (1, 5), 100235: (1, 5),
+                                          19700: (250, 1), 19732: (50, 1), 19721: (5, 1), 19722: (250, 1), 19748: (500, 1), 19701: (50, 1)}),
+    ('Amnytas, Bastion of the Knowledge', {100623: (1, 5), 100601: (1, 5), 100143: (1, 5), 100047: (1, 5),
+                                          ITEM_RESEARCH_NOTE: (100, 1), gw2.items.search_name('Elder Wood Log'): (250, 1), gw2.items.search_name('Orichalcum Ore'): (50, 1), gw2.items.search_name('Hardened Leather Section'): (50, 1), gw2.items.search_name('Ancient Wood Log'): (50, 1)}),
+    ('Amnytas, Bastion of the Natural', {100855: (1, 5), 100805: (1, 5), 100232: (1, 5), 99958: (1, 5),
+                                          19722: (250, 1), 19729: (250, 1), ITEM_RESEARCH_NOTE: (100, 1), 19701: (50, 1), 19725: (50, 1), 19721: (5, 1)}),
+    ('Amnytas, Bastion of the Obscure', {100215: (1, 5),
+                                          19748: (500, 1), ITEM_RESEARCH_NOTE: (100, 1), 19732: (50, 1), 19700: (250, 1), 19722: (250, 1), 19745: (100, 1)}),
+    ('Amnytas, Bastion of the Strength', {100130: (1, 5), 100215: (1, 5), 100224: (1, 5), 
+                                          19748: (500, 1), ITEM_RESEARCH_NOTE: (100, 1)}),
 ]
 
 ALL_PROVISIONER_ITEMS = set(item_id for name, items in PROVISIONER_ITEMS
@@ -2142,21 +2165,27 @@ def cmd_provisioner():
     for cat_name, category in PROVISIONER_ITEMS:
         best_item_id = None
         best_count = None
+        best_num_tokens = None
         best_cost = None
-        for item_id, count in category.items():
+        for item_id, item_line in category.items():
+            count = item_line[0]
+            num_tokens = item_line[1]
             unit_cost = optimal_cost(item_id)
             if unit_cost is None:
                 continue
-            cost = unit_cost * count
+            cost = unit_cost * count / num_tokens
             if best_cost is None or cost < best_cost:
                 best_cost = cost
                 best_item_id = item_id
                 best_count = count
+                best_num_tokens = num_tokens
         if best_cost is not None:
-            best_in_category.append((best_cost, best_item_id, best_count, cat_name))
+            best_in_category.append((best_cost, best_item_id, best_count, cat_name, best_num_tokens))
     best_in_category.sort(key=lambda x: x[0])
-    for cost, item_id, count, cat_name in best_in_category:
+    for cost, item_id, count, cat_name, n_tokens in best_in_category:
         desc = '%s (%d)' % (gw2.items.name(item_id), item_id)
+        if n_tokens > 1:
+            desc += ' (%d tokens)' % n_tokens
         print('%10d  %-50.50s  %12s  %-20s' % (count, desc, format_price(cost), cat_name))
 
 def cmd_obtain(names):
