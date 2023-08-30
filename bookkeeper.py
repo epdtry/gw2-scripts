@@ -548,6 +548,10 @@ def set_strategy_params(prices, forbid_buy, forbid_craft, can_craft_recipe,
     _OPTIMAL_STRATEGY_CACHE = {}
     _OPTIMAL_COST_CACHE = {}
 
+@policy_func
+def policy_extra_strategies(item_id):
+    return
+
 def valid_strategies(item_id, allow_refine_only=False):
     if item_id not in STRATEGY_FORBID_BUY:
         price = STRATEGY_PRICES.get(item_id)
@@ -581,6 +585,9 @@ def valid_strategies(item_id, allow_refine_only=False):
                         yield StrategyResearchNote(gw2.items.name(item_id),
                                 [(item_id, 1, notes)])
 
+    extra = policy_extra_strategies(item_id)
+    if extra is not None:
+        yield from extra
 
 
 def optimal_strategy(item_id):
