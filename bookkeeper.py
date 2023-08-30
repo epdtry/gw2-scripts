@@ -2896,6 +2896,27 @@ def cmd_guess_research_notes():
     print_research_notes_table(all_strategies)
 
 
+@policy_func
+def policy_auto_goals():
+    '''Item goals to automatically increment with `cmd_auto_goals`.  Each entry
+    should be a dict with keys `id`, `limit`, and `count`.  When the amount of
+    item `id` left to sell is `limit` or less, then `cmd_auto_goals` will
+    increment the goal for that item by `count`.
+    '''
+    return []
+
+def cmd_auto_goals():
+    goals = _load_zero_dict(GOALS_PATH)
+    sold = gw2.trading_post.total_sold()
+    sell_orders, selling_items = gw2.trading_post.pending_sells()
+    for ag in policy_auto_goals():
+        item_id = ag['id']
+        need = goals.get(item_id, 0) - (sold.get(item_id, 0) + selling_items.get(item_id, 0))
+        if need <= ag['limit']:
+            print()
+            cmd_goal(ag['count'], item_id)
+
+
 CV_TP_PRICES = None
 
 def augment_with_cv_tp_data():
@@ -2993,6 +3014,9 @@ def main():
     elif cmd == 'guess_research_notes':
         assert len(args) == 0
         cmd_guess_research_notes()
+    elif cmd == 'auto_goals':
+        assert len(args) == 0
+        cmd_auto_goals()
     elif cmd == 'test_augment':
         gw2.items.augment(['Foo', 'Bar', 'Baz'])
         print(gw2.items.get(300000))
