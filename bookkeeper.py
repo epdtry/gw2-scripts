@@ -2326,7 +2326,9 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
     forbid_craft = policy_forbid_craft()
     historical_data = {}
     if policy_enhance_craft_profit():
-        historical_data = bltc.historical_data.get_items_processed_historical_data(output_item_ids)
+        hd = bltc.historical_data.get_items_processed_historical_data(output_item_ids)
+        if hd is not None:
+            historical_data = hd
 
     rows = []
     for item_id in output_item_ids:
