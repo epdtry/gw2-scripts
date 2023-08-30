@@ -55,6 +55,10 @@ def _refresh():
                     and i['details']['type'] in ('Rune', 'Sigil') \
                     and i['rarity'] == 'Legendary':
                 pass
+            # Hack: omit the account-bound motivation used in the story.
+            elif i['name'] == 'Uncommon Kryptis Motivation' \
+                    and 'SoulbindOnAcquire' in i['flags']:
+                pass
             else:
                 by_name[i['name']] = i['id']
                 by_name_multi[i['name']].append(i['id'])
