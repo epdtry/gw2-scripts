@@ -55,9 +55,12 @@ def _refresh():
                     and i['details']['type'] in ('Rune', 'Sigil') \
                     and i['rarity'] == 'Legendary':
                 pass
-            # Hack: omit the account-bound motivation used in the story.
-            elif i['name'] == 'Uncommon Kryptis Motivation' \
-                    and 'SoulbindOnAcquire' in i['flags']:
+            # Hack: omit account-bound versions of certain soto items
+            elif i['name'] in (
+                        'Uncommon Kryptis Motivation',
+                        'Relic of Durability',
+                        'Relic of Evasion',
+                    ) and 'SoulbindOnAcquire' in i['flags']:
                 pass
             else:
                 by_name[i['name']] = i['id']
