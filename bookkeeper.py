@@ -1568,6 +1568,8 @@ def cmd_status():
     print('Target gold: %s' % format_price(gold - future_buy_total +
         current_sell_total + future_sell_total))
 
+    report_auto_goals(x)
+
 class CountColumn:
     def format(self):
         return '%6s'
@@ -2904,6 +2906,25 @@ def policy_auto_goals():
     increment the goal for that item by `count`.
     '''
     return []
+
+def report_auto_goals(status):
+    item_ids = []
+    craft_goal_items = status['craft_goal_items']
+    sell_goal_items = status['sell_goal_items']
+    for ag in policy_auto_goals():
+        item_id = ag['id']
+        need = craft_goal_items.get(item_id, 0) + sell_goal_items.get(item_id, 0)
+        if need <= ag['limit']:
+            item_ids.append(item_id)
+    if len(item_ids) > 0:
+        print()
+        if len(item_ids) == 1:
+            print('There is 1 item below auto_goals threshold:')
+        else:
+            print('There are %d items below auto_goals thresholds:' % len(item_ids))
+        for item_id in item_ids:
+            print('  ' + gw2.items.name(item_id))
+        print('Run `bookkeeper.py auto_goals` to update goals')
 
 def cmd_auto_goals():
     goals = _load_zero_dict(GOALS_PATH)
