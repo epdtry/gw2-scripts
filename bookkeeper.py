@@ -1587,12 +1587,13 @@ class CountColumn:
         return ''
 
 class AltCountColumn:
-    def __init__(self, suffix, title):
+    def __init__(self, suffix, title, format='%6s'):
         self.suffix = suffix
         self.title_ = title
+        self.format_ = format
 
     def format(self):
-        return '%6s'
+        return self.format_
 
     def title(self):
         return self.title_
@@ -2423,7 +2424,7 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
                 PercentColumn(),
                 UnitPriceColumn('craft_cost', 'Craft Cost'),
                 UnitPriceColumn('profit', 'Unit Profit'),
-                AltCountColumn('volume', 'Volume Sold'),
+                AltCountColumn('volume', 'Volume Sold', '%11s'),
                 UnitPriceColumn('daily_profit', 'Daily Profit'),
                 ),
             rows,
@@ -3007,6 +3008,49 @@ def augment_with_cv_tp_data():
     gw2.items.augment(all_items)
     gw2.trading_post.augment(prices)
 
+def cmd_find_item_location(item_name_or_id):
+    # loops through bank, material storage, and all characters to find the item
+    # and prints out the location
+    target_item_id = parse_item_id(item_name_or_id)
+    if target_item_id is None:
+        print('bad item name or id %s?' % item_name_or_id)
+        return
+    
+    # loops through bank
+    bank = gw2.api.fetch('/v2/account/bank')
+    for item in bank:
+        if item is None:
+            continue
+        if item['id'] == target_item_id:
+            print('Item found in bank')
+            return
+    
+    # loops through characters
+    char_names = get_char_names()
+    for char_name in char_names:
+        char = gw2.api.fetch_with_retries('/v2/characters/%s/inventory' %
+                urllib.parse.quote(char_name))
+        for bag in char['bags']:
+            if bag is None:
+                continue
+            for item in bag['inventory']:
+                if item is None:
+                    continue
+                if item['id'] == target_item_id:
+                    print('Item found in %s\'s inventory' % char_name)
+                    return
+
+    # loops through material storage
+    materials = gw2.api.fetch_with_retries('/v2/account/materials')
+    for item in materials:
+        if item is None:
+            continue
+        if item['id'] == target_item_id:
+            print('Item found in material storage')
+            return
+    
+    print('Item \'%s\' not found' % item_name_or_id)
+    return
 
 
 def main():
@@ -3093,5 +3137,9 @@ def main():
         })
         name, = args
         cmd_profit(name)
+    elif cmd == 'find_item_location':
+        assert len(args) == 1
+        item_name_or_id,  = args
+        cmd_find_item_location(item_name_or_id)
     else:
         raise ValueError('unknown command %r' % cmd)
