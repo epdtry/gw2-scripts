@@ -1062,7 +1062,7 @@ def calculate_status():
     for item_id in keys:
         if inventory.get(item_id, 0) < stockpile.get(item_id, 0):
             shortage_items.add(item_id)
-
+    
     related_items = set(chain(
         gather_related_items(chain(shortage_items, goals.keys())),
         buying_items, selling_items))
@@ -2416,7 +2416,10 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
             rows.append(row)
 
     if sort:
-        rows.sort(key=lambda row: row.get('roi', 0), reverse=True)
+        if(policy_enhance_craft_profit()):
+            rows.sort(key=lambda row: row.get('daily_profit', 0), reverse=True)
+        else:
+            rows.sort(key=lambda row: row.get('roi', 0), reverse=True)
 
     print('Result count: %d' % len(rows))
     render_table(title,
