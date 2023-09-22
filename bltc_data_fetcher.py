@@ -10,6 +10,7 @@ import gw2.api
 import gw2.recipes
 import gw2.mystic_forge
 import gw2.items
+import gw2.trading_post
 from gw2.util import DataStorage
 from gw2.constants import STORAGE_DIR
 
@@ -82,6 +83,34 @@ def craftable_items():
             continue
         yield item_id
 
+def get_prices(item_ids):
+    sell_prices = {}
+
+    for x in gw2.trading_post.get_prices_multi(item_ids):
+        if x is None:
+            continue
+
+        # The trading post doesn't allow selling items at prices so low that
+        # you would receive less than vendor price after taxes.
+        item = gw2.items.get(x['id'])
+
+        price = x['sells'].get('unit_price', 0) or x['buys'].get('unit_price', 0)
+        if price != 0:
+            sell_prices[x['id']] = price
+
+    return sell_prices
+
+# function that given a list of item ids, returns a list of sellable item ids
+def sellable_items(item_ids):
+    # get the prices of the items
+    sell_prices = get_prices(item_ids)
+    # for each item, if the price is greater than 0, add it to the list
+    sellable_item_ids = []
+    for item_id in item_ids:
+        if item_id in sell_prices:
+            sellable_item_ids.append(item_id)
+    return sellable_item_ids
+
 # Function to fetch item data for a given item_id
 def fetch_item_data(item_id):
     try:
@@ -102,7 +131,8 @@ def cmd_download_new_data():
     start = time.perf_counter()
 
     # get the list of items
-    output_item_ids = set(craftable_items())
+    craftable_items_list = set(craftable_items())
+    output_item_ids = sellable_items(craftable_items_list)
 
     # Create a ThreadPoolExecutor with a maximum of 8 concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:

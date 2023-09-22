@@ -11,7 +11,7 @@ def _fetch_req(item_id):
             }
     url = API_BASE + str(item_id)
     print('fetch ' + url, file=sys.stderr)
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, timeout=15)
     r.raise_for_status()
     return r
 
