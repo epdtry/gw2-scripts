@@ -1,10 +1,13 @@
 import gw2.api
 import gw2.items
 import bookkeeper
-import random
+import math
+
+SPIRIT_SHARDS_PER_HOUR = 20
 
 def essences_per_rift(tier, using_motivation):
     # Assumes that player has Rift Mastery
+    # Comments of rewards are from the gw2 wiki
     num_essence_of_despair = 0
     num_essence_of_greed = 0
     num_essence_of_triumph = 0
@@ -68,13 +71,27 @@ def main():
     report([(1, 'Essence of Greed', 'item')])
     report([(1, 'Essence of Triumph', 'item')])
     print()
-    print('Tier 1 without motivations:', essences_per_rift(1, False))
-    print('Tier 2 without motivations:', essences_per_rift(2, False))
-    print('Tier 3 without motivations:', essences_per_rift(3, False))
+    print('Rifts needed for full legendary armor using motivations:')
+    # Taken from https://www.reddit.com/r/Guildwars2/comments/1653lii/cost_of_obsidian_legendary_armor_summarized/?rdt=62704
+    essences_needed = [18000, 7200, 3900]
+
+    essences_per_t3_rift = essences_per_rift(3, True)
+    t3_rifts_needed = math.ceil(essences_needed[2] / essences_per_t3_rift[2])
+    t1_essences_gained_from_t3_rifts = t3_rifts_needed * essences_per_t3_rift[0]
+
+    essences_per_t2_rift = essences_per_rift(2, True)
+    t2_rifts_needed = math.ceil(essences_needed[1] / essences_per_t2_rift[1])
+    t1_essences_gained_from_t2_rifts = t2_rifts_needed * essences_per_t2_rift[0]
+
+    essences_per_t1_rift = essences_per_rift(1, True)
+    total_t1_essences_gained = t1_essences_gained_from_t3_rifts + t1_essences_gained_from_t2_rifts
+    t1_rifts_needed = math.ceil((essences_needed[0]- total_t1_essences_gained) / essences_per_t1_rift[0])
+
+    print('Tier 1: %d' % t1_rifts_needed)
+    print('Tier 2: %d' % t2_rifts_needed)
+    print('Tier 3: %d' % t3_rifts_needed)
     print()
-    print('Tier 1 with motivations:', essences_per_rift(1, True))
-    print('Tier 2 with motivations:', essences_per_rift(2, True))
-    print('Tier 3 with motivations:', essences_per_rift(3, True))
+
 
 if __name__ == '__main__':
     main()
