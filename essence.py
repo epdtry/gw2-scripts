@@ -3,7 +3,7 @@ import gw2.items
 import bookkeeper
 import math
 
-SPIRIT_SHARDS_PER_HOUR = 20
+RIFTS_PER_HOUR = 20
 
 def essences_per_rift(tier, using_motivation):
     # Assumes that player has Rift Mastery
@@ -72,6 +72,7 @@ def main():
     report([(1, 'Essence of Triumph', 'item')])
     print()
     print('Rifts needed for full legendary armor using motivations:')
+    print('\nBuying all motivations')
     # Taken from https://www.reddit.com/r/Guildwars2/comments/1653lii/cost_of_obsidian_legendary_armor_summarized/?rdt=62704
     essences_needed = [18000, 7200, 3900]
 
@@ -87,10 +88,33 @@ def main():
     total_t1_essences_gained = t1_essences_gained_from_t3_rifts + t1_essences_gained_from_t2_rifts
     t1_rifts_needed = math.ceil((essences_needed[0]- total_t1_essences_gained) / essences_per_t1_rift[0])
 
-    print('Tier 1: %d' % t1_rifts_needed)
-    print('Tier 2: %d' % t2_rifts_needed)
-    print('Tier 3: %d' % t3_rifts_needed)
+    total_number_rifts_needed = t1_rifts_needed + t2_rifts_needed + t3_rifts_needed
+
+    print('Tier 1 Rifts Needed: %d' % t1_rifts_needed)
+    print('Tier 2 Rifts Needed: %d' % t2_rifts_needed)
+    print('Tier 3 Rifts Needed: %d' % t3_rifts_needed)
     print()
+    t1_motivation_item = gw2.items.search_name('Common Kryptis Motivation')
+    t2_motivation_item = gw2.items.search_name('Uncommon Kryptis Motivation')
+    t3_motivation_item = gw2.items.search_name('Rare Kryptis Motivation')
+    t1_motivations_needed = t1_rifts_needed
+    t2_motivations_needed = t2_rifts_needed
+    t3_motivations_needed = t3_rifts_needed
+    buy_prices, sell_prices = bookkeeper.get_prices([t1_motivation_item, t2_motivation_item, t3_motivation_item])
+    t1_motivation_buy_price = buy_prices[t1_motivation_item]
+    t2_motivation_buy_price = buy_prices[t2_motivation_item]
+    t3_motivation_buy_price = buy_prices[t3_motivation_item]
+    t1_motivation_cost = t1_motivations_needed * t1_motivation_buy_price
+    t2_motivation_cost = t2_motivations_needed * t2_motivation_buy_price
+    t3_motivation_cost = t3_motivations_needed * t3_motivation_buy_price
+    total_motivation_cost = t1_motivation_cost + t2_motivation_cost + t3_motivation_cost
+    print('Tier 1 Motivations: %d (cost: %s)' % (t1_motivations_needed, bookkeeper.format_price(t1_motivation_cost)))
+    print('Tier 2 Motivations: %d (cost: %s)' % (t2_motivations_needed, bookkeeper.format_price(t2_motivation_cost)))
+    print('Tier 3 Motivations: %d (cost: %s)' % (t3_motivations_needed, bookkeeper.format_price(t3_motivation_cost)))
+    print()
+    print('Total Rifts Needed: %d' % total_number_rifts_needed)
+    print('Total Hours Needed: %d' % math.ceil(total_number_rifts_needed / RIFTS_PER_HOUR))
+    print('Total Motivation Cost: %s' % bookkeeper.format_price(total_motivation_cost))
 
 
 if __name__ == '__main__':
