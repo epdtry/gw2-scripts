@@ -116,6 +116,28 @@ def main():
     print('Total Hours Needed: %d' % math.ceil(total_number_rifts_needed / RIFTS_PER_HOUR))
     print('Total Motivation Cost: %s' % bookkeeper.format_price(total_motivation_cost))
 
+    print('\nNot using motivations')
+    essences_per_t3_rift = essences_per_rift(3, False)
+    t3_rifts_needed = math.ceil(essences_needed[2] / essences_per_t3_rift[2])
+    t1_essences_gained_from_t3_rifts = t3_rifts_needed * essences_per_t3_rift[0]
+
+    essences_per_t2_rift = essences_per_rift(2, False)
+    t2_rifts_needed = math.ceil(essences_needed[1] / essences_per_t2_rift[1])
+    t1_essences_gained_from_t2_rifts = t2_rifts_needed * essences_per_t2_rift[0]
+
+    essences_per_t1_rift = essences_per_rift(1, False)
+    total_t1_essences_gained = t1_essences_gained_from_t3_rifts + t1_essences_gained_from_t2_rifts
+    t1_rifts_needed = math.ceil((essences_needed[0]- total_t1_essences_gained) / essences_per_t1_rift[0])
+
+    total_number_rifts_needed = t1_rifts_needed + t2_rifts_needed + t3_rifts_needed
+
+    print('Tier 1 Rifts Needed: %d' % t1_rifts_needed)
+    print('Tier 2 Rifts Needed: %d' % t2_rifts_needed)
+    print('Tier 3 Rifts Needed: %d' % t3_rifts_needed)
+    print()
+    print('Total Rifts Needed: %d' % total_number_rifts_needed)
+    print('Total Hours Needed: %d' % math.ceil(total_number_rifts_needed / RIFTS_PER_HOUR))
+
 
 if __name__ == '__main__':
     main()
