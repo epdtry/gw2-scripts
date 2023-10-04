@@ -2,8 +2,85 @@ import gw2.api
 import gw2.items
 import bookkeeper
 import math
+import random
+
 
 RIFTS_PER_HOUR = 20
+
+def essences_per_kryptis_extraction():
+    return [5.08, 4.79, 2.13]
+
+def optimal_rifts_per_week(essences_needed):
+    # There are weekly bonuses for doing 5 rifts in each zone.
+    # Two of the zones you can only do t2 rifts in.
+    # Each zones bonus gives 6 kryptis extractions if you do 5 rifts in that zone.
+    # We need to do at least 1 of rift of each tier per week, except for the two zones that only have t2 rifts.
+    # Calculate the minimum number of rifts needed for each zone until we have enough essences needed.
+    remaining_essences_needed = essences_needed.copy()
+
+    essences_per_t3_rift = essences_per_rift(3, True)
+    essences_per_t2_rift = essences_per_rift(2, True)
+    essences_per_t1_rift = essences_per_rift(1, True)
+    essences_per_extraction = essences_per_kryptis_extraction()
+
+    best_num_weeks = math.inf
+    best_essences_left_over = [0, 0, 0]
+
+    # Do 5 t1 rifts for Archipelago
+    zone_1_essences = [5 * essences for essences in essences_per_t1_rift] # Archipelago
+    zone_1_essences[0] += 6 * essences_per_extraction[0]
+    zone_1_essences[1] += 6 * essences_per_extraction[1]
+    zone_1_essences[2] += 6 * essences_per_extraction[2]
+    # Do 5 t2 rifts for Amnytas
+    zone_2_essences = [5 * essences for essences in essences_per_t1_rift] # Amnytas
+    zone_2_essences[0] += 6 * essences_per_extraction[0]
+    zone_2_essences[1] += 6 * essences_per_extraction[1]
+    zone_2_essences[2] += 6 * essences_per_extraction[2]
+
+    # Brute force all possible combinations of rifts for the remaining 3 zones
+    # Make it the same number of rifts for each zone
+    remaining_zones = 3
+    for t3_rifts_per_zone in range(1, 6):
+        for t2_rifts_per_zone in range(1, 6):
+            for t1_rifts_per_zone in range(1, 6):
+                if t3_rifts_per_zone + t2_rifts_per_zone + t1_rifts_per_zone != 5:
+                    continue
+
+                essences_gained = [0, 0, 0] # [despair, greed, triumph]
+                essences_gained[0] = math.floor(zone_1_essences[0] + zone_2_essences[0])
+                essences_gained[1] = math.floor(zone_1_essences[1] + zone_2_essences[1])
+                essences_gained[2] = math.floor(zone_1_essences[2] + zone_2_essences[2])
+
+                essences_gained[0] += remaining_zones * ((t3_rifts_per_zone * essences_per_t3_rift[0]) + (t2_rifts_per_zone * essences_per_t2_rift[0]) + (t1_rifts_per_zone * essences_per_t1_rift[0]) + (6 * essences_per_extraction[0]))
+                essences_gained[1] += remaining_zones * ((t2_rifts_per_zone * essences_per_t2_rift[1]) + (6 * essences_per_extraction[1]))
+                essences_gained[2] += remaining_zones * ((t3_rifts_per_zone * essences_per_t3_rift[2]) + (6 * essences_per_extraction[2]))
+
+                num_weeks_remaining = [0, 0, 0] # [despair, greed, triumph]
+                num_weeks_remaining[0] = math.ceil(remaining_essences_needed[0] / essences_gained[0])
+                num_weeks_remaining[1] = math.ceil(remaining_essences_needed[1] / essences_gained[1])
+                num_weeks_remaining[2] = math.ceil(remaining_essences_needed[2] / essences_gained[2])
+
+                print('debug essences gained: ', essences_gained[0], essences_gained[1], essences_gained[2])
+                print('debug t1 rifts per zone: %d' % t1_rifts_per_zone)
+                print('debug t2 rifts per zone: %d' % t2_rifts_per_zone)
+                print('debug t3 rifts per zone: %d' % t3_rifts_per_zone)
+                print('debug essences left over: ', num_weeks_remaining[0], num_weeks_remaining[1], num_weeks_remaining[2])
+                
+                # if we have a new best number of weeks, then save it
+                num_weeks = max(num_weeks_remaining[0], num_weeks_remaining[1], num_weeks_remaining[2])
+                if num_weeks < best_num_weeks:
+                    best_num_weeks = num_weeks
+                    best_t3_rifts_per_zone = t3_rifts_per_zone
+                    best_t2_rifts_per_zone = t2_rifts_per_zone
+                    best_t1_rifts_per_zone = t1_rifts_per_zone
+                    best_weeks_remaining = num_weeks_remaining
+
+    print('Best number of weeks: %d' % best_num_weeks)
+    print('Best number of t1 rifts per zone: %d' % best_t1_rifts_per_zone)
+    print('Best number of t2 rifts per zone: %d' % best_t2_rifts_per_zone)
+    print('Best number of t3 rifts per zone: %d' % best_t3_rifts_per_zone)
+    
+    print('Best number of weeks remaining: ', best_weeks_remaining[0], best_weeks_remaining[1], best_weeks_remaining[2])
 
 def essences_per_rift(tier, using_motivation):
     # Assumes that player has Rift Mastery
@@ -65,16 +142,28 @@ def main():
         produces_str = '' if output_count == 1 else ' (produces %d)' % output_count
         print('%6d   %s%s' % (times * output_count, input_strs, produces_str))
 
+
+    total_essences_needed = [18000, 7200, 3900]
+    essence_of_despair_count = count_input('item', 'Essence of Despair')
+    essence_of_greed_count = count_input('item', 'Essence of Greed')
+    essence_of_triumph_count = count_input('item', 'Essence of Triumph')
     print()
     print('Current amount of Essence:')
     report([(1, 'Essence of Despair', 'item')])
     report([(1, 'Essence of Greed', 'item')])
     report([(1, 'Essence of Triumph', 'item')])
     print()
+    print('Remaining essences needed for full legendary armor:')
+    essences_needed = [total_essences_needed[0] - essence_of_despair_count, total_essences_needed[1] - essence_of_greed_count, total_essences_needed[2] - essence_of_triumph_count]
+    print('Essence of Despair: %d' % essences_needed[0])
+    print('Essence of Greed: %d' % essences_needed[1])
+    print('Essence of Triumph: %d' % essences_needed[2])
+
+    print()
+
     print('Rifts needed for full legendary armor using motivations:')
     print('\nBuying all motivations')
     # Taken from https://www.reddit.com/r/Guildwars2/comments/1653lii/cost_of_obsidian_legendary_armor_summarized/?rdt=62704
-    essences_needed = [18000, 7200, 3900]
 
     essences_per_t3_rift = essences_per_rift(3, True)
     t3_rifts_needed = math.ceil(essences_needed[2] / essences_per_t3_rift[2])
@@ -137,6 +226,40 @@ def main():
     print()
     print('Total Rifts Needed: %d' % total_number_rifts_needed)
     print('Total Hours Needed: %d' % math.ceil(total_number_rifts_needed / RIFTS_PER_HOUR))
+
+    print()
+    print('Strategy only doing weeklies using motivations')
+    # 5 zones
+    # each zone do 3 t1, 1 t2, and 1 t3
+    krypits_extractions_per_week = 30
+    num_weekly_t1_rifts = 3 * 5
+    num_weekly_t2_rifts = 1 * 5
+    num_weekly_t3_rifts = 1 * 5
+
+    # how many essences gained each week?
+    essences_per_extraction = essences_per_kryptis_extraction()
+    essences_per_t1_rift = [num_weekly_t1_rifts * essences for essences in essences_per_rift(1, True)]
+    essences_per_t2_rift = [num_weekly_t2_rifts * essences for essences in essences_per_rift(2, True)]
+    essences_per_t3_rift = [num_weekly_t3_rifts * essences for essences in essences_per_rift(3, True)]
+    num_weekly_t1_essences = essences_per_t1_rift[0] + essences_per_t2_rift[0] + essences_per_t3_rift[0] + (krypits_extractions_per_week * essences_per_extraction[0])
+    num_weekly_t2_essences = essences_per_t1_rift[1] + essences_per_t2_rift[1] + essences_per_t3_rift[1] + (krypits_extractions_per_week * essences_per_extraction[1])
+    num_weekly_t3_essences = essences_per_t1_rift[2] + essences_per_t2_rift[2] + essences_per_t3_rift[2] + (krypits_extractions_per_week * essences_per_extraction[2])
+
+    print('Tier 1 Essences: %d' % num_weekly_t1_essences)
+    print('Tier 2 Essences: %d' % num_weekly_t2_essences)
+    print('Tier 3 Essences: %d' % num_weekly_t3_essences)    
+
+    # how many weeks to get all essences?
+    num_weeks_t1 = math.ceil(essences_needed[0] / num_weekly_t1_essences)
+    num_weeks_t2 = math.ceil(essences_needed[1] / num_weekly_t2_essences)
+    num_weeks_t3 = math.ceil(essences_needed[2] / num_weekly_t3_essences)
+    print('Tier 1 Remaining Weeks: %d' % num_weeks_t1)
+    print('Tier 2 Remaining Weeks: %d' % num_weeks_t2)
+    print('Tier 3 Remaining Weeks: %d' % num_weeks_t3)
+    print()
+
+    # optimal number of rifts per week
+    optimal_rifts_per_week(essences_needed)
 
 
 if __name__ == '__main__':
