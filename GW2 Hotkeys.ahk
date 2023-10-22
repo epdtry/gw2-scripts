@@ -27,3 +27,9 @@ delay(cpsmin, cpsmax)
     delay := 1000/number
     return, %delay%
 }
+
+fudgefactor(cmin, cmax)
+{
+    Random, number, cmin, cmax
+    return, number
+}

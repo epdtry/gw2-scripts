@@ -11,6 +11,8 @@ def essences_per_kryptis_extraction():
     return [5.08, 4.79, 2.13]
 
 def optimal_rifts_per_week(essences_needed):
+    print()
+    print('OPTIMAL RIFTS PER WEEK')
     # There are weekly bonuses for doing 5 rifts in each zone.
     # Two of the zones you can only do t2 rifts in.
     # Each zones bonus gives 6 kryptis extractions if you do 5 rifts in that zone.
@@ -32,7 +34,7 @@ def optimal_rifts_per_week(essences_needed):
     zone_1_essences[1] += 6 * essences_per_extraction[1]
     zone_1_essences[2] += 6 * essences_per_extraction[2]
     # Do 5 t2 rifts for Amnytas
-    zone_2_essences = [5 * essences for essences in essences_per_t1_rift] # Amnytas
+    zone_2_essences = [5 * essences for essences in essences_per_t2_rift] # Amnytas
     zone_2_essences[0] += 6 * essences_per_extraction[0]
     zone_2_essences[1] += 6 * essences_per_extraction[1]
     zone_2_essences[2] += 6 * essences_per_extraction[2]
