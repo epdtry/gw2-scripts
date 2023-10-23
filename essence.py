@@ -82,9 +82,9 @@ def optimal_rifts_per_week(essences_needed):
     print('Best number of weeks: %d' % best_num_weeks)
     print('Do 5x t%d rifts per week for Archipelago' % zone_1_tier)
     print('Do 5x t%d rifts per week for Amnytas' % zone_2_tier)
-    print('Do %dx t1 rifts per remaining zone: %d' % (best_t1_rifts_per_zone, best_t1_rifts_per_zone))
-    print('Do %dx t2 rifts per remaining zone: %d' % (best_t2_rifts_per_zone, best_t2_rifts_per_zone))
-    print('Do %dx t3 rifts per remaining zone: %d' % (best_t3_rifts_per_zone, best_t3_rifts_per_zone))
+    print('Do %dx t1 rifts per week per remaining zone: %d' % (best_t1_rifts_per_zone, best_t1_rifts_per_zone))
+    print('Do %dx t2 rifts per week per remaining zone: %d' % (best_t2_rifts_per_zone, best_t2_rifts_per_zone))
+    print('Do %dx t3 rifts per week per remaining zone: %d' % (best_t3_rifts_per_zone, best_t3_rifts_per_zone))
     
     print('Number of weeks remaining: ', best_weeks_remaining[0], best_weeks_remaining[1], best_weeks_remaining[2])
 
