@@ -3,6 +3,7 @@ import gw2.items
 import bookkeeper
 import math
 import random
+import datetime
 
 
 RIFTS_PER_HOUR = 20
@@ -87,6 +88,11 @@ def optimal_rifts_per_week(essences_needed):
     print('Do %dx t3 rifts per week per remaining zone: %d' % (best_t3_rifts_per_zone, best_t3_rifts_per_zone))
     
     print('Number of weeks remaining: ', best_weeks_remaining[0], best_weeks_remaining[1], best_weeks_remaining[2])
+    current_date = datetime.date.today()
+    
+    # Calculate the future date by adding NumWeeks weeks to the current date
+    future_date = current_date + datetime.timedelta(weeks=best_num_weeks)
+    print('Completion date: ', future_date)
 
 def essences_per_rift(tier, using_motivation):
     # Assumes that player has Rift Mastery
