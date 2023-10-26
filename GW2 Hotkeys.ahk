@@ -4,6 +4,26 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 #IfWinActive Guild Wars 2
+^Numpad8::
+Loop, 2
+{
+    xfudge1 := 1010 + fudgefactor(1, 40)
+    yfudge1 := 710 + fudgefactor(1, 10)
+    delayfudge1 := 50 + fudgefactor(9, 31)
+    mousemove, %xfudge1%, %yfudge1%
+    MouseClick, left
+    Sleep, %delayfudge1%
+
+    xfudge2 := 1122 + fudgefactor(1, 35)
+    yfudge2 := 701 + fudgefactor(1, 17)
+    delayfudge2 := 2000 + fudgefactor(17, 163)
+    mousemove, %xfudge2%, %yfudge2%
+    MouseClick, left
+    Sleep, %delayfudge2%
+}
+return
+
+#IfWinActive Guild Wars 2
 ^MButton::
 Loop, 6
 {
