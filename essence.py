@@ -176,6 +176,12 @@ def main():
     print('%6d   %s' % (essences_needed[1], 'Essence of Greed'))
     print('%6d   %s' % (essences_needed[2], 'Essence of Triumph'))
     print()
+    print('Percentage complete towards legendary armor:')
+    percentage_complete = [essence_of_despair_count / total_essences_needed[0] * 100, essence_of_greed_count / total_essences_needed[1] * 100, essence_of_triumph_count / total_essences_needed[2] * 100]
+    print('%5.1f   %s' % (percentage_complete[0], 'Essence of Despair'))
+    print('%5.1f   %s' % (percentage_complete[1], 'Essence of Greed'))
+    print('%5.1f   %s' % (percentage_complete[2], 'Essence of Triumph'))
+    print()
 
     print('Rifts needed for full legendary armor using motivations:')
     print('\nBuying all motivations')
