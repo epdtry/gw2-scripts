@@ -159,6 +159,7 @@ def main():
     essence_of_despair_count = count_input('item', 'Essence of Despair')
     essence_of_greed_count = count_input('item', 'Essence of Greed')
     essence_of_triumph_count = count_input('item', 'Essence of Triumph')
+    kryptis_rift_extractions_count = count_input('item', 'Kryptis Rift Extraction')
     print()
     print('Total amount of essences needed for full legendary armor:')
     print('%6d   %s' % (total_essences_needed[0], 'Essence of Despair'))
@@ -169,6 +170,21 @@ def main():
     report([(1, 'Essence of Despair', 'item')])
     report([(1, 'Essence of Greed', 'item')])
     report([(1, 'Essence of Triumph', 'item')])
+    report([(1, 'Kryptis Rift Extraction', 'item')])
+    print()
+    extraction_essences = [e * kryptis_rift_extractions_count for e in essences_per_kryptis_extraction()]
+    print('Current amount of Essence via Kryptis Rift Extraction:')
+    print('%6d   %s' % (extraction_essences[0], 'Essence of Despair'))
+    print('%6d   %s' % (extraction_essences[1], 'Essence of Greed'))
+    print('%6d   %s' % (extraction_essences[2], 'Essence of Triumph'))
+    print()
+    essence_of_despair_count += extraction_essences[0]
+    essence_of_greed_count += extraction_essences[1]
+    essence_of_triumph_count += extraction_essences[2]
+    print('Current amount of Essence after using Kryptis Rift Extraction:')
+    print('%6d   %s' % (essence_of_despair_count, 'Essence of Despair'))
+    print('%6d   %s' % (essence_of_greed_count, 'Essence of Greed'))
+    print('%6d   %s' % (essence_of_triumph_count, 'Essence of Triumph'))
     print()
     print('Remaining essences needed for full legendary armor:')
     essences_needed = [total_essences_needed[0] - essence_of_despair_count, total_essences_needed[1] - essence_of_greed_count, total_essences_needed[2] - essence_of_triumph_count]
