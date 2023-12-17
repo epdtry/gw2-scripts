@@ -11,6 +11,9 @@ RIFTS_PER_HOUR = 20
 def essences_per_kryptis_extraction():
     return [5.08, 4.79, 2.13]
 
+def essences_per_amalgamated_kryptis_essence():
+    return [250, 100, 50]
+
 def optimal_rifts_per_week(essences_needed):
     print()
     print('OPTIMAL RIFTS PER WEEK (ALWAYS BUYING MOTIVATIONS))')
@@ -159,6 +162,7 @@ def main():
     essence_of_despair_count = count_input('item', 'Essence of Despair')
     essence_of_greed_count = count_input('item', 'Essence of Greed')
     essence_of_triumph_count = count_input('item', 'Essence of Triumph')
+    amalgamated_kryptis_essence_count = count_input('item', 'Amalgamated Kryptis Essence')
     kryptis_rift_extractions_count = count_input('item', 'Kryptis Rift Extraction')
     print()
     print('Total amount of essences needed for full legendary armor:')
@@ -171,6 +175,7 @@ def main():
     report([(1, 'Essence of Greed', 'item')])
     report([(1, 'Essence of Triumph', 'item')])
     report([(1, 'Kryptis Rift Extraction', 'item')])
+    report([(1, 'Amalgamated Kryptis Essence', 'item')])
     print()
     extraction_essences = [e * kryptis_rift_extractions_count for e in essences_per_kryptis_extraction()]
     print('Current amount of Essence via Kryptis Rift Extraction:')
@@ -178,10 +183,18 @@ def main():
     print('%6d   %s' % (extraction_essences[1], 'Essence of Greed'))
     print('%6d   %s' % (extraction_essences[2], 'Essence of Triumph'))
     print()
-    essence_of_despair_count += extraction_essences[0]
-    essence_of_greed_count += extraction_essences[1]
-    essence_of_triumph_count += extraction_essences[2]
-    print('Current amount of Essence after using Kryptis Rift Extraction:')
+
+    amalgamated_kryptis_essence_essences = [e * amalgamated_kryptis_essence_count for e in essences_per_amalgamated_kryptis_essence()]
+    print('Current amount of Essence via Amalgamated Kryptis Essence:')
+    print('%6d   %s' % (amalgamated_kryptis_essence_essences[0], 'Essence of Despair'))
+    print('%6d   %s' % (amalgamated_kryptis_essence_essences[1], 'Essence of Greed'))
+    print('%6d   %s' % (amalgamated_kryptis_essence_essences[2], 'Essence of Triumph'))
+    print()
+
+    essence_of_despair_count += extraction_essences[0] + amalgamated_kryptis_essence_essences[0]
+    essence_of_greed_count += extraction_essences[1] + amalgamated_kryptis_essence_essences[1]
+    essence_of_triumph_count += extraction_essences[2] + amalgamated_kryptis_essence_essences[2]
+    print('Current amount of Essence after using Kryptis Rift Extraction and Amalgamated Kryptis Essence:')
     print('%6d   %s' % (essence_of_despair_count, 'Essence of Despair'))
     print('%6d   %s' % (essence_of_greed_count, 'Essence of Greed'))
     print('%6d   %s' % (essence_of_triumph_count, 'Essence of Triumph'))
