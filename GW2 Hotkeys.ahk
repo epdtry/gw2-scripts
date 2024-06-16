@@ -5,7 +5,7 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 #IfWinActive Guild Wars 2
 ^Numpad8::
-Loop, 2
+Loop, 3
 {
     xfudge1 := 1010 + fudgefactor(1, 40)
     yfudge1 := 710 + fudgefactor(1, 10)
@@ -24,12 +24,36 @@ Loop, 2
 return
 
 #IfWinActive Guild Wars 2
-^MButton::
-Loop, 6
+^Numpad9::
+Loop, 10
 {
     MouseClick, Left,,, 2
     sleep, 5001
 }
+return
+
+#Persistent
+clickAutoToggle = 0
+
+#IfWinActive Guild Wars 2
+^Numpad5::
+if (clickAutoToggle = 0)
+{
+    clickAutoToggle = 1
+    SetTimer, clickAutoTask, 200
+}
+else
+{
+    clickAutoToggle = 0
+    SetTimer, clickAutoTask, Off
+}
+return
+
+clickAutoTask:
+delay := delay(1,10)
+Sleep %delay%
+MouseClick, Left,,, 2
+return
 
 #IfWinActive Guild Wars 2
 ^RButton::

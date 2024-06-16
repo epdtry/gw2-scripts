@@ -1715,6 +1715,22 @@ class ItemNameColumn:
 
     def render_total(self):
         return 'Total'
+    
+class ItemIdColumn:
+    def format(self):
+        return '%10s'
+
+    def title(self):
+        return 'Item Id'
+
+    def render(self, row):
+        item_id = row.get('item_id')
+        if item_id is None:
+            return ''
+        return item_id
+
+    def render_total(self):
+        return ''
 
 class UnitPriceColumn:
     def __init__(self, key='unit_price', title='Unit Price',
@@ -2199,6 +2215,46 @@ def cmd_provisioner():
             desc += ' (%d tokens)' % n_tokens
         print('%10d  %-50.50s  %12s  %-20s' % (count, desc, format_price(cost), cat_name))
 
+def cmd_provisioner_verdant_brink():
+    verdant_brink_items = [items for items in PROVISIONER_ITEMS if items[0] == 'Verdant Brink']
+    related_items = gather_related_items(item_ids
+            for area, category in verdant_brink_items for item_ids in category.keys())
+    buy_prices, sell_prices = get_prices(related_items)
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy(),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+
+    best_in_category = []
+    for cat_name, category in PROVISIONER_ITEMS:
+        best_item_id = None
+        best_count = None
+        best_num_tokens = None
+        best_cost = None
+        for item_id, item_line in category.items():
+            count = item_line[0]
+            num_tokens = item_line[1]
+            unit_cost = optimal_cost(item_id)
+            if unit_cost is None:
+                continue
+            cost = unit_cost * count / num_tokens
+            if best_cost is None or cost < best_cost:
+                best_cost = cost
+                best_item_id = item_id
+                best_count = count
+                best_num_tokens = num_tokens
+        if best_cost is not None:
+            best_in_category.append((best_cost, best_item_id, best_count, cat_name, best_num_tokens))
+    best_in_category.sort(key=lambda x: x[0])
+    for cost, item_id, count, cat_name, n_tokens in best_in_category:
+        desc = '%s (%d)' % (gw2.items.name(item_id), item_id)
+        if n_tokens > 1:
+            desc += ' (%d tokens)' % n_tokens
+        print('%10d  %-50.50s  %12s  %-20s' % (count, desc, format_price(cost), cat_name))
+
 def cmd_obtain(names):
     '''Print out the optimal strategy for obtaining the named item.'''
     item_ids = [parse_item_id(name) for name in names]
@@ -2252,7 +2308,9 @@ def cmd_obtain(names):
     if len(buy_items) > 0:
         print('\nBuy:')
         for item_id, count in buy_items.items():
-            print('%10d  %-45.45s' % (count, gw2.items.name(item_id)))
+            item_cost = buy_prices.get(item_id)
+            total = item_cost * count
+            print('%10d  %-45.45s - %6s each %10s' % (count, gw2.items.name(item_id), format_price(item_cost), format_price(total)))
 
     if len(craft_items) > 0:
         print('\nCraft:')
@@ -3055,6 +3113,71 @@ def cmd_find_item_location(item_name_or_id):
     print('Item \'%s\' not found' % item_name_or_id)
     return
 
+def cmd_ecto_crafting():
+    ASSUMED_ECTO_SALVAGE_RATE = 0.75
+    ectoplasm_id = 19721
+    
+    craftable_items_list = list(craftable_items())
+    craftable_armor_items = [ectoplasm_id]
+    for item_id in craftable_items_list:
+        item = gw2.items.get(item_id)
+        if item['type'] == 'Armor' and item['rarity'] == 'Rare' and item['level'] >= 68 and 'NoSalvage' not in item['flags']:
+            craftable_armor_items.append(item_id)
+
+    related_items = gather_related_items(craftable_armor_items)
+    buy_prices, sell_prices = get_prices(related_items)
+
+    ecto_price = buy_prices[ectoplasm_id]
+    print('Assumed ecto salvage rate:', ASSUMED_ECTO_SALVAGE_RATE)
+    print('Ectoplasm buy price:', format_price(ecto_price))
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy().union(craftable_armor_items),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+    rows = []
+    for item_id in craftable_armor_items:
+        craft_cost = optimal_cost(item_id)
+        if craft_cost is None:
+            print('Skipping', item['name'])
+            continue
+        per_salvage_cost = 60 # silver-fed cost
+        ecto_cost_via_salvage = (craft_cost + per_salvage_cost)  / ASSUMED_ECTO_SALVAGE_RATE
+        savings = ecto_price - ecto_cost_via_salvage
+
+        if savings < 0:
+            continue
+
+        row = {
+            'item_id': item_id,
+            'item': gw2.items.get(item_id),
+            'craft_cost': craft_cost,
+            'effective_ecto_cost': ecto_cost_via_salvage,
+            'savings': savings,
+            'discount': savings / ecto_price,
+        }
+        rows.append(row)
+    
+    # print the number of craftable items
+    print('Number of craftable items:', len(craftable_items_list))
+    print('Number of craftable rare armor items:', len(craftable_armor_items))
+
+    rows.sort(key=lambda row: row.get('effective_ecto_cost', 0))
+    top_rows = rows # rows[:15]
+
+    render_table('Ecto Crafting',
+            (ItemNameColumn(),
+                ItemIdColumn(),
+                UnitPriceColumn('craft_cost', 'Craft Cost'),
+                UnitPriceColumn('effective_ecto_cost', 'Eval Ecto Cost'),
+                UnitPriceColumn('savings', 'Savings'),
+                PercentColumn('discount', 'Discount'),
+                ),
+            top_rows,
+            render_title=True,
+            render_total=False)
 
 def main():
     with open('api_key.txt') as f:
@@ -3090,6 +3213,9 @@ def main():
     elif cmd == 'provisioner':
         assert len(args) == 0
         cmd_provisioner()
+    elif cmd == 'provisioner_td':
+        assert len(args) == 0
+        cmd_provisioner_verdant_brink()
     elif cmd == 'obtain':
         names = args
         cmd_obtain(names)
@@ -3144,5 +3270,8 @@ def main():
         assert len(args) == 1
         item_name_or_id,  = args
         cmd_find_item_location(item_name_or_id)
+    elif cmd == 'ecto_crafting':
+        assert len(args) == 0
+        cmd_ecto_crafting()
     else:
         raise ValueError('unknown command %r' % cmd)

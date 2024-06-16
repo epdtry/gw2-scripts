@@ -60,7 +60,7 @@ def get_prices_multi(item_ids):
             dct[item_id] = data.get(item_id)
             continue
         item = gw2.items.get(item_id)
-        if any(f in ('AccountBound', 'SoulbindOnAcquire') for f in item['flags']):
+        if item and any(f in ('AccountBound', 'SoulbindOnAcquire') for f in item['flags']):
             continue
         query_ids.append(item_id)
     query_ids = sorted(set(query_ids))

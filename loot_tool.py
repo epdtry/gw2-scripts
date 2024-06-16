@@ -20,6 +20,7 @@ GW2_SCRIPTS_DIR = os.getcwd()
 GW2_DATA_DIR = os.path.join(os.path.abspath(os.path.join(GW2_SCRIPTS_DIR, os.pardir)), 'gw2-data')
 GW2_SNAPSHOT_DATA_DIR = os.path.join(GW2_DATA_DIR, "snapshots")
 GW2_DIFF_DATA_DIR = os.path.join(GW2_DATA_DIR, 'diffs')
+GW2_FRACTAL_DIFF_DATA_DIR = os.path.join(GW2_DIFF_DATA_DIR, 'fractal_box_diffs')
 GW2_LOOT_BAG_FILE = os.path.join(GW2_DATA_DIR, 'loot_bags.txt')
 
 def get_inventory(char_name):
@@ -191,7 +192,7 @@ def cmd_print_help():
     container_list - writes list of purchasable containers to ../gw2-data/loot_bags.txt
     snapshot <char_name> <magic_find> - creates a snapshot of char_name including inventory, materials, bank, wallet, and profession. This is all written to the ../gw2-data/snapshots/ directory
     diff <file_path_to_snapshot_1> <file_path_to_snapshot_2> - takes a diff of two snapshots (snapshot2 - snapshot1) and writes the diff to the ../gw2-data/snapshot/ directory
-    gen_loot_tables - prints the loot tables from all of the snapshots from ../gw2-data/snapshots/ directory
+    gen_loot_tables - prints the loot tables from all of the snapshots from ../gw2-data/diffs/ directory
     gen_worth_tables - prints the worth tables of the loot tables from all of the snapshots from ../gw2-data/snapshots/ directory
     '''
     print(help_string)
@@ -508,7 +509,16 @@ Vial of Potent Blood
 
 def cmd_fractal_encryption(args):
     loot_table = None
+    paths_list = []
     for path in args:
+        if os.path.isdir(path):
+            new_paths_list = glob.glob(os.path.join(path, '*.json'))
+            print('found %d files in %s' % (len(new_paths_list), path))
+            paths_list.extend(new_paths_list)
+        if os.path.isfile(path):
+            paths_list.append(path)
+
+    for path in paths_list:
         with open(path) as f:
             diff = DataDiff(**json.load(f))
         negative_item_ids = [int(item_id_str)

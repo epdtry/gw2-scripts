@@ -1,6 +1,7 @@
 import itertools
 import json
 import os
+import pickle
 import numpy as np
 import cv2
 import time
@@ -98,7 +99,9 @@ def find_character_boundaries(image):
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
         character_boundaries.append((x, y, w, h))
-    print('character_boundaries 1: ', character_boundaries)
+        # draw the rectangle around the character
+        cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 1)
+    # print('character_boundaries 1: ', character_boundaries)
     return character_boundaries
 
 def group_characters_into_words(character_boundaries):
@@ -130,8 +133,29 @@ def get_word_images(original_image, word_boundaries):
         word_images.append(word_image)
     return word_images
 
+def get_text_from_word_image(word_image, image_to_text_dict):
+    # Convert the image to a tuple of tuples to use as a dictionary key
+    image_tuple = tuple(map(tuple, word_image))
+
+    # Check if the image already exists in the dictionary
+    if image_tuple in image_to_text_dict:
+        return image_to_text_dict[image_tuple]
+    
+    # Display the image if not found
+    cv2.imshow('processed_image image', word_image)
+    
+    # Get user input for the image text
+    text = input("Please enter the text for the displayed image: ")
+    
+    # Add the image and text to the dictionary
+    cv2.destroyAllWindows()
+    if (text != ''):
+        image_to_text_dict[image_tuple] = text
+    return text
+
+
 # function that takes an opencv image and uses open_cv to find the text in the image
-def extract_text(image):
+def extract_text(image, image_to_text_dict):
     # extract text from image
     # write the image to a file
     # filename = "{}.png".format(os.getpid())
@@ -139,20 +163,24 @@ def extract_text(image):
     # use open cv to find word boundary boxes
     _, processed_image = cv2.threshold(image, 150, 255, cv2.THRESH_BINARY)
     cv2.imshow('processed_image image', processed_image)
-    cv2.waitKey(0)
 
+    # THIS DOES NOT EXTRACT TEXT PROPERLY - TODO FIX THIS
     character_boundaries = find_character_boundaries(processed_image)
-    print('character_boundaries: ', character_boundaries)
+    # print('character_boundaries: ', character_boundaries)
     word_boundaries = group_characters_into_words(character_boundaries)
-    print('word_boundaries: ', word_boundaries)
+    # print('word_boundaries: ', word_boundaries)
     words = get_word_images(image, word_boundaries)
 
+    text = ""
     for i, word in enumerate(words):
-        cv2.imshow(f'Word {i}', word)
-        cv2.waitKey(0)
+        # cv2.imshow(f'Word {i}', word)
+        # cv2.waitKey(0)
+        word_text = get_text_from_word_image(word, image_to_text_dict)
+        text += word_text + " "
+
 
     cv2.destroyAllWindows()
-    return "fixme"
+    return text
 
 def image_similarity(image1, image2):
     if image1 is None or image2 is None:
@@ -222,6 +250,13 @@ def extract_text_lines_from_chatbox_image(image):
     height_diff = bottom_most_point[1] - top_most_point[1]
     num_of_lines = int(height_diff / line_height)+1
 
+    # Load existing dictionary or initialize a new one
+    try:
+        with open('image_to_text.pkl', 'rb') as f:
+            image_to_text_dict = pickle.load(f)
+    except FileNotFoundError:
+        image_to_text_dict = {}
+
     # draw vertical lines across the whole width of the image starting from the top most point
     text_lines = []
     for i in range(0, num_of_lines):
@@ -234,7 +269,7 @@ def extract_text_lines_from_chatbox_image(image):
         kernel = np.ones((1, 1), np.uint8)
         cropped_image = cv2.dilate(cropped_image, kernel, iterations=1)
         cropped_image = cv2.erode(cropped_image, kernel, iterations=1)
-        text = extract_text(cropped_image)
+        text = extract_text(cropped_image, image_to_text_dict)
         text = text.replace("\n", "")
         # if text == '':
         #     # try to extract with grayscale
@@ -247,6 +282,10 @@ def extract_text_lines_from_chatbox_image(image):
 
     # write the image to disk
     # cv2.imwrite("temp_image\\lineDelimeters2.png", image)
+
+    # Save the updated dictionary
+    with open('image_to_text.pkl', 'wb') as f:
+        pickle.dump(image_to_text_dict, f)
 
     return text_lines
 
