@@ -317,6 +317,7 @@ CURRENCY_ELEGY_MOSAIC = 35
 CURRENCY_FINE_RIFT_ESSENCE = 78
 CURRENCY_RARE_RIFT_ESSENCE = 79
 CURRENCY_MASTERWORK_RIFT_ESSENCE = 80
+CURRENCY_URSUS_OBLIGE = 76
 ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
 ITEM_SPIRIT_SHARD = gw2.items.search_name('Spirit Shard')
 ITEM_IMPERIAL_FAVOR = gw2.items.search_name('Imperial Favor')
@@ -335,6 +336,7 @@ ITEM_ELEGY_MOSAIC = gw2.items.search_name('Corrupted Facet Elegy Mosaic')
 ITEM_FINE_RIFT_ESSENCE = gw2.items.search_name('Fine Rift Essence')
 ITEM_RARE_RIFT_ESSENCE = gw2.items.search_name('Rare Rift Essence')
 ITEM_MASTERWORK_RIFT_ESSENCE = gw2.items.search_name('Masterwork Rift Essence')
+ITEM_URSUS_OBLIGE = gw2.items.search_name('Ursus Oblige')
 
 CURRENCY_ITEMS = [
         (CURRENCY_RESEARCH_NOTE, ITEM_RESEARCH_NOTE),
@@ -351,6 +353,7 @@ CURRENCY_ITEMS = [
         (CURRENCY_FINE_RIFT_ESSENCE, ITEM_FINE_RIFT_ESSENCE),
         (CURRENCY_RARE_RIFT_ESSENCE, ITEM_RARE_RIFT_ESSENCE),
         (CURRENCY_MASTERWORK_RIFT_ESSENCE, ITEM_MASTERWORK_RIFT_ESSENCE),
+        (CURRENCY_URSUS_OBLIGE, ITEM_URSUS_OBLIGE),
         ]
 
 
