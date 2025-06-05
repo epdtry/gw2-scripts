@@ -360,6 +360,29 @@ def _get():
         (1, 'Sheet of Premium Paper'),
     ))
 
+    # Legendary crafting - gen3 Aurene's Argument
+
+    add(1, "Gift of Aurene's Argument", (
+        (1, 'Poem on Warhorns'),
+        (100, 'Mystic Runestone'),
+        (1, 'Gift of Research'),
+        (1, 'Gift of the Mists'),
+    ))
+
+    add(1, "Aurene's Argument", (
+        (1, "Dragon's Argument"),
+        (1, "Gift of Aurene's Argument"),
+        (1, 'Gift of Jade Mastery'),
+        (1, 'Draconic Tribute'),
+    ))
+
+    add(1, 'Poem on Warhorns', (
+        (10, 'Tale of Adventure'),
+        (10, "Lamplighter's Badge"),
+        (1, 'Deldrimor Steel Pistol Barrel'),
+        (1, 'Sheet of Premium Paper'),
+    ))
+
     # Legendary crafting - runes and sigils
 
     add(1, 'Gift of Sigils', (
