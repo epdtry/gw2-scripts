@@ -2874,8 +2874,12 @@ def guess_item_research_notes(item_id):
             return None
         if item['rarity'] == 'Exotic':
             return 75
-        if item['level'] >= 40:
+        if item['level'] >= 55:
             return 5
+        if item['level'] >= 45:
+            return 3
+        if item['level'] >= 25:
+            return 2
         return None
 
     if item['type'] == 'UpgradeComponent' and item['details']['type'] == 'Rune':
@@ -2900,6 +2904,10 @@ def guess_item_research_notes(item_id):
     # minor sigil: 1 note
     # major sigil: 1 note
     # superior sigil: 1 note
+
+    # Relics
+    if item['type'] == 'Relic':
+        return 5
 
     return None
 
