@@ -312,6 +312,9 @@ CURRENCY_LEY_LINE_CRYSTAL = 20
 CURRENCY_LUMP_OF_AURILLIUM = 22
 CURRENCY_PROVISIONER_TOKEN = 29
 CURRENCY_ELEGY_MOSAIC = 35
+CURRENCY_FINE_RIFT_ESSENCE = 78
+CURRENCY_RARE_RIFT_ESSENCE = 79
+CURRENCY_MASTERWORK_RIFT_ESSENCE = 80
 ITEM_RESEARCH_NOTE = gw2.items.search_name('Research Note')
 ITEM_SPIRIT_SHARD = gw2.items.search_name('Spirit Shard')
 ITEM_IMPERIAL_FAVOR = gw2.items.search_name('Imperial Favor')
@@ -327,6 +330,9 @@ ITEM_LUMP_OF_AURILLIUM = gw2.items.search_name('Lump of Aurillium')
 ITEM_PROVISIONER_TOKEN = gw2.items.search_name('1 Provisioner Token')
 # HACK: there is no "Elegy Mosaic" item
 ITEM_ELEGY_MOSAIC = gw2.items.search_name('Corrupted Facet Elegy Mosaic')
+ITEM_FINE_RIFT_ESSENCE = gw2.items.search_name('Fine Rift Essence')
+ITEM_RARE_RIFT_ESSENCE = gw2.items.search_name('Rare Rift Essence')
+ITEM_MASTERWORK_RIFT_ESSENCE = gw2.items.search_name('Masterwork Rift Essence')
 
 CURRENCY_ITEMS = [
         (CURRENCY_RESEARCH_NOTE, ITEM_RESEARCH_NOTE),
@@ -340,6 +346,9 @@ CURRENCY_ITEMS = [
         (CURRENCY_LUMP_OF_AURILLIUM, ITEM_LUMP_OF_AURILLIUM),
         (CURRENCY_PROVISIONER_TOKEN, ITEM_PROVISIONER_TOKEN),
         (CURRENCY_ELEGY_MOSAIC, ITEM_ELEGY_MOSAIC),
+        (CURRENCY_FINE_RIFT_ESSENCE, ITEM_FINE_RIFT_ESSENCE),
+        (CURRENCY_RARE_RIFT_ESSENCE, ITEM_RARE_RIFT_ESSENCE),
+        (CURRENCY_MASTERWORK_RIFT_ESSENCE, ITEM_MASTERWORK_RIFT_ESSENCE),
         ]
 
 
@@ -357,7 +366,7 @@ def recipe_ingredient_items(r):
             if i['type'] == 'Item':
                 yield i['id'], i['count']
             elif i['type'] == 'Currency':
-                yield CURRENCY_TO_ITEM.get(i['id']), i['count']
+                yield CURRENCY_TO_ITEM[i['id']], i['count']
         else:
             yield i['item_id'], i['count']
 
