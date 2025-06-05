@@ -268,7 +268,7 @@ def _get():
 
     add(1, 'Gift of Research', (
         (250, 'Thermocatalytic Reagent'),
-        (250, 45178),   # Essence of Luck (exotic)
+        (250, 'Exotic Essence of Luck'),
         (250, 'Hydrocatalytic Reagent'),
         (250, 'Hydrocatalytic Reagent'),
     ))
@@ -488,9 +488,9 @@ def _get():
     # Ecto salvaging
     add(45, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (1, "Master's Salvage Kit")))
     add(43, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (25, "Copper-Fed Salvage-o-Matic")))
-    add(10, gw2.items.search_name('Essence of Luck', rarity = 'Fine'),
+    add(10, gw2.items.search_name('Fine Essence of Luck'),
             ((1, 'Glob of Ectoplasm'), (1, "Copper-Fed Salvage-o-Matic")))
-    add(21, gw2.items.search_name('Essence of Luck', rarity = 'Fine'),
+    add(21, gw2.items.search_name('Fine Essence of Luck'),
             ((2, 'Glob of Ectoplasm'), (2, "Silver-Fed Salvage-o-Matic")))
 
     _RECIPES = recipes
