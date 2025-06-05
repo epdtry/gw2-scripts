@@ -56,11 +56,9 @@ def _refresh():
                     and i['rarity'] == 'Legendary':
                 pass
             # Hack: omit account-bound versions of certain soto items
-            elif i['name'] in (
-                        'Uncommon Kryptis Motivation',
-                        'Relic of Durability',
-                        'Relic of Evasion',
-                    ) and 'SoulbindOnAcquire' in i['flags']:
+            elif (i['name'] == 'Uncommon Kryptis Motivation' or i['type'] == 'Relic') \
+                    and ('SoulbindOnAcquire' in i['flags']
+                        or 'AccountBound' in i['flags']):
                 pass
             else:
                 by_name[i['name']] = i['id']
