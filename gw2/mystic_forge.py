@@ -454,6 +454,92 @@ def _get():
         (250, 'Fire Orchid Blossom'),
     ))
 
+    # Legendary crafting - Orrax Manifested
+    add(1, 'Orrax Contained', (
+        (1, 'Binding of the Dragon'),
+        (1, 'Draconic Tribute'),
+        (1, 'Salmon of Knowledge Backpiece'),
+        (1, 'Askur Camping Cookout Backpiece'),
+    ))
+
+    add(1, 'Orrax Manifested', (
+        (1, 'Gift of the Mistburned Isles'),
+        (1, 'Gift of Shadows'),
+        (1, 'Gift of the Feast'),
+        (1, 'Orrax Contained'),
+    ))
+
+    add(1, 'Gift of the Mistburned Isles', (
+        (1, 'Gift of the Mursaat Ruins'),
+        (1, 'Gift of Janthir Wanderlust'),
+        (250, 'Mursaat Runestone'),
+        (250, 'Mystic Runestone'),
+    ))
+
+    add(1, 'Gift of the Mursaat Ruins', (
+        (100, 'Vial of Titan Melted Liquid Obsidian'),
+        (50, 'Mists Gate Residue'),
+        (100, 'Shard of Mistburned Barrens'),
+        (100, 'Shard of Bava Nisos'),
+    ))
+
+    add(1, 'Gift of Janthir Wanderlust', (
+        (1, 'Gift of Lowland Shore'),
+        (1, 'Gift of Janthir Syntri'),
+        (1, 'Gift of Mistburned Barrens'),
+        (1, 'Gift of Bava Nisos'),
+    ))
+
+    add(1, 'Gift of Shadows', (
+        (1, 'Gift of Darkness'),
+        (1, 'Gift of Scales'),
+        (1, 'Gift of Titan Understanding'),
+        (1, 'Bloodstone Shard'),
+    ))
+
+    add(1, 'Gift of the Feast', (
+        (1, 'Gift of the Appetizer'),
+        (1, 'Gift of the Entrée'),
+        (1, 'Gift of the Side Course'),
+        (1, 'Gift of the Dessert'),
+    ))
+
+    add(1, 'Gift of the Appetizer', (
+        (200, 'Bowl of Poultry Satay'),
+        (100, 'Red-Lentil Saobosa'),
+        (50, 'Spicy Marinated Mushroom'),
+        (5, 'Fruit of the Shadow'),
+    ))
+
+    add(1, 'Gift of the Entrée', (
+        (200, 'Plate of Orrian Steak Frittes'),
+        (100, 'Plate of Truffle Steak'),
+        (50, 'Plate of Spicy Herbed Chicken'),
+        (5, 'Fruit of the Shadow'),
+    ))
+
+    add(1, 'Gift of the Side Course', (
+        (200, 'Meaty Asparagus Skewer'),
+        (100, 'Bowl of Black Pepper Cactus Salad'),
+        (30, 'Mystic Clover'),
+        (5, 'Fruit of the Shadow'),
+    ))
+
+    add(1, 'Gift of the Dessert', (
+        (200, 'Bowl of Prickly Pear Sorbet'),
+        (50, 'Bowl of Passion Fruit Tapioca Pudding'),
+        (2, 'Amalgamated Rift Essence'),
+        (5, 'Fruit of the Shadow'),
+    ))
+
+    # Vendor: Ward Trader Sampaguita, Bava Nisos
+    add(1, 'Gift of Titan Understanding', (
+        (25, 'Curious Mursaat Ruin Shard'),
+        (25, 'Curious Mursaat Remnants'),
+        (25, 'Amalgamated Rift Essence'),
+        (1250, 'Ursus Oblige'),
+    ))
+
     # Amalgamated Gemstone
     opts = [
             'Crest of the Assassin',
