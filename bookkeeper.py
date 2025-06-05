@@ -77,6 +77,8 @@ def _dump_zero_dict(dct, path):
 
 GOALS_PATH = 'books/goals.json'
 STOCKPILE_PATH = 'books/stockpile.json'
+STOCKPILE_ONCE_PATH = 'books/stockpile_once.json'
+LAST_INVENTORY_PATH = 'books/last_inventory.json'
 
 
 def parse_item_id(s):
@@ -1578,6 +1580,7 @@ def cmd_status():
         current_sell_total + future_sell_total))
 
     report_auto_goals(x)
+    check_stockpile_once(x)
 
 class CountColumn:
     def format(self):
@@ -3001,6 +3004,58 @@ def cmd_auto_goals():
             cmd_goal(ag['count'], item_id)
 
 
+def check_stockpile_once(status):
+    new_inventory = status['orig_inventory']
+    old_inventory = _load_dict(LAST_INVENTORY_PATH)
+    # Always update last_inventory.json, so stockpile_once works correctly even
+    # on first use.
+    _dump_dict(new_inventory, LAST_INVENTORY_PATH)
+
+    stockpile_once = _load_zero_dict(STOCKPILE_ONCE_PATH)
+    if len(stockpile_once) == 0:
+        return
+
+    stockpile = _load_zero_dict(STOCKPILE_PATH)
+
+    changes = []
+    for item_id, stockpile_once_count in stockpile_once.items():
+        old_count = old_inventory.get(item_id, 0)
+        new_count = new_inventory.get(item_id, 0)
+        stockpile_count = stockpile.get(item_id, 0)
+        # Deduct the newly obtained items from `stockpile` and
+        # `stockpile_once`, unless this would send either count below zero.
+        remove = min(new_count - old_count, stockpile_count, stockpile_once_count)
+        if remove <= 0:
+            continue
+        stockpile[item_id] -= remove
+        stockpile_once[item_id] -= remove
+        changes.append((gw2.items.name(item_id), remove))
+
+    if len(changes) == 0:
+        return
+
+    print('')
+    for name, count in sorted(changes):
+        print('stockpile_once: cleared %d %s' % (count, name))
+
+    _dump_dict(stockpile, STOCKPILE_PATH)
+    _dump_dict(stockpile_once, STOCKPILE_ONCE_PATH)
+
+def cmd_stockpile_once(count, name):
+    count = int(count)
+    item_id = parse_item_id(name)
+
+    stockpile = _load_dict(STOCKPILE_PATH)
+    stockpile_once = _load_dict(STOCKPILE_ONCE_PATH)
+    stockpile[item_id] = stockpile.get(item_id, 0) + count
+    stockpile_once[item_id] = stockpile_once.get(item_id, 0) + count
+    _dump_dict(stockpile, STOCKPILE_PATH)
+    _dump_dict(stockpile_once, STOCKPILE_ONCE_PATH)
+    print('%s stockpile_once target to %d %s' % (
+        'increased' if count >= 0 else 'decreased',
+        stockpile_once[item_id], gw2.items.name(item_id)))
+
+
 CV_TP_PRICES = None
 
 def augment_with_cv_tp_data():
@@ -3102,6 +3157,9 @@ def main():
     elif cmd == 'stockpile_list':
         assert len(args) == 0
         cmd_stockpile_list()
+    elif cmd == 'stockpile_once':
+        count, name = args
+        cmd_stockpile_once(count, name)
     elif cmd == 'profit':
         cmd_profit(args)
     elif cmd == 'provisioner':
