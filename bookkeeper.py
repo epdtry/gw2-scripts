@@ -2021,35 +2021,36 @@ def print_cv_tp_prices(related_items, output_items, buy_prices, sell_prices):
             print('%12s  %6s  %s' % (price_str, age_str, name))
         print()
 
-def cmd_profit(name):
+def cmd_profit(names):
     '''Show the profit to be made by crafting the named item.'''
-    item_id = parse_item_id(name)
+    item_ids = [parse_item_id(name) for name in names]
 
-    related_items = gather_related_items([item_id])
+    related_items = gather_related_items(item_ids)
     buy_prices, sell_prices = get_prices(related_items)
 
     set_strategy_params(
             buy_prices,
-            policy_forbid_buy().union((item_id,)),
+            policy_forbid_buy().union(item_ids),
             policy_forbid_craft(),
             policy_can_craft_recipe,
             )
 
-    print_cv_tp_prices(related_items, {item_id}, buy_prices, sell_prices)
+    print_cv_tp_prices(related_items, set(item_ids), buy_prices, sell_prices)
 
-    buy_price = buy_prices[item_id]
-    sell_price = sell_prices[item_id]
-    cost = optimal_cost(item_id)
-    # print('unit_price', item_id, sell_price)
-    # print('craft_cost', item_id, cost)
-    print('%s (%d)' % (gw2.items.name(item_id), item_id))
-    print('Cost:        %s' % format_price(cost))
-    print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
-    print('Buy price:   %s' % format_price(buy_price))
-    print('Sell price:  %s' % format_price(sell_price))
-    profit = sell_price * 0.85 - cost
-    profit_pct = 100 * profit / cost
-    print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
+    for item_id in item_ids:
+        buy_price = buy_prices[item_id]
+        sell_price = sell_prices[item_id]
+        cost = optimal_cost(item_id)
+        # print('unit_price', item_id, sell_price)
+        # print('craft_cost', item_id, cost)
+        print('%s (%d)' % (gw2.items.name(item_id), item_id))
+        print('Cost:        %s' % format_price(cost))
+        print('Break even:  %s' % format_price(math.ceil(cost / 0.85)))
+        print('Buy price:   %s' % format_price(buy_price))
+        print('Sell price:  %s' % format_price(sell_price))
+        profit = sell_price * 0.85 - cost
+        profit_pct = 100 * profit / cost
+        print('Profit:      %s (%.1f%%)' % (format_price(profit), profit_pct))
 
 def cmd_jade_bot_core_profits():
     jade_bot_cores_names = ['Jade Bot Core: Tier ' + str(tier_level) for tier_level in reversed(range(1,11))]
@@ -3085,8 +3086,7 @@ def main():
         assert len(args) == 0
         cmd_stockpile_list()
     elif cmd == 'profit':
-        name, = args
-        cmd_profit(name)
+        cmd_profit(args)
     elif cmd == 'provisioner':
         assert len(args) == 0
         cmd_provisioner()
