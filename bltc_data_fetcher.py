@@ -23,6 +23,11 @@ RAW_DATA_FILE = os.path.join(HISTORICAL_DATA_DIR, 'data.json')
 PROCESSED_INDEX_FILE = os.path.join(HISTORICAL_DATA_DIR, 'processed_index.json')
 PROCESSED_DATA_FILE = os.path.join(HISTORICAL_DATA_DIR, 'processed_data.json')
 
+# an enum to choose to download all items or craftable items
+class DownloadMode:
+    ALL = 0
+    CRAFTABLE = 1
+
 # a function that gets the date the file was created
 def get_file_date(file_path):
     return os.path.getmtime(file_path)
@@ -120,7 +125,7 @@ def fetch_item_data(item_id):
         # fail silently
         return item_id, None
 
-def cmd_download_new_data():
+def cmd_download_new_data(download_mode=DownloadMode.CRAFTABLE):
     # clear the cache
     clear_raw_data_cache()
 
@@ -130,9 +135,16 @@ def cmd_download_new_data():
     # start a timer
     start = time.perf_counter()
 
-    # get the list of items
-    craftable_items_list = set(craftable_items())
-    output_item_ids = sellable_items(craftable_items_list)
+
+    if download_mode == DownloadMode.CRAFTABLE:
+        # get the list of items
+        craftable_items_list = set(craftable_items())
+        output_item_ids = sellable_items(craftable_items_list)
+    elif download_mode == DownloadMode.ALL:
+        items = gw2.items.iter_all()
+        item_ids = set(x['id'] for x in items)
+        output_item_ids = sellable_items(item_ids)
+    
 
     # Create a ThreadPoolExecutor with a maximum of 8 concurrent threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -177,6 +189,7 @@ def get_raw_item_data(item_id):
 def test():
     item_id = 97487
     raw_item_data = get_raw_item_data(item_id)
+    print (f'Item {item_id} has {len(raw_item_data)} data points')
     first_raw_data_date = raw_item_data[0][0]
     last_raw_data_date = raw_item_data[-1][0]
     converted_first_date = datetime.fromtimestamp(first_raw_data_date)
@@ -191,6 +204,9 @@ def test():
     sold_two_days_ago = 0
     sold_three_days_ago = 0
 
+    lowest_price = 999999
+    date_threshold = datetime.now() - timedelta(days=365)
+
     for dp in raw_item_data:
         date = datetime.fromtimestamp(dp[0])
         if date > yesterday:
@@ -199,7 +215,10 @@ def test():
             sold_two_days_ago += dp[5]
         if date > three_days_ago and date <= two_days_ago:
             sold_three_days_ago += dp[5]
+        if date > date_threshold and dp[2] < lowest_price:
+            lowest_price = dp[2]
     print(f'Item {item_id} sold {sold_one_day_ago} yesterday, {sold_two_days_ago} two days ago, and {sold_three_days_ago} three days ago')
+    print(f'Lowest price since {date_threshold} was {lowest_price}')
 
 def main():
     ''' A tool with several commands to help with data collection of loot. 
