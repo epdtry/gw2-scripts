@@ -16,11 +16,10 @@ def essences_per_amalgamated_kryptis_essence():
 
 def optimal_rifts_per_week(essences_needed):
     print()
-    print('OPTIMAL RIFTS PER WEEK (ALWAYS BUYING MOTIVATIONS))')
+    print('OPTIMAL RIFTS PER WEEK (ALWAYS BUYING MOTIVATIONS)')
     # There are weekly bonuses for doing 5 rifts in each zone.
-    # Two of the zones you can only do t2 rifts in.
     # Each zones bonus gives 6 kryptis extractions if you do 5 rifts in that zone.
-    # We need to do at least 1 of rift of each tier per week, except for the two zones that only have t2 rifts.
+    # We need to do at least 1 of rift of each tier per week, except for two zones
     # Calculate the minimum number of rifts needed for each zone until we have enough essences needed.
     remaining_essences_needed = essences_needed.copy()
 
@@ -136,6 +135,25 @@ def essences_per_rift(tier, using_motivation):
     
     return [num_essence_of_despair, num_essence_of_greed, num_essence_of_triumph]
 
+def getEssencesNeeded(targetNumPieces, needArmorCollections):
+    essencePerAmalgamated = essences_per_amalgamated_kryptis_essence()
+
+    # ARMOR COLLECTION
+    oneirosSpunArmorPurifiedKryptisEssenceNeeded = 6
+    astralWardArmorPurifiedKryptisEssenceNeeded = 6
+    purifiedKryptisEssencesNeeded = oneirosSpunArmorPurifiedKryptisEssenceNeeded + astralWardArmorPurifiedKryptisEssenceNeeded
+    armorCollectionEssencesNeeded = [x * purifiedKryptisEssencesNeeded for x in essencePerAmalgamated]
+
+    # Pieces
+    amalgamatedKryptisEssencesNeededPerPiece = 12
+    amalgamatedKryptisEssencesNeeded = targetNumPieces * amalgamatedKryptisEssencesNeededPerPiece
+    armorEssencesNeeded = [x * amalgamatedKryptisEssencesNeeded for x in essencePerAmalgamated]
+
+    if(needArmorCollections):
+        return [sum(i) for i in zip(armorEssencesNeeded, armorCollectionEssencesNeeded)]
+
+    return armorEssencesNeeded
+
 def main():
     with open('api_key.txt') as f:
         gw2.api.API_KEY = f.read().strip()
@@ -157,15 +175,16 @@ def main():
         produces_str = '' if output_count == 1 else ' (produces %d)' % output_count
         print('%6d   %s%s' % (times * output_count, input_strs, produces_str))
 
+    remaining_pieces_needed = 5
+    total_essences_needed = getEssencesNeeded(remaining_pieces_needed, False)
 
-    total_essences_needed = [18000, 7200, 3900]
     essence_of_despair_count = count_input('item', 'Essence of Despair')
     essence_of_greed_count = count_input('item', 'Essence of Greed')
     essence_of_triumph_count = count_input('item', 'Essence of Triumph')
     amalgamated_kryptis_essence_count = count_input('item', 'Amalgamated Kryptis Essence')
     kryptis_rift_extractions_count = count_input('item', 'Kryptis Rift Extraction')
     print()
-    print('Total amount of essences needed for full legendary armor:')
+    print('Total amount of essences needed for %1d legendary armor pieces:' % remaining_pieces_needed)
     print('%6d   %s' % (total_essences_needed[0], 'Essence of Despair'))
     print('%6d   %s' % (total_essences_needed[1], 'Essence of Greed'))
     print('%6d   %s' % (total_essences_needed[2], 'Essence of Triumph'))
@@ -176,6 +195,7 @@ def main():
     report([(1, 'Essence of Triumph', 'item')])
     report([(1, 'Kryptis Rift Extraction', 'item')])
     report([(1, 'Amalgamated Kryptis Essence', 'item')])
+    print('%6d   %s' % (nugget_of_kryptis_essence_count, 'Kryptis Nuggets'))
     print()
     extraction_essences = [e * kryptis_rift_extractions_count for e in essences_per_kryptis_extraction()]
     print('Current amount of Essence via Kryptis Rift Extraction:')
@@ -237,9 +257,9 @@ def main():
     t1_motivation_item = gw2.items.search_name('Common Kryptis Motivation')
     t2_motivation_item = gw2.items.search_name('Uncommon Kryptis Motivation')
     t3_motivation_item = gw2.items.search_name('Rare Kryptis Motivation')
-    t1_motivations_needed = t1_rifts_needed
-    t2_motivations_needed = t2_rifts_needed
-    t3_motivations_needed = t3_rifts_needed
+    t1_motivations_needed = 0 if t1_rifts_needed < 0 else t1_rifts_needed
+    t2_motivations_needed = 0 if t2_rifts_needed < 0 else t2_rifts_needed
+    t3_motivations_needed = 0 if t3_rifts_needed < 0 else t3_rifts_needed
     buy_prices, sell_prices = bookkeeper.get_prices([t1_motivation_item, t2_motivation_item, t3_motivation_item])
     t1_motivation_buy_price = buy_prices[t1_motivation_item]
     t2_motivation_buy_price = buy_prices[t2_motivation_item]
