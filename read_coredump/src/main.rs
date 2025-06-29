@@ -18,6 +18,7 @@ unsafe impl Pod for i16 {}
 unsafe impl Pod for i32 {}
 unsafe impl Pod for i64 {}
 unsafe impl Pod for isize {}
+unsafe impl<T: Pod, const N: usize> Pod for [T; N] {}
 
 fn get<T: Pod + Copy>(bytes: &[u8], pos: usize) -> Option<T> {
     unsafe {
@@ -27,6 +28,17 @@ fn get<T: Pod + Copy>(bytes: &[u8], pos: usize) -> Option<T> {
         let ptr = bytes.as_ptr().add(pos);
         assert!(ptr.addr() % align_of::<T>() == 0);
         Some(*(ptr as *const T))
+    }
+}
+
+fn get_ref<'a, T: Pod>(bytes: &'a [u8], pos: usize) -> Option<&'a T> {
+    unsafe {
+        if pos >= bytes.len() || pos + size_of::<T>() > bytes.len() {
+            return None;
+        }
+        let ptr = bytes.as_ptr().add(pos);
+        assert!(ptr.addr() % align_of::<T>() == 0);
+        Some(&*(ptr as *const T))
     }
 }
 
@@ -157,7 +169,11 @@ impl<'a> FindInSegsResult<'a> {
     pub fn sole(self) -> (usize, usize, u64) {
         match self.opts.len() {
             0 => panic!("not found"),
-            1 => self.opts[0],
+            1 => {
+                let (seg_idx, offset, addr) = self.opts[0];
+                eprintln!("  found 0x{addr:016x} (seg {seg_idx}, offset 0x{offset:x})");
+                self.opts[0]
+            },
             _ => {
                 self.print_candidates();
                 panic!("multiple candidates");
@@ -206,6 +222,17 @@ fn find_pointer_exact(
     }).sole().2
 }
 
+fn find_inventory_array(
+    seg_data: &[(&[u8], u64)],
+    item0_ptr: u64,
+    item1_ptr: u64,
+) -> u64 {
+    eprintln!("looking for adjacent pointers 0x{item0_ptr:016x} and 0x{item1_ptr:016x}");
+    find_in_segs(seg_data, 32, 32, |ptrs: &[u64; 2]| {
+        *ptrs == [item0_ptr, item1_ptr]
+    }).sole().2
+}
+
 
 /// Given the address of some field of a struct, where the offset of the field within the struct is
 /// unknown, this function looks for possible pointers to the start of the struct and prints the
@@ -224,6 +251,56 @@ fn guess_pointers_and_offset(
         let ptr_val = get::<u64>(seg_data[seg_idx].0, offset).unwrap();
         eprintln!("found pointer @ 0x{addr:016x} to struct @ 0x{ptr_val:16x} (offset = {})",
             ptr_val as isize - field_addr as isize);
+    }
+}
+
+
+fn find_seg_for_addr<'a>(
+    seg_data: &[(&'a [u8], u64)],
+    addr: u64,
+) -> Option<(&'a [u8], usize)> {
+    for &(data, base_addr) in seg_data {
+        if addr < base_addr {
+            continue;
+        }
+        if addr >= base_addr + data.len() as u64 {
+            continue;
+        }
+        return Some((data, (addr - base_addr) as usize));
+    }
+    None
+}
+
+fn try_get_item(
+    seg_data: &[(&[u8], u64)],
+    inv_array_ptr: u64,
+    i: usize,
+) -> Option<(u32, u8, u64)> {
+    let inv_array_slot_ptr = inv_array_ptr + i as u64 * 8;
+    let (data, offset) = find_seg_for_addr(seg_data, inv_array_slot_ptr)?;
+    let item_ptr = get::<u64>(data, offset)?;
+    let (data, offset) = find_seg_for_addr(seg_data, item_ptr)?;
+    let item = get_ref::<Item>(data, offset)?;
+    let (data, offset) = find_seg_for_addr(seg_data, item.def)?;
+    let item_def = get_ref::<ItemDef>(data, offset)?;
+    Some((item_def.id, item.count, item_ptr))
+}
+
+fn print_inventory(
+    seg_data: &[(&[u8], u64)],
+    inv_array_ptr: u64,
+    count: usize,
+) {
+    println!("dumping {} items:", count);
+    for i in 0 .. count {
+        match try_get_item(seg_data, inv_array_ptr, i) {
+            Some((id, count, item_ptr)) => {
+                println!("slot {i:3}: {count:3}x {id} (@0x{item_ptr:016x})");
+            },
+            None => {
+                println!("slot {i:3}: read error");
+            },
+        }
     }
 }
 
@@ -256,7 +333,16 @@ fn main() {
     let item3a_addr = find_item(&seg_data, item_def_3_addr, Some(250));
     let item3b_addr = find_item(&seg_data, item_def_3_addr, Some(248));
 
-    for &field_addr in &[item1_addr, item2_addr, item3a_addr, item3b_addr] {
-        guess_pointers_and_offset(&seg_data, field_addr, 128, 0);
-    }
+    //for &field_addr in &[item1_addr, item2_addr, item3a_addr, item3b_addr] {
+    //    guess_pointers_and_offset(&seg_data, field_addr, 128, 0);
+    //}
+
+    let inv_array_addr = find_inventory_array(&seg_data, item1_addr, item2_addr);
+    let inv_array_addr2 = find_inventory_array(&seg_data, item3a_addr, item3b_addr);
+    //eprintln!("implied slot distance = {}", (inv_array_addr2 - inv_array_addr) / 8);
+
+    //print_inventory(&seg_data, inv_array_addr, 10);
+    print_inventory(&seg_data, inv_array_addr2, 10);
+
+    guess_pointers_and_offset(&seg_data, inv_array_addr, 32, 0);
 }
