@@ -81,7 +81,7 @@ impl<'a> Memory<'a> {
         let ptr = (x as *const T).addr();
         let (&data_ptr, &base_addr) = self.rev.range(..= ptr).next_back()?;
         debug_assert!(data_ptr <= ptr);
-        let offset = data_ptr - ptr;
+        let offset = ptr - data_ptr;
         // `base_addr` came from `rev`, so it must be present in `m`.
         let data = self.m[&base_addr];
         if offset + size_of::<T>() > data.len() {
@@ -467,12 +467,12 @@ fn main() {
     //let inv_array_addr2 = find_inventory_array(&seg_data, item3a_addr, item3b_addr);
     //eprintln!("implied slot distance = {}", (inv_array_addr2 - inv_array_addr) / 8);
 
-    //print_inventory(&seg_data, inv_array_addr, 10);
+    print_inventory(&mem, inv_array_addr, 480);
     //print_inventory(&seg_data, inv_array_addr2, 10);
 
     //guess_pointers_and_offset(&seg_data, inv_array_addr, 32, 0);
 
-    inspect_inventory(&mem, inv_array_addr, 480);
+    //inspect_inventory(&mem, inv_array_addr, 480);
 
     /*
     for i in [0, 39, 130, 264, 290, 384, 71, 72] {
