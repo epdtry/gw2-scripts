@@ -4,7 +4,10 @@ use std::fs::File;
 use memmap2::Mmap;
 use elf::{self, ElfBytes};
 
-unsafe trait Pod: Copy {}
+mod types;
+use self::types::{ItemDef, Item, ItemType, Rarity};
+
+unsafe trait Pod {}
 unsafe impl Pod for u8 {}
 unsafe impl Pod for u16 {}
 unsafe impl Pod for u32 {}
@@ -16,7 +19,7 @@ unsafe impl Pod for i32 {}
 unsafe impl Pod for i64 {}
 unsafe impl Pod for isize {}
 
-fn get<T: Pod>(bytes: &[u8], pos: usize) -> Option<T> {
+fn get<T: Pod + Copy>(bytes: &[u8], pos: usize) -> Option<T> {
     unsafe {
         if pos >= bytes.len() || pos + size_of::<T>() > bytes.len() {
             return None;
@@ -27,7 +30,7 @@ fn get<T: Pod>(bytes: &[u8], pos: usize) -> Option<T> {
     }
 }
 
-fn find<T: Pod, F: FnMut(T) -> bool>(bytes: &[u8], mut filter: F) -> Vec<(usize, T)> {
+fn find<T: Pod + Copy, F: FnMut(T) -> bool>(bytes: &[u8], mut filter: F) -> Vec<(usize, T)> {
     let mut out = Vec::new();
     unsafe {
         let align = align_of::<T>();
@@ -37,6 +40,22 @@ fn find<T: Pod, F: FnMut(T) -> bool>(bytes: &[u8], mut filter: F) -> Vec<(usize,
             let ptr = bytes.as_ptr().add(i).cast::<T>();
             if filter(*ptr) {
                 out.push((i, *ptr));
+            }
+        }
+    }
+    out
+}
+
+fn find_ref<T: Pod, F: FnMut(&T) -> bool>(bytes: &[u8], mut filter: F) -> Vec<(usize, &T)> {
+    let mut out = Vec::new();
+    unsafe {
+        let align = align_of::<T>();
+        assert!(bytes.as_ptr().addr() % align == 0);
+        let max = bytes.len().saturating_sub(align - 1);
+        for i in (0 .. max).step_by(align) {
+            let ptr = bytes.as_ptr().add(i).cast::<T>();
+            if filter(&*ptr) {
+                out.push((i, &*ptr));
             }
         }
     }
@@ -95,6 +114,120 @@ fn dump_around(bytes: &[u8], base_addr: u64, offset: usize, before: usize, after
     eprintln!("{buf}");
 }
 
+
+fn find_in_segs<'a, T: Pod, F: FnMut(&T) -> bool>(
+    seg_data: &'a [(&'a [u8], u64)],
+    dump_before: usize,
+    dump_after: usize,
+    mut filter: F,
+) -> FindInSegsResult<'a> {
+    let mut opts = Vec::new();
+    for (i, &(data, base_addr)) in seg_data.iter().enumerate() {
+        let seg_opts = find_ref(data, |x| filter(x));
+        for (offset, _) in seg_opts {
+            opts.push((i, offset, base_addr + offset as u64));
+        }
+    }
+
+    FindInSegsResult {
+        seg_data,
+        dump_before,
+        dump_after: size_of::<T>() + dump_after,
+        opts,
+    }
+}
+
+struct FindInSegsResult<'a> {
+    seg_data: &'a [(&'a [u8], u64)],
+    dump_before: usize,
+    dump_after: usize,
+    opts: Vec<(usize, usize, u64)>,
+}
+
+impl<'a> FindInSegsResult<'a> {
+    pub fn print_candidates(&self) {
+        eprintln!("found {} candidates", self.opts.len());
+        for (i, &(seg_idx, offset, addr)) in self.opts.iter().enumerate() {
+            let (data, base_addr) = self.seg_data[seg_idx];
+            eprintln!("candidate {i} @ 0x{addr:016x}:");
+            dump_around(data, base_addr, offset, self.dump_before, self.dump_after);
+        }
+    }
+
+    pub fn sole(self) -> (usize, usize, u64) {
+        match self.opts.len() {
+            0 => panic!("not found"),
+            1 => self.opts[0],
+            _ => {
+                self.print_candidates();
+                panic!("multiple candidates");
+            },
+        }
+    }
+
+    pub fn opts(&self) -> &[(usize, usize, u64)] {
+        &self.opts
+    }
+}
+
+fn find_item_def(
+    seg_data: &[(&[u8], u64)],
+    id: u32,
+    type_: Option<ItemType>,
+    rarity: Option<Rarity>,
+) -> u64 {
+    eprintln!("looking for ItemDef id = {id}, type = {type_:?}, rarity = {rarity:?}");
+    find_in_segs(seg_data, 32, 32, |item_def: &ItemDef| {
+        item_def.id == id
+            && type_.map_or(true, |type_| item_def.type_ == type_)
+            && rarity.map_or(true, |rarity| item_def.rarity == rarity)
+    }).sole().2
+}
+
+fn find_item(
+    seg_data: &[(&[u8], u64)],
+    def: u64,
+    count: Option<u8>,
+) -> u64 {
+    eprintln!("looking for Item def = 0x{def:016x}, count = {count:?}");
+    find_in_segs(seg_data, 32, 32, |item: &Item| {
+        item.def == def
+            && count.map_or(true, |count| item.count == count)
+    }).sole().2
+}
+
+fn find_pointer_exact(
+    seg_data: &[(&[u8], u64)],
+    addr: u64,
+) -> u64 {
+    eprintln!("looking for pointer 0x{:016x} (exact)", addr);
+    find_in_segs(seg_data, 128, 128, |x: &u64| {
+        *x == addr
+    }).sole().2
+}
+
+
+/// Given the address of some field of a struct, where the offset of the field within the struct is
+/// unknown, this function looks for possible pointers to the start of the struct and prints the
+/// field offset implied by each one.
+fn guess_pointers_and_offset(
+    seg_data: &[(&[u8], u64)],
+    field_addr: u64,
+    search_before: usize,
+    search_after: usize,
+) {
+    let r = find_in_segs(&seg_data, 32, 32, |&x: &u64| {
+        field_addr - search_before as u64 <= x
+            && x <= field_addr + search_after as u64
+    });
+    for &(seg_idx, offset, addr) in r.opts() {
+        let ptr_val = get::<u64>(seg_data[seg_idx].0, offset).unwrap();
+        eprintln!("found pointer @ 0x{addr:016x} to struct @ 0x{ptr_val:16x} (offset = {})",
+            ptr_val as isize - field_addr as isize);
+    }
+}
+
+
 fn main() {
     let args = env::args().collect::<Vec<_>>();
     assert_eq!(args.len(), 2);
@@ -107,27 +240,23 @@ fn main() {
     println!("section header count = {}", elf.section_headers().unwrap().into_iter().count());
     println!("segment count = {}", elf.segments().unwrap().into_iter().count());
 
-    let (search_id, search_rarity): (u32, u8) = (44602, 1);
-    let (search_id2, search_rarity2): (u32, u8) = (67027, 4);
-    let search_align = align_of_val(&search_id);
 
-    for seg in elf.segments().unwrap() {
-        let data = elf.segment_data(&seg).unwrap();
-        assert!(seg.p_vaddr as usize % search_align == 0);
-        for (off, val) in find(data, |x: u32| x == search_id) {
-            eprintln!("found {} (0x{:x}) @ 0x{:x}", val, val, seg.p_vaddr as usize + off);
-            if get(data, off + 0x38) == Some(search_rarity) {
-                eprintln!("  found rarity {} @ 0x{:x}", search_rarity, seg.p_vaddr as usize + off);
-                dump_around(data, seg.p_vaddr, off, 0, 64);
-            }
-        }
+    let seg_data = elf.segments().unwrap().iter()
+        .map(|seg| (elf.segment_data(&seg).unwrap(), seg.p_vaddr))
+        .collect::<Vec<_>>();
+    let item_def_1_addr =
+        find_item_def(&seg_data, 44602, Some(ItemType::SalvageKit), Some(Rarity::Basic));
+    let item_def_2_addr =
+        find_item_def(&seg_data, 67027, Some(ItemType::SalvageKit), Some(Rarity::Rare));
+    let item_def_3_addr =
+        find_item_def(&seg_data, 24518, None, Some(Rarity::Rare));
 
-        for (off, val) in find(data, |x: u32| x == search_id2) {
-            eprintln!("found {} (0x{:x}) @ 0x{:x}", val, val, seg.p_vaddr as usize + off);
-            if get(data, off + 0x38) == Some(search_rarity2) {
-                eprintln!("  found rarity {} @ 0x{:x}", search_rarity2, seg.p_vaddr as usize + off);
-                dump_around(data, seg.p_vaddr, off, 0, 64);
-            }
-        }
+    let item1_addr = find_item(&seg_data, item_def_1_addr, Some(0));
+    let item2_addr = find_item(&seg_data, item_def_2_addr, Some(0));
+    let item3a_addr = find_item(&seg_data, item_def_3_addr, Some(250));
+    let item3b_addr = find_item(&seg_data, item_def_3_addr, Some(248));
+
+    for &field_addr in &[item1_addr, item2_addr, item3a_addr, item3b_addr] {
+        guess_pointers_and_offset(&seg_data, field_addr, 128, 0);
     }
 }
