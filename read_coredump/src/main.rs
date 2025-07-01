@@ -496,29 +496,10 @@ fn main() {
     let item3a_addr = 0x00000000441535e0; //find_item(&mem, item_def_3_addr, Some(250));
     let item3b_addr = 0x00000000441536e0; //find_item(&mem, item_def_3_addr, Some(248));
 
-    //for &field_addr in &[item1_addr, item2_addr, item3a_addr, item3b_addr] {
-    //    guess_pointers_and_offset(&mem, field_addr, 128, 0);
-    //}
-
     let inv_data_addr = 0x0000000051d5bb10; //find_inventory_data(&mem, item1_addr, item2_addr);
-    //let inv_data_addr2 = find_inventory_data(&mem, item3a_addr, item3b_addr);
-    //eprintln!("implied slot distance = {}", (inv_array_addr2 - inv_array_addr) / 8);
-
-    //print_inventory(&mem, inv_data_addr, 480);
-
-    //guess_pointers_and_offset(&mem, inv_data_addr, 16, 0);
 
     let inv_array_addr = 0x0000000044c33548; //find_anet_array(&mem, inv_data_addr, 480);
     let inventory_addr = 0x0000000044c33480; //find_char_inventory(&mem, inv_data_addr);
-
-    //guess_pointers_and_offset(&mem, inventory_addr, 1024, 0);
-
-    /*
-    //guess_pointers_and_offset(&mem, inv_array_addr, 512, 0);
-    let guessed_addr = inv_array_addr - 200;
-    eprintln!("guess = {guessed_addr:016x}");
-    mem.dump_around_addr(guessed_addr, 64, 256);
-    */
 
     let inventory = mem.get::<CharInventory>(inventory_addr).unwrap();
     for (i, &item_ptr) in inventory.slots(&mem).iter().enumerate() {
