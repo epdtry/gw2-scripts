@@ -3,6 +3,34 @@ use crate::{Memory, Pod};
 
 
 #[repr(C)]
+pub struct AnetArray {
+    pub data: u64,
+    // TODO: figure out which field is length and which is capacity
+    pub len: u32,
+    pub cap: u32,
+}
+unsafe impl Pod for AnetArray {}
+
+/// `CharClient::CInventory`
+#[repr(C)]
+pub struct CharInventory {
+    pub _unk0: [u8; 200],
+    /// `m_inventorySlots`
+    pub slots: AnetArray,
+}
+unsafe impl Pod for CharInventory {}
+
+impl CharInventory {
+    pub fn slots<'a>(&self, mem: &Memory<'a>) -> &'a [u64] {
+        self.get_slots(mem).unwrap()
+    }
+
+    pub fn get_slots<'a>(&self, mem: &Memory<'a>) -> Option<&'a [u64]> {
+        mem.get_slice(self.slots.data, self.slots.len as usize)
+    }
+}
+
+#[repr(C)]
 pub struct ItemDef {
     pub _unk0: [u8; 40],
     pub id: u32,

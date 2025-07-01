@@ -2,11 +2,12 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fmt::Write as _;
 use std::fs::File;
+use std::slice;
 use memmap2::Mmap;
 use elf::{self, ElfBytes};
 
 mod types;
-use self::types::{ItemDef, Item, ItemType, Rarity, Item_UpgradeComponent};
+use self::types::{AnetArray, CharInventory, ItemDef, Item, ItemType, Rarity};
 
 unsafe trait Pod {}
 unsafe impl Pod for u8 {}
@@ -64,10 +65,33 @@ impl<'a> Memory<'a> {
         }
     }
 
+    pub fn segments<'b>(&'b self) -> impl Iterator<Item = (u64, &'a [u8])> + 'b {
+        self.m.iter().map(|(&k, &v)| (k, v))
+    }
+
     pub fn get<T: Pod>(&self, addr: u64) -> Option<&'a T> {
         // Get the last segment that starts on or before `addr`.
         let (&base_addr, &data) = self.m.range(..= addr).next_back()?;
         self.get_in(base_addr, data, addr)
+    }
+
+    pub fn get_slice<T: Pod>(&self, addr: u64, len: usize) -> Option<&'a [T]> {
+        // Get the last segment that starts on or before `addr`.
+        let (&base_addr, &data) = self.m.range(..= addr).next_back()?;
+        debug_assert!(base_addr <= addr);
+        let offset = (addr - base_addr) as usize;
+        unsafe {
+            // If the requested range extends past the end of `data`, bail out.
+            if offset + len * size_of::<T>() > data.len() {
+                return None;
+            }
+            // If the address is not well-aligned, bail out.
+            let ptr = data.as_ptr().add(offset);
+            if ptr.addr() % align_of::<T>() != 0 {
+                return None;
+            }
+            Some(slice::from_raw_parts(ptr.cast::<T>(), len))
+        }
     }
 
     /// Given a reference returned by `get`, return a reference to the same data but with a
@@ -98,6 +122,13 @@ impl<'a> Memory<'a> {
 
     pub fn dump_around<T>(&self, x: &T, before: usize, after: usize) {
         let (base_addr, data, addr) = self.lookup_addr(x).unwrap();
+        let offset = (addr - base_addr) as usize;
+        dump_around(data, base_addr, offset, before, after);
+    }
+
+    pub fn dump_around_addr(&self, addr: u64, before: usize, after: usize) {
+        let (&base_addr, &data) = self.m.range(..= addr).next_back().unwrap();
+        debug_assert!(base_addr <= addr);
         let offset = (addr - base_addr) as usize;
         dump_around(data, base_addr, offset, before, after);
     }
@@ -213,21 +244,21 @@ fn dump_around(bytes: &[u8], base_addr: u64, offset: usize, before: usize, after
 
 
 fn find_in_segs<'a, T: Pod, F: FnMut(&T) -> bool>(
-    seg_data: &'a [(&'a [u8], u64)],
+    mem: &'a Memory<'a>,
     dump_before: usize,
     dump_after: usize,
     mut filter: F,
 ) -> FindInSegsResult<'a> {
     let mut opts = Vec::new();
-    for (i, &(data, base_addr)) in seg_data.iter().enumerate() {
+    for (i, (base_addr, data)) in mem.segments().enumerate() {
         let seg_opts = find_ref(data, |x| filter(x));
         for (offset, _) in seg_opts {
-            opts.push((i, offset, base_addr + offset as u64));
+            opts.push(base_addr + offset as u64);
         }
     }
 
     FindInSegsResult {
-        seg_data,
+        mem,
         dump_before,
         dump_after: size_of::<T>() + dump_after,
         opts,
@@ -235,28 +266,27 @@ fn find_in_segs<'a, T: Pod, F: FnMut(&T) -> bool>(
 }
 
 struct FindInSegsResult<'a> {
-    seg_data: &'a [(&'a [u8], u64)],
+    mem: &'a Memory<'a>,
     dump_before: usize,
     dump_after: usize,
-    opts: Vec<(usize, usize, u64)>,
+    opts: Vec<u64>,
 }
 
 impl<'a> FindInSegsResult<'a> {
     pub fn print_candidates(&self) {
         eprintln!("found {} candidates", self.opts.len());
-        for (i, &(seg_idx, offset, addr)) in self.opts.iter().enumerate() {
-            let (data, base_addr) = self.seg_data[seg_idx];
+        for (i, &addr) in self.opts.iter().enumerate() {
             eprintln!("candidate {i} @ 0x{addr:016x}:");
-            dump_around(data, base_addr, offset, self.dump_before, self.dump_after);
+            self.mem.dump_around_addr(addr, self.dump_before, self.dump_after);
         }
     }
 
-    pub fn sole(self) -> (usize, usize, u64) {
+    pub fn sole(self) -> u64 {
         match self.opts.len() {
             0 => panic!("not found"),
             1 => {
-                let (seg_idx, offset, addr) = self.opts[0];
-                eprintln!("  found 0x{addr:016x} (seg {seg_idx}, offset 0x{offset:x})");
+                let addr = self.opts[0];
+                eprintln!("  found 0x{addr:016x}");
                 self.opts[0]
             },
             _ => {
@@ -266,56 +296,79 @@ impl<'a> FindInSegsResult<'a> {
         }
     }
 
-    pub fn opts(&self) -> &[(usize, usize, u64)] {
+    pub fn opts(&self) -> &[u64] {
         &self.opts
     }
 }
 
 fn find_item_def(
-    seg_data: &[(&[u8], u64)],
+    mem: &Memory,
     id: u32,
     type_: Option<ItemType>,
     rarity: Option<Rarity>,
 ) -> u64 {
     eprintln!("looking for ItemDef id = {id}, type = {type_:?}, rarity = {rarity:?}");
-    find_in_segs(seg_data, 32, 32, |item_def: &ItemDef| {
+    find_in_segs(mem, 32, 32, |item_def: &ItemDef| {
         item_def.id == id
             && type_.map_or(true, |type_| item_def.type_ == type_)
             && rarity.map_or(true, |rarity| item_def.rarity == rarity)
-    }).sole().2
+    }).sole()
 }
 
 fn find_item(
-    seg_data: &[(&[u8], u64)],
+    mem: &Memory,
     def: u64,
     count: Option<u8>,
 ) -> u64 {
     eprintln!("looking for Item def = 0x{def:016x}, count = {count:?}");
-    find_in_segs(seg_data, 32, 32, |item: &Item_UpgradeComponent| { // FIXME
-        item.base.def == def
-            && count.map_or(true, |count| item.count == count)
-    }).sole().2
+    find_in_segs(mem, 32, 32, |item: &Item| {
+        item.def == def
+            && count.map_or(true, |count| item.count(mem) == Some(count))
+    }).sole()
 }
 
 fn find_pointer_exact(
-    seg_data: &[(&[u8], u64)],
+    mem: &Memory,
     addr: u64,
 ) -> u64 {
     eprintln!("looking for pointer 0x{:016x} (exact)", addr);
-    find_in_segs(seg_data, 128, 128, |x: &u64| {
+    find_in_segs(mem, 128, 128, |x: &u64| {
         *x == addr
-    }).sole().2
+    }).sole()
 }
 
-fn find_inventory_array(
-    seg_data: &[(&[u8], u64)],
+fn find_inventory_data(
+    mem: &Memory,
     item0_ptr: u64,
     item1_ptr: u64,
 ) -> u64 {
     eprintln!("looking for adjacent pointers 0x{item0_ptr:016x} and 0x{item1_ptr:016x}");
-    find_in_segs(seg_data, 32, 32, |ptrs: &[u64; 2]| {
+    find_in_segs(mem, 32, 32, |ptrs: &[u64; 2]| {
         *ptrs == [item0_ptr, item1_ptr]
-    }).sole().2
+    }).sole()
+}
+
+fn find_anet_array(
+    mem: &Memory,
+    data_ptr: u64,
+    len: u32,
+) -> u64 {
+    eprintln!("looking for ANet::Array with data pointer 0x{data_ptr:016x}, len = {len}");
+    find_in_segs(mem, 32, 32, |x: &AnetArray| {
+        x.data == data_ptr && x.len == len
+    }).sole()
+}
+
+const MAX_BAG_SPACE: u32 = 15 * 32;
+fn find_char_inventory(
+    mem: &Memory,
+    inv_data_ptr: u64,
+) -> u64 {
+    eprintln!("looking for CharClient::CInventory \
+        with data pointer 0x{inv_data_ptr:016x}, len = {MAX_BAG_SPACE}");
+    find_in_segs(mem, 32, 32, |x: &CharInventory| {
+        x.slots.data == inv_data_ptr && x.slots.len == MAX_BAG_SPACE
+    }).sole()
 }
 
 
@@ -323,37 +376,21 @@ fn find_inventory_array(
 /// unknown, this function looks for possible pointers to the start of the struct and prints the
 /// field offset implied by each one.
 fn guess_pointers_and_offset(
-    seg_data: &[(&[u8], u64)],
+    mem: &Memory,
     field_addr: u64,
     search_before: usize,
     search_after: usize,
 ) {
-    let r = find_in_segs(&seg_data, 32, 32, |&x: &u64| {
+    let r = find_in_segs(mem, 32, 32, |&x: &u64| {
         field_addr - search_before as u64 <= x
             && x <= field_addr + search_after as u64
     });
-    for &(seg_idx, offset, addr) in r.opts() {
-        let ptr_val = get::<u64>(seg_data[seg_idx].0, offset).unwrap();
+    for &addr in r.opts() {
+        let ptr_val = *mem.get::<u64>(addr).unwrap();
         eprintln!("found pointer @ 0x{addr:016x} to struct @ 0x{ptr_val:16x} (offset = {})",
             ptr_val as isize - field_addr as isize);
+        mem.dump_around_addr(addr, 128, 128);
     }
-}
-
-
-fn find_seg_for_addr<'a>(
-    seg_data: &[(&'a [u8], u64)],
-    addr: u64,
-) -> Option<(&'a [u8], usize)> {
-    for &(data, base_addr) in seg_data {
-        if addr < base_addr {
-            continue;
-        }
-        if addr >= base_addr + data.len() as u64 {
-            continue;
-        }
-        return Some((data, (addr - base_addr) as usize));
-    }
-    None
 }
 
 fn try_get_item<'a>(
@@ -448,37 +485,50 @@ fn main() {
     let mem = Memory::new(&seg_data);
 
     let item_def_1_addr =
-        find_item_def(&seg_data, 44602, Some(ItemType::Tool), Some(Rarity::Basic));
+        0x000000002ab02f84; //find_item_def(&mem, 44602, Some(ItemType::Tool), Some(Rarity::Basic));
     let item_def_2_addr =
-        find_item_def(&seg_data, 67027, Some(ItemType::Tool), Some(Rarity::Rare));
+        0x000000002ab018a4; //find_item_def(&mem, 67027, Some(ItemType::Tool), Some(Rarity::Rare));
     let item_def_3_addr =
-        find_item_def(&seg_data, 24518, None, Some(Rarity::Rare));
+        0x000000002bb28224; //find_item_def(&mem, 24518, None, Some(Rarity::Rare));
 
-    let item1_addr = find_item(&seg_data, item_def_1_addr, Some(0));
-    let item2_addr = find_item(&seg_data, item_def_2_addr, Some(0));
-    let item3a_addr = find_item(&seg_data, item_def_3_addr, Some(250));
-    let item3b_addr = find_item(&seg_data, item_def_3_addr, Some(248));
+    let item1_addr = 0x00000000447f48f0; //find_item(&mem, item_def_1_addr, None);
+    let item2_addr = 0x00000000447f49b0; //find_item(&mem, item_def_2_addr, None);
+    let item3a_addr = 0x00000000441535e0; //find_item(&mem, item_def_3_addr, Some(250));
+    let item3b_addr = 0x00000000441536e0; //find_item(&mem, item_def_3_addr, Some(248));
 
     //for &field_addr in &[item1_addr, item2_addr, item3a_addr, item3b_addr] {
-    //    guess_pointers_and_offset(&seg_data, field_addr, 128, 0);
+    //    guess_pointers_and_offset(&mem, field_addr, 128, 0);
     //}
 
-    let inv_array_addr = find_inventory_array(&seg_data, item1_addr, item2_addr);
-    //let inv_array_addr2 = find_inventory_array(&seg_data, item3a_addr, item3b_addr);
+    let inv_data_addr = 0x0000000051d5bb10; //find_inventory_data(&mem, item1_addr, item2_addr);
+    //let inv_data_addr2 = find_inventory_data(&mem, item3a_addr, item3b_addr);
     //eprintln!("implied slot distance = {}", (inv_array_addr2 - inv_array_addr) / 8);
 
-    print_inventory(&mem, inv_array_addr, 480);
-    //print_inventory(&seg_data, inv_array_addr2, 10);
+    //print_inventory(&mem, inv_data_addr, 480);
 
-    //guess_pointers_and_offset(&seg_data, inv_array_addr, 32, 0);
+    //guess_pointers_and_offset(&mem, inv_data_addr, 16, 0);
 
-    //inspect_inventory(&mem, inv_array_addr, 480);
+    let inv_array_addr = 0x0000000044c33548; //find_anet_array(&mem, inv_data_addr, 480);
+    let inventory_addr = 0x0000000044c33480; //find_char_inventory(&mem, inv_data_addr);
+
+    //guess_pointers_and_offset(&mem, inventory_addr, 1024, 0);
 
     /*
-    for i in [0, 39, 130, 264, 290, 384, 71, 72] {
-        dump_inventory_item(&seg_data, inv_array_addr, i);
-    }
+    //guess_pointers_and_offset(&mem, inv_array_addr, 512, 0);
+    let guessed_addr = inv_array_addr - 200;
+    eprintln!("guess = {guessed_addr:016x}");
+    mem.dump_around_addr(guessed_addr, 64, 256);
     */
 
-
+    let inventory = mem.get::<CharInventory>(inventory_addr).unwrap();
+    for (i, &item_ptr) in inventory.slots(&mem).iter().enumerate() {
+        if item_ptr == 0 {
+            println!("slot {i:3}: empty");
+            continue;
+        }
+        let item = mem.get::<Item>(item_ptr).unwrap();
+        let id = item.def(&mem).id;
+        let count = item.count(&mem).unwrap_or(0);
+        println!("slot {i:3}: {count:3}x {id}");
+    }
 }
