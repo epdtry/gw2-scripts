@@ -7,7 +7,9 @@ use memmap2::Mmap;
 use elf::{self, ElfBytes};
 
 mod types;
-use self::types::{AnetArray, CharInventory, ItemDef, Item, ItemType, Rarity};
+use self::types::{
+    AnetArray, Character, CharInventory, CharWallet, ItemDef, Item, ItemType, Rarity, WalletEntry,
+};
 
 unsafe trait Pod {}
 unsafe impl Pod for u8 {}
@@ -371,6 +373,28 @@ fn find_char_inventory(
     }).sole()
 }
 
+fn find_char_wallet(
+    mem: &Memory,
+    wallet_data_ptr: u64,
+) -> u64 {
+    eprintln!("looking for CharWallet with data pointer 0x{wallet_data_ptr:016x}");
+    find_in_segs(mem, 32, 32, |x: &CharWallet| {
+        x.entries.data == wallet_data_ptr
+    }).sole()
+}
+
+fn find_character(
+    mem: &Memory,
+    inv_ptr: u64,
+    wallet_ptr: u64,
+) -> u64 {
+    eprintln!("looking for Character with inventory pointer 0x{inv_ptr:016x}, \
+        wallet pointer 0x{wallet_ptr:016x}");
+    find_in_segs(mem, 32, 32, |x: &Character| {
+        x.inventory == inv_ptr && x.wallet == wallet_ptr
+    }).sole()
+}
+
 
 /// Given the address of some field of a struct, where the offset of the field within the struct is
 /// unknown, this function looks for possible pointers to the start of the struct and prints the
@@ -465,6 +489,29 @@ fn dump_inventory_item(
     }
 }
 
+fn print_wallet(
+    mem: &Memory,
+    wallet_data_ptr: u64,
+    count: usize,
+) {
+    println!("dumping {} wallet entries:", count);
+    for i in 0 .. count {
+        match mem.get::<WalletEntry>(wallet_data_ptr + (size_of::<WalletEntry>() * i) as u64) {
+            Some(we) => {
+                println!("slot {i:3}: id = {}, amount = {}, hash table bucket = {} (0x{:08x})",
+                    we.currency_id, we.amount, we.hash % 128, we.hash);
+            },
+            None => {
+                println!("slot {i:3}: read error");
+            },
+        }
+    }
+}
+
+static WALLET: &[[u32; 2]] = &[
+    // jq <wallet.json  '.[] | [.id, .value]'
+];
+
 
 fn main() {
     let args = env::args().collect::<Vec<_>>();
@@ -479,28 +526,95 @@ fn main() {
     println!("segment count = {}", elf.segments().unwrap().into_iter().count());
 
 
+    for seg in elf.segments().unwrap().iter() {
+        if seg.p_type == elf::abi::PT_NOTE {
+            eprintln!("notes at 0x{:016x}", seg.p_vaddr);
+            eprintln!("  size = 0x{:016x}", seg.p_filesz);
+        }
+    }
+
     let seg_data = elf.segments().unwrap().iter()
         .map(|seg| (elf.segment_data(&seg).unwrap(), seg.p_vaddr))
         .collect::<Vec<_>>();
     let mem = Memory::new(&seg_data);
 
+    /*
+    let mut addrs = Vec::new();
+    for &entry in WALLET {
+        eprintln!("try {:?}", entry);
+        let r = find_in_segs(&mem, 16, 16, |&x: &[u32; 2]| {
+            x == entry
+        });
+        if r.opts.len() == 1 {
+            addrs.push(r.sole());
+        } else {
+            r.print_candidates();
+        }
+    }
+
+    addrs.sort();
+    for addr in addrs {
+        mem.dump_around_addr(addr, 128, 128);
+        guess_pointers_and_offset(&mem, addr, 512, 0);
+    }
+    */
+
+    // wallet_data_addr is obtained by calling `guess_pointers_and_offset` with the lowest-address
+    // wallet entry found above.  Or, use any wallet entry and set the `before` distance to 12*128.
+    let wallet_data_addr: u64 = 0x00000000693b2200;
+    let wallet_addr: u64 = 0x000000005608f8c0; //find_char_wallet(&mem, wallet_data_addr);
+    //guess_pointers_and_offset(&mem, wallet_data_addr, 512, 0);
+    //guess_pointers_and_offset(&mem, 0x000000005608f8d0, 512, 0);
+    //let wallet_addr: u64 = 0x000000005608f8c0;
+    //mem.dump_around_addr(wallet_addr, 16, 64);
+
+    //print_wallet(&mem, wallet_data_addr, 128);
+
+    /*
+    let wallet_addr = 0x00000000693b2200;
+    let parent1_addr: u64 = 0x000000005608f8d0;
+    //guess_pointers_and_offset(&mem, parent1_addr, 512, 0);
+    let parent2_addr: u64 = 0x00000000ae986e18;
+    //guess_pointers_and_offset(&mem, parent2_addr, 512, 0);
+    let parent3_addr: u64 = 0x00000000a0f73830;
+    //guess_pointers_and_offset(&mem, parent3_addr, 512, 0);
+    let parent4_addr: u64 = 0x00000000105011a0;
+    //guess_pointers_and_offset(&mem, parent4_addr, 512, 0);
+
+    let parent5a_addr: u64 = 0x000000000fe70060;
+    //guess_pointers_and_offset(&mem, parent5a_addr, 512, 0);
+    let parent6_addr: u64 = 0x000000000fe70070;
+    //guess_pointers_and_offset(&mem, parent6_addr, 512, 0);
+    // This is some kind of linked list, with each pointer pointing to a lower address
+
+    let parent5b_addr: u64 = 0x00000000ae9db890;
+    //guess_pointers_and_offset(&mem, parent5b_addr, 512, 0);
+    let parent7a_addr: u64 = 0x0000000010501200;
+    //guess_pointers_and_offset(&mem, parent7a_addr, 512, 0);
+    let parent8_addr: u64 = 0x00000000ae9db8b0;
+    //guess_pointers_and_offset(&mem, parent8_addr, 512, 0);
+    let parent7b_addr: u64 = 0x00000000ae9db858;
+    //guess_pointers_and_offset(&mem, parent5b_addr, 512, 0);
+    */
+
     let item_def_1_addr =
-        0x000000002ab02f84; //find_item_def(&mem, 44602, Some(ItemType::Tool), Some(Rarity::Basic));
+        0x000000002ab5f62c; //find_item_def(&mem, 44602, Some(ItemType::Tool), Some(Rarity::Basic));
     let item_def_2_addr =
-        0x000000002ab018a4; //find_item_def(&mem, 67027, Some(ItemType::Tool), Some(Rarity::Rare));
-    let item_def_3_addr =
-        0x000000002bb28224; //find_item_def(&mem, 24518, None, Some(Rarity::Rare));
+        0x000000002ab5df4c; //find_item_def(&mem, 67027, Some(ItemType::Tool), Some(Rarity::Rare));
+    //let item_def_3_addr =
+    //    find_item_def(&mem, 24518, None, Some(Rarity::Rare));
 
-    let item1_addr = 0x00000000447f48f0; //find_item(&mem, item_def_1_addr, None);
-    let item2_addr = 0x00000000447f49b0; //find_item(&mem, item_def_2_addr, None);
-    let item3a_addr = 0x00000000441535e0; //find_item(&mem, item_def_3_addr, Some(250));
-    let item3b_addr = 0x00000000441536e0; //find_item(&mem, item_def_3_addr, Some(248));
+    let item1_addr = 0x0000000068c47ee0; //find_item(&mem, item_def_1_addr, None);
+    let item2_addr = 0x0000000068c47fa0; //find_item(&mem, item_def_2_addr, None);
+    //let item3a_addr = find_item(&mem, item_def_3_addr, Some(250));
+    //let item3b_addr = find_item(&mem, item_def_3_addr, Some(248));
 
-    let inv_data_addr = 0x0000000051d5bb10; //find_inventory_data(&mem, item1_addr, item2_addr);
+    let inv_data_addr = 0x0000000061062530; //find_inventory_data(&mem, item1_addr, item2_addr);
 
-    let inv_array_addr = 0x0000000044c33548; //find_anet_array(&mem, inv_data_addr, 480);
-    let inventory_addr = 0x0000000044c33480; //find_char_inventory(&mem, inv_data_addr);
+    let inv_array_addr = 0x000000006106b1b8; //find_anet_array(&mem, inv_data_addr, 480);
+    let inventory_addr = 0x000000006106b0f0; //find_char_inventory(&mem, inv_data_addr);
 
+    /*
     let inventory = mem.get::<CharInventory>(inventory_addr).unwrap();
     for (i, &item_ptr) in inventory.slots(&mem).iter().enumerate() {
         if item_ptr == 0 {
@@ -512,4 +626,48 @@ fn main() {
         let count = item.count(&mem).unwrap_or(0);
         println!("slot {i:3}: {count:3}x {id}");
     }
+    */
+
+    //guess_pointers_and_offset(&mem, inventory_addr, 0, 0);
+
+    /*
+    let item_array_addr = find_in_segs(&mem, 32, 32, |x: &AnetArray| {
+        if x.len == 480 && x.cap == 480 {
+            eprintln!("candidate pointer = 0x{:016x}, valid = {}",
+                x.data, mem.get::<u64>(x.data).is_some());
+            true
+        } else {
+            false
+        }
+    }).sole();
+    */
+
+    /*
+    let char_addr_inner = find_in_segs(&mem, 32, 32, |x: &[u64; 2]| {
+        *x == [inventory_addr, wallet_addr]
+    }).sole();
+
+    //guess_pointers_and_offset(&mem, char_addr_inner, 512, 0);
+    //mem.dump_around_addr(char_addr_inner, 64, 64);
+    //mem.dump_around_addr(0x00000000a0f73830, 64, 64);
+    */
+
+    let char_addr: u64 = 0x00000000ae986df0; //find_character(&mem, inventory_addr, wallet_addr);
+    eprintln!("character = 0x{:016x}", char_addr);
+
+
+    let chr = mem.get::<Character>(char_addr).unwrap();
+    let wallet = chr.wallet(&mem);
+    eprintln!("wallet addr = 0x{:016x}", mem.addr(wallet).unwrap());
+    eprintln!("entries = {:?}", wallet.entries);
+    println!("wallet:");
+    let mut count = 0;
+    for entry in wallet.entries(&mem) {
+        if entry.currency_id == 0 {
+            continue;
+        }
+        println!("{:3}: {}", entry.currency_id, entry.amount);
+        count += 1;
+    }
+    println!("wallet has {} currencies", count);
 }

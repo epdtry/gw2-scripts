@@ -2,14 +2,77 @@ use std::fmt;
 use crate::{Memory, Pod};
 
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct AnetArray {
     pub data: u64,
-    // TODO: figure out which field is length and which is capacity
-    pub len: u32,
     pub cap: u32,
+    pub len: u32,
 }
 unsafe impl Pod for AnetArray {}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct AnetHashTable {
+    pub cap: u32,
+    pub len: u32,
+    pub data: u64,
+}
+unsafe impl Pod for AnetHashTable {}
+
+#[repr(C)]
+pub struct Character {
+    pub vtable0: u64,
+    pub vtable1: u64,
+    pub _unk0: [u8; 16],
+    pub inventory: u64,
+    pub wallet: u64,
+}
+unsafe impl Pod for Character {}
+
+impl Character {
+    pub fn inventory<'a>(&self, mem: &Memory<'a>) -> &'a CharInventory {
+        self.get_inventory(mem).unwrap()
+    }
+
+    pub fn get_inventory<'a>(&self, mem: &Memory<'a>) -> Option<&'a CharInventory> {
+        mem.get(self.inventory)
+    }
+
+    pub fn wallet<'a>(&self, mem: &Memory<'a>) -> &'a CharWallet {
+        self.get_wallet(mem).unwrap()
+    }
+
+    pub fn get_wallet<'a>(&self, mem: &Memory<'a>) -> Option<&'a CharWallet> {
+        mem.get(self.wallet)
+    }
+}
+
+#[repr(C)]
+pub struct CharWallet {
+    pub vtable: u64,
+    pub entries: AnetHashTable,
+}
+unsafe impl Pod for CharWallet {}
+
+impl CharWallet {
+    pub fn entries<'a>(&self, mem: &Memory<'a>) -> &'a [WalletEntry] {
+        self.get_entries(mem).unwrap()
+    }
+
+    pub fn get_entries<'a>(&self, mem: &Memory<'a>) -> Option<&'a [WalletEntry]> {
+        mem.get_slice(self.entries.data, self.entries.cap as usize)
+    }
+}
+
+/// These are hash table entries.
+#[repr(C)]
+pub struct WalletEntry {
+    pub currency_id: u32,
+    pub amount: u32,
+    pub hash: u32,
+}
+unsafe impl Pod for WalletEntry {}
 
 /// `CharClient::CInventory`
 #[repr(C)]
