@@ -613,6 +613,15 @@ fn main() {
 
     let inv_array_addr = 0x000000006106b1b8; //find_anet_array(&mem, inv_data_addr, 480);
     let inventory_addr = 0x000000006106b0f0; //find_char_inventory(&mem, inv_data_addr);
+                                             //
+    let item_def_3_addr =
+        0x0000000035b58f8c; //find_item_def(&mem, 97009, Some(ItemType::Gizmo), Some(Rarity::Ascended));
+    let item_def_4_addr =
+        0x000000002b9c0a64; //find_item_def(&mem, 100939, Some(ItemType::Gizmo), Some(Rarity::Ascended));
+    let item3_addr = 0x0000000068c6d880; //find_item(&mem, item_def_3_addr, None);
+    let item4_addr = 0x0000000068c6d950; //find_item(&mem, item_def_4_addr, None);
+    let shared_inv_data_addr = 0x00000000442d4bd8; //find_inventory_data(&mem, item3_addr, item4_addr);
+    //guess_pointers_and_offset(&mem, shared_inv_data_addr, 32, 0);
 
     /*
     let inventory = mem.get::<CharInventory>(inventory_addr).unwrap();
@@ -670,4 +679,10 @@ fn main() {
         count += 1;
     }
     println!("wallet has {} currencies", count);
+
+    let inv = chr.inventory(&mem);
+    println!("shared inventory:");
+    inspect_inventory(&mem, inv.shared_slots.data, inv.shared_slots.len as usize);
+    println!("main inventory:");
+    inspect_inventory(&mem, inv.slots.data, inv.slots.len as usize);
 }

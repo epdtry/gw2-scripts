@@ -80,6 +80,8 @@ pub struct CharInventory {
     pub _unk0: [u8; 200],
     /// `m_inventorySlots`
     pub slots: AnetArray,
+    pub _unk1: [u8; 48],
+    pub shared_slots: AnetArray,
 }
 unsafe impl Pod for CharInventory {}
 
@@ -90,6 +92,14 @@ impl CharInventory {
 
     pub fn get_slots<'a>(&self, mem: &Memory<'a>) -> Option<&'a [u64]> {
         mem.get_slice(self.slots.data, self.slots.len as usize)
+    }
+
+    pub fn shared_slots<'a>(&self, mem: &Memory<'a>) -> &'a [u64] {
+        self.get_shared_slots(mem).unwrap()
+    }
+
+    pub fn get_shared_slots<'a>(&self, mem: &Memory<'a>) -> Option<&'a [u64]> {
+        mem.get_slice(self.shared_slots.data, self.shared_slots.len as usize)
     }
 }
 
