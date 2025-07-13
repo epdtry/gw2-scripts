@@ -8,7 +8,9 @@ default-run = "read_coredump"
 
 [dependencies]
 elf = "0.8.0"
+lru = "0.16.0"
 memmap2 = "0.9.5"
+nix = { version = "0.30.1", features = ["uio", "process"] }
 
 [profile.dev]
 opt-level = 3

@@ -66,6 +66,7 @@ impl CharWallet {
 }
 
 /// These are hash table entries.
+#[derive(Debug)]
 #[repr(C)]
 pub struct WalletEntry {
     pub currency_id: u32,
@@ -217,7 +218,7 @@ macro_rules! define_enum {
     ($vis:vis enum $Enum:ident($Inner:ty) {
         $( $Variant:ident = $discr:expr, )*
     }) => {
-        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
         #[repr(C)]
         $vis struct $Enum(pub $Inner);
         #[allow(bad_style)]
@@ -255,32 +256,14 @@ define_enum! {
     }
 }
 
-/*
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-#[repr(C)]
-pub struct ItemType(pub u32);
-#[allow(bad_style)]
-impl ItemType {
-    pub const Consumable: ItemType = ItemType(4);
-    pub const Container: ItemType = ItemType(5);
-    pub const Gathering: ItemType = ItemType(9);
-    pub const Gizmo: ItemType = ItemType(10);
-    pub const Tool: ItemType = ItemType(19);
+define_enum! {
+    pub enum Rarity(u32) {
+        Basic = 1,
+        Fine = 2,
+        Masterwork = 3,
+        Rare = 4,
+        Exotic = 5,
+        Ascended = 6,
+        Legendary = 7,
+    }
 }
-unsafe impl Pod for ItemType {}
-*/
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-#[repr(C)]
-pub struct Rarity(pub u32);
-#[allow(bad_style)]
-impl Rarity {
-    pub const Basic: Rarity = Rarity(1);
-    pub const Fine: Rarity = Rarity(2);
-    pub const Masterwork: Rarity = Rarity(3);
-    pub const Rare: Rarity = Rarity(4);
-    pub const Exotic: Rarity = Rarity(5);
-    pub const Ascended: Rarity = Rarity(6);
-    pub const Legendary: Rarity = Rarity(7);
-}
-unsafe impl Pod for Rarity {}
