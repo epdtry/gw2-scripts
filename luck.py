@@ -34,5 +34,8 @@ def main():
 
     print('%6d  Total' % total)
 
+    account_luck = gw2.api.fetch('/v2/account/luck')
+    print(account_luck)
+
 if __name__ == '__main__':
     main()

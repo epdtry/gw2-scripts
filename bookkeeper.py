@@ -784,6 +784,11 @@ def policy_forbid_buy():
             if item['type'] in ('Weapon', 'Armor') and item['id'] in ALL_PROVISIONER_ITEMS:
                 forbid.add(item['id'])
 
+            # Also forbid buying if used for ecto crafting
+            if ((item['type'] == 'Armor' or item['type'] == 'Weapon') and item['rarity'] == 'Rare' and 
+                item['level'] >= 68 and 'NoSalvage' not in item['flags']):
+                forbid.add(item['id'])
+
     ascended_refinement = [
         gw2.items.search_name('Deldrimor Steel Ingot'),
         gw2.items.search_name('Elonian Leather Square'),
@@ -837,7 +842,11 @@ def policy_forbid_craft():
 
     # Forbid relying on time-gated recipes
     forbid.add(gw2.items.search_name('Lump of Mithrillium'))
+    forbid.add(103867)
+    forbid.add(46742)
     forbid.add(gw2.items.search_name('Glob of Elder Spirit Residue'))
+    forbid.add(103875)
+    forbid.add(46744)
     forbid.add(gw2.items.search_name('Spool of Thick Elonian Cord'))
     forbid.add(gw2.items.search_name('Spool of Silk Weaving Thread'))
     forbid.add(gw2.items.search_name('Charged Quartz Crystal'))
@@ -1717,7 +1726,7 @@ class RecentColumn:
 
 class ItemNameColumn:
     def format(self):
-        return '%-35.35s'
+        return '%-36.36s'
 
     def title(self):
         return 'Item'
@@ -1727,6 +1736,21 @@ class ItemNameColumn:
         if item_id is None:
             return ''
         return gw2.items.name(item_id)
+
+    def render_total(self):
+        return 'Total'
+    
+class ItemTrendColumn:
+    def format(self):
+        return '%-10.10s'
+
+    def title(self):
+        return '7d Trend'
+
+    def render(self, row):
+        if row.get('trend') is None:
+            return 'N/A'
+        return row.get('trend')
 
     def render_total(self):
         return 'Total'
@@ -2176,10 +2200,42 @@ PROVISIONER_ITEMS = [
 ALL_PROVISIONER_ITEMS = set(item_id for name, items in PROVISIONER_ITEMS
         for item_id in items.keys())
 
+def print_provisioner_token_totals():
+    # Each of these items can be traded for 1 provisioner token
+    items_to_trade = ['Charged Quartz Crystal', 'Spool of Thick Elonian Cord', 'Glob of Elder Spirit Residue', 'Lump of Mithrillium']
+    inventory = get_inventory()
+    wallet_raw = gw2.api.fetch_with_retries('/v2/account/wallet')
+
+    print('Current Provisioner Token Totals:')
+    
+    item_counts = {}
+    total = 0
+    for item in items_to_trade:
+        item_id = gw2.items.search_name(item)
+        count = 0
+        if item_id is not None:
+            count  = inventory.get(item_id, 0)
+            item_counts[item_id] = count
+            total += count
+        print(item, count)
+    
+    wallet = {x['id']: x['value'] for x in wallet_raw}
+    count = 0
+    if CURRENCY_PROVISIONER_TOKEN in wallet:
+        count = wallet[CURRENCY_PROVISIONER_TOKEN]
+        total += count
+    print('Provisioner Token', count)
+    print('Total:', total)
+
+    return item_counts
+
 def cmd_provisioner():
     related_items = gather_related_items(item_id
             for _, category in PROVISIONER_ITEMS for item_id in category.keys())
     buy_prices, sell_prices = get_prices(related_items)
+
+    print_provisioner_token_totals()
+    print()
 
     set_strategy_params(
             buy_prices,
@@ -2267,8 +2323,22 @@ def cmd_obtain(names):
 
     if len(buy_items) > 0:
         print('\nBuy:')
+        rows = []
         for item_id, count in buy_items.items():
-            print('%10d  %-45.45s' % (count, gw2.items.name(item_id)))
+            item_cost = buy_prices.get(item_id)
+            total = item_cost * count
+            row = {
+                'name': gw2.items.name(item_id),
+                'count': count,
+                'cost': item_cost,
+                'total': total,
+                'percent': total / item_cost * 100,
+            }
+            rows.append(row)
+        rows.sort(key=lambda x: x['total'], reverse=True)
+        print('%10s  %-45.45s %10s %10s' % ('Quantity', 'Item', 'Unit Cost', 'Total Cost'))
+        for row in rows:
+            print('%10d  %-45.45s %10s %10s' % (row['count'], row['name'], format_price(row['cost']), format_price(row['total'])))
 
     if len(craft_items) > 0:
         print('\nCraft:')
@@ -2409,8 +2479,12 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
         item_historical_data = historical_data.get(item_id, None)
         if item_historical_data is None:
             sold_daily_data = 0
+            sold_weekly_data = 0
+            trend = 'N/A'
         else:
             sold_daily_data = item_historical_data.get('sold_daily', 0)
+            sold_weekly_data = item_historical_data.get('sold_weekly', 0)
+            trend = item_historical_data.get('trend', 'N/A')
 
         row = {
             'item_id': item_id,
@@ -2427,25 +2501,39 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
         if policy_enhance_craft_profit():
             row['count_volume'] = sold_daily_data
             row['daily_profit'] = sold_daily_data * profit
+            row['count_dly_avg_volume'] = round(sold_weekly_data / 7, 1)
+            row['daily_avg_profit'] = (sold_weekly_data / 7) * profit * 0.1
+            row['daily_invest_max'] = (row['count_dly_avg_volume'] * 0.1 * row['craft_cost'])
+            row['trend'] = trend
 
         if row_filter(row):
             rows.append(row)
 
     if sort:
         if(policy_enhance_craft_profit()):
-            rows.sort(key=lambda row: row.get('daily_profit', 0), reverse=True)
+            rows.sort(key=lambda row: row.get('daily_avg_profit', 0), reverse=True)
         else:
             rows.sort(key=lambda row: row.get('roi', 0), reverse=True)
 
+
+    columns = (ItemNameColumn(),
+        PercentColumn(),
+        UnitPriceColumn('craft_cost', 'Craft Cost'),
+        UnitPriceColumn('profit', 'Unit Profit'))
+    if(policy_enhance_craft_profit()):
+        columns = (ItemNameColumn(),
+            PercentColumn(),
+            UnitPriceColumn('craft_cost', 'Craft Cost'),
+            UnitPriceColumn('profit', 'Unit Profit'),
+            AltCountColumn('dly_avg_volume', 'Dly Avg Volum Sold', '%18s'),
+            UnitPriceColumn('daily_avg_profit', 'DlyAvgProfi'),
+            UnitPriceColumn('daily_invest_max', 'DlyInvest'),
+            ItemTrendColumn()
+            )
+
     print('Result count: %d' % len(rows))
     render_table(title,
-            (ItemNameColumn(),
-                PercentColumn(),
-                UnitPriceColumn('craft_cost', 'Craft Cost'),
-                UnitPriceColumn('profit', 'Unit Profit'),
-                AltCountColumn('volume', 'Volume Sold', '%11s'),
-                UnitPriceColumn('daily_profit', 'Daily Profit'),
-                ),
+            columns,
             rows,
             render_title=True,
             render_total=False)
@@ -3006,6 +3094,36 @@ def cmd_auto_goals():
             print()
             cmd_goal(ag['count'], item_id)
 
+def cmd_amalgamated_materials():
+    dubloon_names = ['Copper Doubloon', 'Silver Doubloon', 'Gold Doubloon', 'Platinum Doubloon']
+    crest_names = ['Crest of the Assassin', 'Crest of the Magi', 'Crest of the Rabid', 'Crest of the Shaman', 'Crest of the Soldier']
+    gemstone_names = ['Agate Orb', 'Azurite Orb', 'Beryl Orb', 'Chrysocola Orb', 'Coral Orb', 'Ebony Orb', 'Emerald Orb', 'Opal Orb', 'Moonstone Orb', 'Ruby Orb', 'Sapphire Orb']
+
+    inventory = get_inventory()
+    print('Dubloons:')
+    print("{:<23} {:>5} {:>6}".format('Name', 'Count', 'Stacks'))
+    for dubloon in dubloon_names:
+        dubloon_id = gw2.items.search_name(dubloon)
+        dubloon_count = inventory.get(dubloon_id, 0)
+        dubloon_stacks = dubloon_count // 3
+        print("{:<23} {:>5} {:>6}".format(dubloon, dubloon_count, dubloon_stacks))
+
+    print()
+    print('Crests:')
+    for crest in crest_names:
+        crest_id = gw2.items.search_name(crest)
+        crest_count = inventory.get(crest_id, 0)
+        crest_stacks = crest_count // 3
+        print("{:<23} {:>5} {:>6}".format(crest, crest_count, crest_stacks))
+
+    print()
+    print('Gemstones:')
+    for orb in gemstone_names:
+        orb_id = gw2.items.search_name(orb)
+        orb_count = inventory.get(orb_id, 0)
+        orb_stacks = orb_count // 3
+        print("{:<23} {:>5} {:>6}".format(orb, orb_count, orb_stacks))
+
 
 def check_stockpile_once(status):
     new_inventory = status['orig_inventory']
@@ -3131,6 +3249,195 @@ def cmd_find_item_location(item_name_or_id):
     print('Item \'%s\' not found' % item_name_or_id)
     return
 
+def cmd_ecto_crafting():
+    ASSUMED_ECTO_SALVAGE_RATE = 0.87
+    ectoplasm_id = 19721
+    
+    craftable_items_list = list(craftable_items())
+    craftable_armor_weapon_items = [ectoplasm_id]
+    for item_id in craftable_items_list:
+        item = gw2.items.get(item_id)
+        if (item['type'] == 'Armor' or item['type'] == 'Weapon') and item['rarity'] == 'Rare' and item['level'] >= 68 and 'NoSalvage' not in item['flags']:
+            craftable_armor_weapon_items.append(item_id)
+
+    related_items = gather_related_items(craftable_armor_weapon_items)
+    buy_prices, sell_prices = get_prices(related_items)
+
+    ecto_price = buy_prices[ectoplasm_id]
+    print('Assumed ecto salvage rate:', ASSUMED_ECTO_SALVAGE_RATE)
+    print('Ectoplasm buy price:', format_price(ecto_price))
+
+    set_strategy_params(
+            buy_prices,
+            policy_forbid_buy().union(craftable_armor_weapon_items),
+            policy_forbid_craft(),
+            policy_can_craft_recipe,
+            )
+    rows = []
+    for item_id in craftable_armor_weapon_items:
+        craft_cost = optimal_cost(item_id)
+        if craft_cost is None:
+            print('Skipping', item['name'])
+            continue
+        per_salvage_cost = 60 # silver-fed cost
+        ecto_cost_via_salvage = (craft_cost + per_salvage_cost)  / ASSUMED_ECTO_SALVAGE_RATE
+        savings = ecto_price - ecto_cost_via_salvage
+        discount = savings / ecto_price
+
+        if savings < 0 or discount < 0.15:
+            continue
+
+        row = {
+            'item_id': item_id,
+            'item': gw2.items.get(item_id),
+            'craft_cost': craft_cost,
+            'effective_ecto_cost': ecto_cost_via_salvage,
+            'savings': savings,
+            'discount': discount,
+        }
+        rows.append(row)
+    
+    # print the number of craftable items
+    print('Number of craftable items:', len(craftable_items_list))
+    print('Number of craftable rare armor+weapon items:', len(craftable_armor_weapon_items))
+
+    rows.sort(key=lambda row: row.get('effective_ecto_cost', 0))
+    top_rows = rows # rows[:15]
+
+    render_table('Ecto Crafting',
+            (ItemNameColumn(),
+                UnitPriceColumn('craft_cost', 'Craft Cost'),
+                UnitPriceColumn('effective_ecto_cost', 'Eval Ecto Cost'),
+                UnitPriceColumn('savings', 'Savings'),
+                PercentColumn('discount', 'Discount'),
+                ),
+            top_rows,
+            render_title=True,
+            render_total=False)
+    
+def cmd_material_worth():
+    '''Print a table of materials and their worth based on the current trading post prices.'''
+    materials = gw2.api.fetch_with_retries('/v2/account/materials')
+    material_ids = [m['id'] for m in materials]
+    related_items = gather_related_items(material_ids)
+    buy_prices, sell_prices = get_prices(related_items)
+
+    rows = []
+    buy_total = 0
+    sell_total = 0
+    for material in materials:
+        item_id = material['id']
+        buy_price = buy_prices.get(item_id)
+        sell_price = sell_prices.get(item_id)
+        count = material['count']
+        if buy_price is None and sell_price is None:
+            continue
+        if count == 0:
+            continue
+        buy_worth = buy_price * count if buy_price is not None else 0
+        sell_worth = sell_price * count if sell_price is not None else 0
+
+        buy_total += buy_worth
+        sell_total += sell_worth
+
+        rows.append({
+            'item_id': item_id,
+            'item': gw2.items.get(item_id),
+            'buy_price': buy_price,
+            'sell_price': sell_price,
+            'count': count,
+            'buy_worth': buy_worth,
+            'sell_worth': sell_worth,
+        })
+
+    rows.sort(key=lambda row: row.get('sell_worth', 0), reverse=True)
+    render_table('Material Worth',
+            (ItemNameColumn(),
+                CountColumn(),
+                UnitPriceColumn('buy_worth', 'Buy'),
+                UnitPriceColumn('sell_worth', 'Sell')
+                ),
+            rows,
+            render_title=True,
+            render_total=False)
+    print()
+    print('Total worth (buy):', format_price(buy_total))
+    print('Total worth (sell):', format_price(sell_total))
+
+def cmd_analyze_data(item_name_or_id):
+    target_item_id = parse_item_id(item_name_or_id)
+    if target_item_id is None:
+        print('bad item name or id %s?' % item_name_or_id)
+        return
+    item = gw2.items.get(target_item_id)
+    item_id = item['id']
+
+    related_items = gather_related_items([item_id])
+    buy_prices, sell_prices = get_prices(related_items)
+    forbid_buy = policy_forbid_buy().union([item_id])
+    forbid_craft = policy_forbid_craft()
+
+    set_strategy_params(
+            buy_prices,
+            set(chain(forbid_buy, (item_id,))),
+            forbid_craft,
+            policy_can_craft_recipe,
+            )
+
+    sell_price = sell_prices.get(item_id)
+    cost = optimal_cost(item_id)
+    if sell_price is None or cost is None:
+        print('cannot analyze profit info for this item')
+        return
+    
+    profit = sell_price * 0.85 - cost
+    
+    hd = bltc.historical_data.get_items_processed_historical_data([target_item_id])
+    if hd is None:
+        print("No historical data found")
+        return
+    item_historical_data = hd.get(target_item_id, None)
+    if item_historical_data is None:
+        print("No historical data found for item")
+        return
+    
+    if item_historical_data is None:
+        sold_daily_data = 0
+        sold_weekly_data = 0
+        trend = 'N/A'
+    else:
+        sold_daily_data = item_historical_data.get('sold_daily', 0)
+        sold_weekly_data = item_historical_data.get('sold_weekly', 0)
+        trend = item_historical_data.get('trend', 'N/A')
+
+    row = {
+        'item_id': item_id,
+        'item': gw2.items.get(item_id),
+        'craft_cost': cost,
+        'profit': profit,
+        'roi': profit / cost,
+        'count_volume': sold_daily_data,
+        'count_dly_avg_volume': round(sold_weekly_data / 7, 1),
+        'trend': trend
+        }
+    
+    row['daily_profit'] = sold_daily_data * profit
+    row['daily_avg_profit'] = (sold_weekly_data / 7) * profit * 0.1
+    row['daily_invest_max'] = (row['count_dly_avg_volume'] * 0.1 * row['craft_cost'])
+    
+    render_table('Analyze',
+        (ItemNameColumn(),
+            PercentColumn(),
+            UnitPriceColumn('craft_cost', 'Craft Cost'),
+            UnitPriceColumn('profit', 'Unit Profit'),
+            AltCountColumn('dly_avg_volume', 'Dly Avg Volum Sold', '%18s'),
+            UnitPriceColumn('daily_avg_profit', 'DlyAvgProfi'),
+            UnitPriceColumn('daily_invest_max', 'DlyInvest'),
+            ItemTrendColumn()
+            ),
+        [row],
+        render_title=True,
+        render_total=False)
 
 def main():
     with open('api_key.txt') as f:
@@ -3204,6 +3511,9 @@ def main():
     elif cmd == 'auto_goals':
         assert len(args) == 0
         cmd_auto_goals()
+    elif cmd == 'amalgamated_materials':
+        assert len(args) == 0
+        cmd_amalgamated_materials()
     elif cmd == 'test_augment':
         gw2.items.augment(['Foo', 'Bar', 'Baz'])
         print(gw2.items.get(300000))
@@ -3222,5 +3532,15 @@ def main():
         assert len(args) == 1
         item_name_or_id,  = args
         cmd_find_item_location(item_name_or_id)
+    elif cmd == 'ecto_crafting':
+        assert len(args) == 0
+        cmd_ecto_crafting()
+    elif cmd == 'analyze_data':
+        assert len(args) == 1
+        item_name_or_id,  = args
+        cmd_analyze_data(item_name_or_id)
+    elif cmd == 'material_worth':
+        assert len(args) == 0
+        cmd_material_worth()
     else:
         raise ValueError('unknown command %r' % cmd)

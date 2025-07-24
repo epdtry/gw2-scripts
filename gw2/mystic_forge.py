@@ -454,19 +454,105 @@ def _get():
         (250, 'Fire Orchid Blossom'),
     ))
 
-    # Legendary crafting - Orrax Manifested
-    add(1, 'Orrax Contained', (
-        (1, 'Binding of the Dragon'),
-        (1, 'Draconic Tribute'),
-        (1, 'Salmon of Knowledge Backpiece'),
-        (1, 'Askur Camping Cookout Backpiece'),
+    # Legendary spear crafting - Klobjarne Geirr
+    add(1, 'Klobjarne Geirr', (
+        (1, 'Gift of Janthir Wilds'),
+        (1, 'Gift of the Homesteader'),
+        (1, 'Gift of Klobjarne Geirr'),
+        (1, 'Nyr Hrammr'),
     ))
 
+    add(1, 'Nyr Hrammr', (
+        (1, 'Gift of Sharpened Tip'),
+        (1, 'Gift of Metal'),
+        (1, 'Standing Stones Timepiece'),
+        (1, 'Bearkin War Helm Choice Box'),
+    ))
+
+    add(1, 'Gift of Sharpened Tip', (
+        (6, 'Deldrimor Steel Spear Head'),
+        (6, 'Large Spiritwood Haft'),
+        (6, 'Vision Crystal'),
+        (1, "Memory of Bearkin's Adversaries"),
+    ))
+
+    add(1, 'Gift of Janthir Wilds', (
+        (1, 'Gift of Gatherer of the Hunt'),
+        (1, 'Gift of Uncovered Grounds'),
+        (1, 'Gift of Expertise'),
+        (1, 'Bloodstone Shard'),
+    ))
+
+    add(1, 'Gift of Gatherer of the Hunt', (
+        (100, 'Sweet-Treated Pine Plank'),
+        (100, 'Neutralized Titan Alloy'),
+        (100, 'Shard of Lowland Shore'),
+        (100, 'Shard of Janthir Syntri'),
+    ))
+
+    add(1, 'Gift of Uncovered Grounds', (
+        (100, 'Mursaat Runestone'),
+        (1, 'Gift of Lowland Shore'),
+        (1, 'Gift of Janthir Syntri'),
+        (1, 'Gift of the Ursus'),
+    ))
+
+    add(1, 'Gift of Expertise', (
+        (12, 'Amalgamated Rift Essence'),
+        (1, 'Eldritch Scroll'),
+        (1, 'Obsidian Shard'),
+        (1, 'Cube of Stabilized Dark Energy'),
+    ))
+
+    add(1, 'Gift of the Homesteader', (
+        (1, 'Gift of Embracing Refuge'),
+        (1, 'Gift of Condensed Might'),
+        (1, 'Gift of Condensed Magic'),
+        (38, 'Mystic Clover'),
+    ))
+
+    add(1, 'Gift of Embracing Refuge', (
+        (250, 'Refined Homestead Metal'),
+        (250, 'Refined Homestead Fiber'),
+        (250, 'Refined Homestead Wood'),
+        (250, 'Shard of the Homestead'),
+    ))
+
+    # Vendor: Deft Lahar, Hearth's Glow
+    add(1, 'Shard of the Homestead', (
+        (5, 'Refined Homestead Fiber'),
+        (5, 'Refined Homestead Metal'),
+        (5, 'Refined Homestead Wood'),
+        # ALSO NEEDS KARMA
+    ))
+
+    add(1, 'Gift of Klobjarne Geirr', (
+        (1, 'Gift of Recollector of Memories'),
+        (100, 'Mystic Runestone'),
+        (1, 'Gift of the Mists'),
+        (1, 'Gift of Research'),
+    ))
+
+    add(1, 'Gift of Recollector of Memories', (
+        (25, 'Tale of Adventure'),
+        (1, 'Gift of Bones'),
+        (1, "Memory of the Bearkin's Hunts"),
+        (1, "Memory of the Bearkin's Victories"),
+    ))
+
+    # Legendary crafting - Orrax Manifested
     add(1, 'Orrax Manifested', (
         (1, 'Gift of the Mistburned Isles'),
         (1, 'Gift of Shadows'),
         (1, 'Gift of the Feast'),
         (1, 'Orrax Contained'),
+    ))
+
+    add(1, 'Orrax Contained', (
+        (1, 'Binding of the Dragon'),
+        (1, 'Draconic Tribute'),
+        (1, 'Salmon of Knowledge Backpiece'),
+        (1, 'Askur Camping Cookout Backpiece'),
     ))
 
     add(1, 'Gift of the Mistburned Isles', (
@@ -593,6 +679,16 @@ def _get():
     # Bought from vendors
     add(10, 'Hydrocatalytic Reagent', ((50, 'Research Note'),))
 
+    # Ecto crafting
+    for r in gw2.recipes.iter_all():
+        item_id = r['output_item_id']
+        if not gw2.items.is_known(item_id):
+            continue
+        item = gw2.items.get(item_id)
+        if ((item['type'] == 'Armor' or item['type'] == 'Weapon') and 
+            item['rarity'] == 'Rare' and item['level'] >= 68 and 
+            'NoSalvage' not in item['flags']):
+            add(87, 'Glob of Ectoplasm', ((100, item_id), (100, "Silver-Fed Salvage-o-Matic")))
 
     # Ecto salvaging
     add(45, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (1, "Master's Salvage Kit")))

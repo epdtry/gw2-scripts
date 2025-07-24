@@ -1,4 +1,6 @@
 import os
+import numpy as np
+
 from datetime import datetime, timedelta
 
 from gw2.util import DataStorage
@@ -71,28 +73,48 @@ def get_processed_data(item_id):
         return None
     
     latest_date = datetime.fromtimestamp(raw_item_data_points[-1][0])
+    last_partial_day = latest_date.date()
     
     yesterday = latest_date - timedelta(days=1)
     week_ago = latest_date - timedelta(days=7)
+    trend_cutoff_date = latest_date - timedelta(days=7)
     sold_daily = 0
     sold_weekly = 0
     bought_daily = 0
     bought_weekly = 0
 
+    # For trend analysis
+    x_vals = []
+    y_vals = []
+
     for dp in raw_item_data_points:
         date = datetime.fromtimestamp(dp[0])
+        data_date = date.date()
         if date > yesterday:
             sold_daily += dp[5]
             bought_daily += dp[7]
         if date > week_ago:
             sold_weekly += dp[5]
             bought_weekly += dp[7]
+        if date > trend_cutoff_date and data_date < last_partial_day:
+            days_ago = (date - trend_cutoff_date).days
+            x_vals.append(days_ago)
+            y_vals.append(dp[5])  # Sold value
+
+    trend = "Stable"
+    if len(x_vals) >= 2:
+        slope, _ = np.polyfit(x_vals, y_vals, 1)
+        if slope > 0.1:
+            trend = "Growing"
+        elif slope < -0.1:
+            trend = "Declining"
 
     result = {
         'sold_daily': sold_daily,
         'sold_weekly': sold_weekly,
         'bought_daily': bought_daily,
         'bought_weekly': bought_weekly,
+        'trend': trend
     }
     processed_data.add(item_id, result)
 

@@ -87,6 +87,7 @@ def craftable_items():
         if not gw2.items.is_known(item_id):
             continue
         yield item_id
+    yield 19721
 
 def get_prices(item_ids):
     sell_prices = {}
@@ -119,7 +120,7 @@ def sellable_items(item_ids):
 # Function to fetch item data for a given item_id
 def fetch_item_data(item_id):
     try:
-        item_data = bltc.api.fetch_with_retries(item_id)
+        item_data = bltc.api.fetch_with_retries(item_id, 5, 15)
         return item_id, item_data
     except:
         # fail silently
