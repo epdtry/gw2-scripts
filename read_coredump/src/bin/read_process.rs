@@ -1,5 +1,5 @@
 use std::cmp;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs::File;
 use std::io::{self, Read, BufRead, BufReader, IoSliceMut};
@@ -512,10 +512,13 @@ fn valid_ptr<T>(maps: &Maps, addr: usize) -> bool {
 }
 
 
+type InventoryState = Vec<(u32, u8)>;
+type WalletState = Vec<(u32, u32)>;
+
 fn read_inventory_and_wallet(
     pid: Pid,
     character_addr: usize,
-) -> nix::Result<(BTreeMap<u32, u32>, BTreeMap<u32, u32>)> {
+) -> nix::Result<(InventoryState, WalletState)> {
     let inv_offset = offset_of!(Character, inventory);
     let wallet_offset = offset_of!(Character, wallet);
     debug_assert_eq!(wallet_offset, inv_offset + size_of::<usize>());
@@ -532,27 +535,60 @@ fn read_inventory_and_wallet(
 fn read_inventory(
     pid: Pid,
     inv_addr: usize,
-) -> nix::Result<BTreeMap<u32, u32>> {
+) -> nix::Result<InventoryState> {
     let array = vm_read::<AnetArray>(pid, inv_addr + offset_of!(CharInventory, slots))?;
+
+    if array.len > 1000 {
+        return Err(nix::errno::Errno::ENOSPC);
+    }
+
+    #[derive(Clone, Debug, Default)]
+    struct SlotInfo {
+        item_ptr: usize,
+        def_ptr: usize,
+        id: u32,
+        type_: ItemType,
+        stackable: bool,
+        count: u8,
+    }
+    let mut slots = vec![SlotInfo::default(); array.len as usize];
+
+    let len = slots.len();
+
+    // Populate `item_ptr`
     let item_ptrs = vm_read_multi::<usize>(pid, array.data as usize, array.len as usize)?;
-    let non_null_item_ptrs = || item_ptrs.iter().copied().filter(|&ptr| ptr != 0);
+    for (slot, &item_ptr) in iter::zip(&mut slots, &item_ptrs) {
+        slot.item_ptr = item_ptr;
+    }
+    let mut slots_non_null =
+        slots.iter_mut().filter(|slot| slot.item_ptr != 0).collect::<Vec<_>>();
 
-    // Load `ItemDef` for each non-null item
-    let item_def_field_ptrs = non_null_item_ptrs()
-        .map(|ptr| ptr + offset_of!(Item, def))
-        .collect::<Vec<_>>();
+    // Populate `def_ptr`
+    let mut item_def_field_ptrs = Vec::with_capacity(len);
+    for slot in &mut slots_non_null {
+        item_def_field_ptrs.push(slot.item_ptr + offset_of!(Item, def));
+    }
     let def_ptrs = vm_read_gather::<usize>(pid, &item_def_field_ptrs)?;
-    let defs = vm_read_gather::<ItemDef>(pid, &def_ptrs)?;
+    for (slot, &def_ptr) in iter::zip(&mut slots_non_null, def_ptrs.iter()) {
+        slot.def_ptr = def_ptr;
+    }
 
-    let mut inv = BTreeMap::new();
+    // Populate `id` and `type_`
+    let mut uniq_def_ptrs = def_ptrs.clone();
+    uniq_def_ptrs.sort();
+    uniq_def_ptrs.dedup();
+    let defs = vm_read_gather::<ItemDef>(pid, &uniq_def_ptrs)?;
+    let def_map = iter::zip(uniq_def_ptrs, defs).collect::<HashMap<_, _>>();
+    for slot in &mut slots_non_null {
+        let def = &def_map[&slot.def_ptr];
+        slot.id = def.id;
+        slot.type_ = def.type_;
+    }
 
-    // Process items and defs.  For non-stacking items, we immediately record an entry in `inv`.
-    // For stacking items, we record the address of the `count` field and the item ID for later
-    // processing.
-    let mut count_ptrs = Vec::with_capacity(item_ptrs.len());
-    let mut count_item_ids = Vec::with_capacity(item_ptrs.len());
-    for (d, item_ptr) in defs.iter().zip(non_null_item_ptrs()) {
-        let offset = match d.type_ {
+    // Populate `stackable` and `count`.
+    let mut item_count_field_ptrs = Vec::with_capacity(len);
+    for slot in &mut slots_non_null {
+        let offset = match slot.type_ {
             ItemType::Consumable => offset_of!(Item_Consumable, count),
             ItemType::Container => offset_of!(Item_Container, count),
             ItemType::CraftingMaterial => offset_of!(Item_CraftingMaterial, count),
@@ -561,38 +597,47 @@ fn read_inventory(
             ItemType::Trophy => offset_of!(Item_Trophy, count),
             ItemType::UpgradeComponent => offset_of!(Item_UpgradeComponent, count),
             _ => {
-                // No count to fetch for this item, so just record it immediately.
-                *inv.entry(d.id).or_insert(0) += 1;
+                // No count to fetch for this item.
+                slot.count = 1;
+                slot.stackable = false;
                 continue;
             },
         };
-        count_ptrs.push(item_ptr + offset);
-        count_item_ids.push(d.id);
+        slot.stackable = true;
+        item_count_field_ptrs.push(slot.item_ptr + offset);
+    }
+    let mut slots_stackable =
+        slots_non_null.iter_mut().filter(|slot| slot.stackable).collect::<Vec<_>>();
+    let counts = vm_read_gather::<u8>(pid, &item_count_field_ptrs)?;
+    for (slot, count) in iter::zip(&mut slots_stackable, counts) {
+        slot.count = count;
     }
 
-    // Load counts for all stacking items.
-    let counts = vm_read_gather::<u8>(pid, &count_ptrs)?;
-    for (&item_id, &count) in count_item_ids.iter().zip(counts.iter()) {
-        *inv.entry(item_id).or_insert(0) += count as u32;
-    }
-
+    // Build final output
+    let inv = slots.into_iter()
+        .map(|slot| (slot.id, slot.count))
+        .collect::<Vec<_>>();
     Ok(inv)
 }
 
 fn read_wallet(
     pid: Pid,
     wallet_addr: usize,
-) -> nix::Result<BTreeMap<u32, u32>> {
+) -> nix::Result<WalletState> {
     let hash = vm_read::<AnetHashTable>(pid, wallet_addr + offset_of!(CharWallet, entries))?;
+    if hash.cap > 1000 {
+        return Err(nix::errno::Errno::ENOSPC);
+    }
     let entries = vm_read_multi::<WalletEntry>(pid, hash.data as usize, hash.cap as usize)?;
 
-    let mut wallet = BTreeMap::new();
+    let mut wallet = Vec::with_capacity(hash.cap as usize);
     for entry in &entries {
         if entry.hash == 0 {
             continue;
         }
-        wallet.insert(entry.currency_id, entry.amount);
+        wallet.push((entry.currency_id, entry.amount));
     }
+    wallet.sort();
 
     Ok(wallet)
 }
@@ -620,6 +665,9 @@ fn main() {
     let args = env::args().collect::<Vec<_>>();
     assert_eq!(args.len(), 2);
     let pid = Pid::from_raw(args[1].parse().unwrap());
+
+
+    // Search for the Character object
 
     let maps = read_maps(pid).unwrap();
     for m in maps.iter() {
@@ -652,37 +700,80 @@ fn main() {
     assert_eq!(found.len(), 1);
     let character_addr = found[0];
 
+
+    // Monitor inventory and wallet changes
+
     let start = std::time::Instant::now();
     let (inv, wallet) = read_inventory_and_wallet(pid, character_addr).unwrap();
     let dur = start.elapsed();
 
-    eprintln!("\ninv");
-    for (k, v) in &inv {
-        eprintln!("{} => {}", k, v);
+    println!();
+    println!("initial inv");
+    for &(k, v) in &inv {
+        println!("{} => {}", k, v);
     }
 
-    eprintln!("\nwallet");
-    for (k, v) in &wallet {
-        eprintln!("{} => {}", k, v);
+    println!("initial wallet");
+    for &(k, v) in &wallet {
+        println!("{} => {}", k, v);
     }
-    eprintln!("\nread in {:?}", dur);
+    println!("scanned in {:?}\n", dur);
 
+    let t0 = Instant::now();
     let (mut inv, mut wallet) = (inv, wallet);
+    let mut change_time = t0.elapsed().as_millis();
+    let mut fail_count = 0;
     loop {
         let start = Instant::now();
-        let (new_inv, new_wallet) = read_inventory_and_wallet(pid, character_addr).unwrap();
+        let (new_inv, new_wallet) = match read_inventory_and_wallet(pid, character_addr) {
+            Ok(x) => {
+                fail_count = 0;
+                x
+            },
+            Err(e) => {
+                eprintln!("read error: {e}");
+                fail_count += 1;
+                if fail_count >= 100 {
+                    panic!("too many read errors");
+                }
+                thread::sleep(Duration::from_millis(2));
+                continue;
+            },
+        };
         let dur = start.elapsed();
 
-        let inv_delta = map_delta(&inv, &new_inv);
-        let wallet_delta = map_delta(&wallet, &new_wallet);
-        for &(k, v) in &inv_delta {
-            eprintln!("{:+} item {}", v, k);
+        let mut changed = false;
+        for (i, (&old, &new)) in iter::zip(&inv, &new_inv).enumerate() {
+            if old == new {
+                continue;
+            }
+            changed = true;
+            let (old_id, old_count) = old;
+            let (new_id, new_count) = new;
+            println!("slot {i}: {old_id} {old_count} -> {new_id} {new_count}");
         }
-        for &(k, v) in &wallet_delta {
-            eprintln!("{:+} currency {}", v, k);
+        if new_wallet.len() == wallet.len() {
+            for (i, (&old, &new)) in iter::zip(&wallet, &new_wallet).enumerate() {
+                if old == new {
+                    continue;
+                }
+                changed = true;
+                let (old_id, old_count) = old;
+                let (new_id, new_count) = new;
+                println!("currency {i}: {old_id} {old_count} -> {new_id} {new_count}");
+            }
+        } else {
+            changed = true;
+            println!("reset wallet");
+            for &(k, v) in &wallet {
+                println!("{} => {}", k, v);
+            }
         }
-        if inv_delta.len() > 0 || wallet_delta.len() > 0 {
-            eprintln!("scanned in {:?}\n", dur);
+        if changed {
+            let new_change_time = t0.elapsed().as_millis();
+            println!("time {} ({:+})", new_change_time, new_change_time - change_time);
+            change_time = new_change_time;
+            println!("scanned in {:?}\n", dur);
         }
 
         inv = new_inv;
