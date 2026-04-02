@@ -503,7 +503,7 @@ class StrategyResearchNote:
         '''Build a strategy that salvages the items described by `items`.  Each
         entry in `items` should be a tuple of `(item_id, count, notes)`,
         meaning to salvage `count` instances of `item_id` for `notes` notes
-        ecah.'''
+        each.'''
         self.name = name
         self.items = items
 
@@ -951,6 +951,24 @@ def default_policy_research_note_strategies(include_disabled=False):
         ('%s Barbaric Helm' % x for x in (
             "Valkyrie", "Assassin's", "Rampager's")),
         rarity='Fine'))
+
+    yield StrategyResearchNote('Draconic Helms', group(75,
+        ('%s Draconic Helm' % x for x in (
+            "Rabid", "Dire", "Shaman's", "Magi's", "Cavalier's")),
+        rarity='Exotic'))
+    
+    yield StrategyResearchNote('Draconic Boots', group(75,
+        ('%s Draconic Boots' % x for x in (
+            "Rabid", "Dire", "Shaman's", "Magi's", "Cavalier's")),
+        rarity='Exotic'))
+    
+    yield StrategyResearchNote('Draconic Gauntlets', group(75,
+        ('%s Draconic Gauntlets' % x for x in (
+            "Rabid", "Dire", "Shaman's", "Magi's", "Cavalier's")),
+        rarity='Exotic'))
+
+    yield StrategyResearchNote('Peer Reveiwed Research', [(104934, 1, 150)])
+
     yield StrategyResearchNote('Mithril Earrings', group(5,
         ('%s Mithril Earring' % x for x in (
             'Ruby', 'Beryl', 'Coral', 'Emerald', 'Opal', 'Sapphire', 'Chrysocola')),
@@ -1053,6 +1071,10 @@ def calculate_status():
     for i in delivery['items']:
         print('delivery: %d %s  %r' % (i['count'], gw2.items.name(i['id']), i))
         inventory[i['id']] += i['count']
+
+    inventory[44602] = 99999999 # infinite Copper-Fed Salvage-o-Matic
+    inventory[89409] = 99999999 # infinite Runecrafter's Salvage-o-Matic
+    inventory[67027] = 99999999 # infinite Silver-Fed Salvage-o-Matic
 
     orig_inventory = inventory.copy()
 
@@ -1352,10 +1374,13 @@ def cmd_status():
                 'count': count,
                 'unit_price': sell_prices.get(item_id),
                 }
+    
+    rows_use = (row_use(item_id, count) for item_id, count in used_items.items())
+    
 
     render_table('Use',
             (CountColumn(), ItemNameColumn(), UnitPriceColumn(), TotalPriceColumn()),
-            (row_use(item_id, count) for item_id, count in used_items.items()))
+            rows_use)
 
     def rows_sell():
         orders_by_item = defaultdict(list)
@@ -1745,7 +1770,7 @@ class ItemTrendColumn:
         return '%-10.10s'
 
     def title(self):
-        return '7d Trend'
+        return '3d Trend'
 
     def render(self, row):
         if row.get('trend') is None:
@@ -2455,7 +2480,7 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
         hd = bltc.historical_data.get_items_processed_historical_data(output_item_ids)
         if hd is not None:
             historical_data = hd
-
+    
     rows = []
     for item_id in output_item_ids:
         set_strategy_params(
@@ -2541,7 +2566,15 @@ def do_craft_profit(item_ids=None, sort=True, row_filter=None, title='Profits'):
 def cmd_craft_profit():
     '''Print a table of recipes that are profitable at the buy price, along
     with market depth for each one.'''
+    start_time = time.time()
     do_craft_profit()
+    end_time = time.time()
+    elapsed = end_time - start_time
+
+    minutes = int(elapsed // 60)
+    seconds = int(elapsed % 60)
+
+    print(f"Elapsed time: {minutes}m {seconds}s")
 
 def cmd_craft_profit_buy():
     '''Print a table of recipes that are profitable at the buy price, along
@@ -2634,9 +2667,11 @@ def print_research_notes_table(all_strategies):
         for item_id, count, notes in strategy.items:
             cost = optimal_cost(item_id)
             if cost is None:
-                print('no cost for item %s?' % gw2.items.name(item_id))
+                #print('no cost for item %s?' % gw2.items.name(item_id))
                 continue
             cost_per_note = cost / notes
+            if cost_per_note > 100:
+                continue
             xs.append((cost_per_note, gw2.items.name(item_id)))
 
         if len(strategy.items) >= 2:
@@ -2763,6 +2798,12 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
             if item['type'] in ('Weapon', 'Armor'):
                 if item['rarity'] not in ('Exotic', 'Ascended', 'Legendary'):
                     return False
+                
+            if policy_enhance_craft_profit():
+                if x['count_dly_avg_volume'] < 50:
+                    return False
+                if x['count_dly_avg_volume'] * x['profit'] < 500000:
+                    return False
 
             return True
 
@@ -2848,6 +2889,12 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
         print('%10s  %10s  %7s  %s' % (format_price_float(cost_dispose),
             format_price_float(cost_baseline),
             delta_str, name))
+        
+    historical_data = {}
+    if policy_enhance_craft_profit():
+        hd = bltc.historical_data.get_items_processed_historical_data(output_item_ids)
+        if hd is not None:
+            historical_data = hd
 
     rows = []
     for item_id in output_item_ids:
@@ -2893,6 +2940,16 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
         if savings <= 0:
             continue
 
+        item_historical_data = historical_data.get(item_id, None)
+        if item_historical_data is None:
+            sold_daily_data = 0
+            sold_weekly_data = 0
+            trend = 'N/A'
+        else:
+            sold_daily_data = item_historical_data.get('sold_daily', 0)
+            sold_weekly_data = item_historical_data.get('sold_weekly', 0)
+            trend = item_historical_data.get('trend', 'N/A')
+
         row = {
             'item_id': item_id,
             'item': gw2.items.get(item_id),
@@ -2908,22 +2965,44 @@ def cmd_dispose(dispose_item_names, item_ids=None, sort=True, row_filter=None, t
             'sell_price': orig_sell_prices.get(item_id, 0),
             'buy_price': orig_buy_prices.get(item_id, 0),
             }
+        
+        if policy_enhance_craft_profit():
+            row['count_volume'] = sold_daily_data
+            row['daily_profit'] = sold_daily_data * profit_dispose
+            row['count_dly_avg_volume'] = round(sold_weekly_data / 7, 1)
+            row['daily_avg_profit'] = (sold_weekly_data / 7) * profit_dispose * 0.1
+            row['daily_invest_max'] = (row['count_dly_avg_volume'] * 0.1 * row['craft_cost'])
+            row['trend'] = trend
+
         if row_filter(row):
             rows.append(row)
-
 
     if sort:
         rows.sort(key=lambda row: row.get('dispose_savings', 0), reverse=True)
 
-    render_table(title,
-            (ItemNameColumn(),
+    columns = (ItemNameColumn(),
+        PercentColumn(),
+        PercentColumn('roi_baseline', 'Base ROI'),
+        PercentColumn('dispose_savings', 'Savings'),
+        UnitPriceColumn('craft_cost', 'Craft Cost'),
+        UnitPriceColumn('profit', 'Unit Profit'),
+        UnitPriceColumn('profit_baseline', 'Baseline'),
+        )
+    if(policy_enhance_craft_profit()):
+        columns = (ItemNameColumn(),
                 PercentColumn(),
                 PercentColumn('roi_baseline', 'Base ROI'),
                 PercentColumn('dispose_savings', 'Savings'),
                 UnitPriceColumn('craft_cost', 'Craft Cost'),
                 UnitPriceColumn('profit', 'Unit Profit'),
                 UnitPriceColumn('profit_baseline', 'Baseline'),
-                ),
+                AltCountColumn('dly_avg_volume', 'Dly Avg Volum Sold', '%18s'),
+                UnitPriceColumn('daily_avg_profit', 'DlyAvgProfi'),
+                UnitPriceColumn('daily_invest_max', 'DlyInvest')
+                )
+
+    render_table(title,
+            columns,
             rows,
             render_title=True,
             render_total=False)
@@ -3284,7 +3363,7 @@ def cmd_ecto_crafting():
         savings = ecto_price - ecto_cost_via_salvage
         discount = savings / ecto_price
 
-        if savings < 0 or discount < 0.15:
+        if savings < 0 or discount < 0.05:
             continue
 
         row = {
@@ -3405,10 +3484,12 @@ def cmd_analyze_data(item_name_or_id):
         sold_daily_data = 0
         sold_weekly_data = 0
         trend = 'N/A'
+        buy_3_day_low = 0
     else:
         sold_daily_data = item_historical_data.get('sold_daily', 0)
         sold_weekly_data = item_historical_data.get('sold_weekly', 0)
         trend = item_historical_data.get('trend', 'N/A')
+        buy_3_day_low = item_historical_data.get('buy_price_3day_low', 0)
 
     row = {
         'item_id': item_id,
@@ -3424,6 +3505,8 @@ def cmd_analyze_data(item_name_or_id):
     row['daily_profit'] = sold_daily_data * profit
     row['daily_avg_profit'] = (sold_weekly_data / 7) * profit * 0.1
     row['daily_invest_max'] = (row['count_dly_avg_volume'] * 0.1 * row['craft_cost'])
+    row['buy_3_day_low'] = buy_3_day_low
+    
     
     render_table('Analyze',
         (ItemNameColumn(),
@@ -3433,6 +3516,7 @@ def cmd_analyze_data(item_name_or_id):
             AltCountColumn('dly_avg_volume', 'Dly Avg Volum Sold', '%18s'),
             UnitPriceColumn('daily_avg_profit', 'DlyAvgProfi'),
             UnitPriceColumn('daily_invest_max', 'DlyInvest'),
+            UnitPriceColumn('buy_3_day_low', '3 day low'),
             ItemTrendColumn()
             ),
         [row],
@@ -3455,7 +3539,15 @@ def main():
         cmd_init()
     elif cmd == 'status':
         assert len(args) == 0
+        start_time = time.time()
         cmd_status()
+        end_time = time.time()
+        elapsed = end_time - start_time
+
+        minutes = int(elapsed // 60)
+        seconds = int(elapsed % 60)
+
+        print(f"Elapsed time: {minutes}m {seconds}s")
     elif cmd == 'steps':
         cmd_steps(args)
     elif cmd == 'goal':

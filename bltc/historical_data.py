@@ -77,11 +77,13 @@ def get_processed_data(item_id):
     
     yesterday = latest_date - timedelta(days=1)
     week_ago = latest_date - timedelta(days=7)
-    trend_cutoff_date = latest_date - timedelta(days=7)
+    trend_cutoff_date = latest_date - timedelta(days=3)
+    three_days_ago = last_partial_day - timedelta(days=3)
     sold_daily = 0
     sold_weekly = 0
     bought_daily = 0
     bought_weekly = 0
+    buy_prices = []
 
     # For trend analysis
     x_vals = []
@@ -100,6 +102,8 @@ def get_processed_data(item_id):
             days_ago = (date - trend_cutoff_date).days
             x_vals.append(days_ago)
             y_vals.append(dp[5])  # Sold value
+        if three_days_ago <= data_date < last_partial_day:
+            buy_prices.append(dp[2])  # index 2 is 'Buy' price
 
     trend = "Stable"
     if len(x_vals) >= 2:
@@ -109,12 +113,15 @@ def get_processed_data(item_id):
         elif slope < -0.1:
             trend = "Declining"
 
+    buy_price_3day_low = min(buy_prices) if buy_prices else None
+
     result = {
         'sold_daily': sold_daily,
         'sold_weekly': sold_weekly,
         'bought_daily': bought_daily,
         'bought_weekly': bought_weekly,
-        'trend': trend
+        'trend': trend,
+        'buy_price_3day_low': buy_price_3day_low
     }
     processed_data.add(item_id, result)
 
