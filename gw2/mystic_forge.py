@@ -665,6 +665,12 @@ def _get():
             (3, opt),
             (3, opt),
         ))
+        add(10, 'Amalgamated Gemstone', (
+            (5, 'Glob of Ectoplasm'),
+            (25, opt),
+            (25, opt),
+            (25, opt),
+        ))
 
 
 
@@ -680,19 +686,21 @@ def _get():
     add(10, 'Hydrocatalytic Reagent', ((50, 'Research Note'),))
 
     # Ecto crafting
-    for r in gw2.recipes.iter_all():
-        item_id = r['output_item_id']
-        if not gw2.items.is_known(item_id):
-            continue
-        item = gw2.items.get(item_id)
-        if ((item['type'] == 'Armor' or item['type'] == 'Weapon') and 
-            item['rarity'] == 'Rare' and item['level'] >= 68 and 
-            'NoSalvage' not in item['flags']):
-            add(87, 'Glob of Ectoplasm', ((100, item_id), (100, "Silver-Fed Salvage-o-Matic")))
+    # for r in gw2.recipes.iter_all():
+    #     item_id = r['output_item_id']
+    #     if not gw2.items.is_known(item_id):
+    #         continue
+    #     item = gw2.items.get(item_id)
+    #     if ((item['type'] == 'Armor' or item['type'] == 'Weapon') and
+    #         item['rarity'] == 'Rare' and item['level'] >= 68 and 
+    #         'NoSalvage' not in item['flags']):
+    #         add(87, 'Glob of Ectoplasm', ((100, item_id), (100, "Silver-Fed Salvage-o-Matic")))
 
     # Ecto salvaging
     add(45, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (1, "Master's Salvage Kit")))
-    add(43, 'Pile of Crystalline Dust', ((25, 'Glob of Ectoplasm'), (25, "Copper-Fed Salvage-o-Matic")))
+    add(8, 'Pile of Crystalline Dust', ((5, 'Glob of Ectoplasm'), (5, "Copper-Fed Salvage-o-Matic")))
+    add(12, 'Pile of Crystalline Dust', ((7, 'Glob of Ectoplasm'), (7, "Runecrafter's Salvage-o-Matic")))
+    add(13, 'Pile of Crystalline Dust', ((7, 'Glob of Ectoplasm'), (7, "Silver-Fed Salvage-o-Matic")))
     add(10, gw2.items.search_name('Fine Essence of Luck'),
             ((1, 'Glob of Ectoplasm'), (1, "Copper-Fed Salvage-o-Matic")))
     add(21, gw2.items.search_name('Fine Essence of Luck'),
