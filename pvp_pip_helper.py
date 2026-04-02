@@ -15,7 +15,7 @@ current_chest_level = 'Cerulean'
 current_tier = 1 # 1 indexed
 current_pips = 0
 
-asog_wanted = 500 # for complete legendary piece
+asog_wanted = 300 # for complete legendary piece
 
 def get_chest_info(chest_name):
     for chest in reward_chests:
@@ -97,13 +97,15 @@ print()
 print('Time spent in queue:', round(average_queue_time * games_required, 2), 'minutes')
 print('Time required:', round(time_required, 2), 'hours')
 
-season_end_date = datetime(2025, 9, 2)
+season_end_date = datetime(2026, 6, 2)
 now = datetime.now()
+print('Today:', now)
 time_remaining = season_end_date - now
-weeks_remaining = time_remaining.days / 7
-# print('Days remaining in season:', time_remaining.days)
-# print('Weeks remaining in season:', weeks_remaining)
+weeks_remaining = round(time_remaining.days / 7, 0)
+days_off_per_week = 3
+print('Days remaining in season:', time_remaining.days)
+print('Weeks remaining in season:', weeks_remaining)
 
-games_per_day_required = games_required / (time_remaining.days - (weeks_remaining * 2))
+games_per_day_required = games_required / (time_remaining.days - (weeks_remaining * days_off_per_week))
 print('Games per day required:', round(games_per_day_required, 2))
 print()
